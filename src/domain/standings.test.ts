@@ -35,7 +35,13 @@ describe("groupTable", () => {
       game("SCO", "HUN", 0, 1),
     ]);
     expect(t.rows.map((r) => r.code)).toEqual(["GER", "SUI", "HUN", "SCO"]);
-    expect(t.rows[0]).toMatchObject({ points: 7, goalsFor: 8, goalsAgainst: 2, goalDiff: 6, form: ["W", "W", "D"] });
+    expect(t.rows[0]).toMatchObject({
+      points: 7,
+      goalsFor: 8,
+      goalsAgainst: 2,
+      goalDiff: 6,
+      form: ["W", "W", "D"],
+    });
     expect(t.complete).toBe(true);
   });
 
@@ -71,7 +77,10 @@ describe("groupTable", () => {
   it("Live-Zwischenstände nur auf Wunsch", () => {
     const live = { ...game("GER", "SCO", 1, 0), status: "live" as const };
     expect(groupTable("A", [live]).rows.every((r) => r.points === 0)).toBe(true);
-    expect(groupTable("A", [live], { includeLive: true }).rows[0]).toMatchObject({ code: "GER", points: 3 });
+    expect(groupTable("A", [live], { includeLive: true }).rows[0]).toMatchObject({
+      code: "GER",
+      points: 3,
+    });
   });
 });
 
@@ -83,9 +92,15 @@ describe("rankThirds", () => {
       drawn: true,
       rows: [0, 1, 2, 3].map((i) => ({
         code: `${group}${i}`,
-        played: 3, won: i === 2 ? won : 0, drawn: 0, lost: 0,
-        goalsFor: i === 2 ? gf : 0, goalsAgainst: 0, goalDiff: i === 2 ? gd : 0,
-        points: i === 2 ? pts : 0, form: [],
+        played: 3,
+        won: i === 2 ? won : 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: i === 2 ? gf : 0,
+        goalsAgainst: 0,
+        goalDiff: i === 2 ? gd : 0,
+        points: i === 2 ? pts : 0,
+        form: [],
       })),
     });
     const r = rankThirds([mk("A", 4, 0, 3, 1), mk("B", 4, 1, 2, 1)], 1);

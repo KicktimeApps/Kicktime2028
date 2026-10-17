@@ -1,16 +1,30 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * KickTime 2028 – Design-Tokens
+ * „Flutlicht“: tiefes Nachtblau, klares Flutlicht-Grün als Primärfarbe,
+ * Pokal-Gold für Favoriten & Titel, Signalrot nur für LIVE.
+ */
+
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Barlow Condensed", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: calc(var(--radius) - 2px);
+  --radius-xl: var(--radius);
+  --radius-2xl: calc(var(--radius) + 4px);
+  --radius-3xl: calc(var(--radius) + 10px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -30,89 +44,185 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-night: var(--night);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-live: var(--live);
+  --color-elevated: var(--elevated);
+  --color-subtle: var(--subtle);
 }
 
-:root {
-  --radius: 0.875rem;
-  /* Outside the mobile shell (visible on desktop) */
-  --background: oklch(0.14 0.01 250);
-  --foreground: oklch(0.98 0.005 250);
-  --card: oklch(0.22 0.015 250);
-  --card-foreground: oklch(0.98 0.005 250);
-  --popover: oklch(0.22 0.015 250);
-  --popover-foreground: oklch(0.98 0.005 250);
-  /* Pitch green */
-  --primary: oklch(0.74 0.19 150);
-  --primary-foreground: oklch(0.15 0.02 250);
-  --secondary: oklch(0.28 0.02 250);
-  --secondary-foreground: oklch(0.98 0.005 250);
-  --muted: oklch(0.26 0.015 250);
-  --muted-foreground: oklch(0.7 0.02 250);
-  /* Neon volt yellow */
-  --accent: oklch(0.92 0.2 105);
-  --accent-foreground: oklch(0.15 0.02 250);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.32 0.02 250);
-  --input: oklch(0.3 0.02 250);
-  --ring: oklch(0.74 0.19 150);
-  --night: oklch(0.18 0.015 250);
-}
-
+:root,
 .dark {
-  --background: oklch(0.14 0.01 250);
-  --foreground: oklch(0.98 0.005 250);
-  --card: oklch(0.22 0.015 250);
-  --card-foreground: oklch(0.98 0.005 250);
-  --popover: oklch(0.22 0.015 250);
-  --popover-foreground: oklch(0.98 0.005 250);
-  --primary: oklch(0.74 0.19 150);
-  --primary-foreground: oklch(0.15 0.02 250);
-  --secondary: oklch(0.28 0.02 250);
-  --secondary-foreground: oklch(0.98 0.005 250);
-  --muted: oklch(0.26 0.015 250);
-  --muted-foreground: oklch(0.7 0.02 250);
-  --accent: oklch(0.92 0.2 105);
-  --accent-foreground: oklch(0.15 0.02 250);
-  --destructive: oklch(0.65 0.22 25);
+  --radius: 1rem;
+  --background: oklch(0.155 0.03 265);
+  --foreground: oklch(0.97 0.005 260);
+  --card: oklch(0.2 0.035 265);
+  --card-foreground: oklch(0.97 0.005 260);
+  --elevated: oklch(0.24 0.04 265);
+  --subtle: oklch(0.18 0.03 265);
+  --popover: oklch(0.21 0.035 265);
+  --popover-foreground: oklch(0.97 0.005 260);
+  --primary: oklch(0.82 0.17 155);
+  --primary-foreground: oklch(0.18 0.04 200);
+  --secondary: oklch(0.27 0.04 265);
+  --secondary-foreground: oklch(0.95 0.01 260);
+  --muted: oklch(0.25 0.035 265);
+  --muted-foreground: oklch(0.72 0.03 262);
+  --accent: oklch(0.29 0.045 265);
+  --accent-foreground: oklch(0.97 0.005 260);
+  --destructive: oklch(0.66 0.21 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.32 0.02 250);
-  --input: oklch(0.3 0.02 250);
-  --ring: oklch(0.74 0.19 150);
-  --night: oklch(0.18 0.015 250);
+  --live: oklch(0.68 0.22 25);
+  --gold: oklch(0.84 0.14 85);
+  --gold-foreground: oklch(0.22 0.04 70);
+  --border: oklch(0.3 0.035 265);
+  --input: oklch(0.32 0.04 265);
+  --ring: oklch(0.82 0.17 155);
+  color-scheme: dark;
 }
 
-html.light, .light {
-  --background: oklch(0.985 0.003 250);
-  --foreground: oklch(0.20 0.02 250);
+.light {
+  --background: oklch(0.975 0.006 260);
+  --foreground: oklch(0.2 0.035 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.02 250);
+  --card-foreground: oklch(0.2 0.035 265);
+  --elevated: oklch(0.99 0.003 260);
+  --subtle: oklch(0.955 0.008 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.02 250);
-  --primary: oklch(0.62 0.18 150);
-  --primary-foreground: oklch(0.99 0.005 250);
-  --secondary: oklch(0.94 0.01 250);
-  --secondary-foreground: oklch(0.20 0.02 250);
-  --muted: oklch(0.95 0.008 250);
-  --muted-foreground: oklch(0.45 0.02 250);
-  --accent: oklch(0.78 0.18 95);
-  --accent-foreground: oklch(0.20 0.02 250);
-  --destructive: oklch(0.58 0.22 25);
+  --popover-foreground: oklch(0.2 0.035 265);
+  --primary: oklch(0.6 0.16 155);
+  --primary-foreground: oklch(0.99 0.005 155);
+  --secondary: oklch(0.94 0.01 260);
+  --secondary-foreground: oklch(0.22 0.035 265);
+  --muted: oklch(0.95 0.008 260);
+  --muted-foreground: oklch(0.47 0.03 262);
+  --accent: oklch(0.93 0.012 260);
+  --accent-foreground: oklch(0.2 0.035 265);
+  --destructive: oklch(0.57 0.21 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.90 0.01 250);
-  --input: oklch(0.92 0.01 250);
-  --ring: oklch(0.62 0.18 150);
-  --night: oklch(0.96 0.008 250);
+  --live: oklch(0.58 0.22 25);
+  --gold: oklch(0.72 0.15 75);
+  --gold-foreground: oklch(0.99 0.01 85);
+  --border: oklch(0.9 0.012 260);
+  --input: oklch(0.88 0.015 260);
+  --ring: oklch(0.6 0.16 155);
+  color-scheme: light;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
   }
-  html, body {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    font-feature-settings: "cv11", "ss01";
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  button {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Dezentes Flutlicht im Seitenhintergrund (nur Dark Mode). */
+  .app-backdrop {
+    background:
+      radial-gradient(
+        1200px 500px at 50% -200px,
+        color-mix(in oklab, var(--primary) 9%, transparent),
+        transparent 70%
+      ),
+      var(--background);
+  }
+  .light .app-backdrop {
+    background: var(--background);
+  }
+
+  .surface {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2xl);
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+.live-dot {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.gold-shimmer {
+  background-image: linear-gradient(
+    110deg,
+    transparent 30%,
+    color-mix(in oklab, var(--gold) 30%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .gold-shimmer {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

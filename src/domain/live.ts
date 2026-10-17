@@ -27,7 +27,13 @@ export type LiveFixture = {
 /* OpenLigaDB                                                          */
 /* ------------------------------------------------------------------ */
 
-type OlResult = { pointsTeam1: number; pointsTeam2: number; resultTypeID?: number; resultTypeKind?: string; resultOrderID?: number };
+type OlResult = {
+  pointsTeam1: number;
+  pointsTeam2: number;
+  resultTypeID?: number;
+  resultTypeKind?: string;
+  resultOrderID?: number;
+};
 type OlGoal = { scoreTeam1: number; scoreTeam2: number; matchMinute?: number | null };
 export type OpenLigaMatch = {
   matchID: number;
@@ -53,9 +59,12 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
   const kickoff = m.matchDateTimeUTC ? Date.parse(m.matchDateTimeUTC) : NaN;
   const results = m.matchResults ?? [];
   const byKind = (kind: string, typeId: number) =>
-    results.find((r) => r.resultTypeKind === kind) ?? results.find((r) => r.resultTypeID === typeId);
+    results.find((r) => r.resultTypeKind === kind) ??
+    results.find((r) => r.resultTypeID === typeId);
   const toScore = (r?: OlResult): Score | undefined =>
-    r && typeof r.pointsTeam1 === "number" ? { home: r.pointsTeam1, away: r.pointsTeam2 } : undefined;
+    r && typeof r.pointsTeam1 === "number"
+      ? { home: r.pointsTeam1, away: r.pointsTeam2 }
+      : undefined;
 
   const pens = toScore(byKind("AfterPenalties", 5));
   const afterEt = toScore(byKind("AfterExtraTime", 3));
@@ -92,12 +101,21 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
   let minute: number | undefined;
   if (status === "live" && !Number.isNaN(kickoff)) {
     minute = Math.max(1, Math.floor((now - kickoff) / 60_000));
-    phase = minute < 47 ? "first" : minute < 62 ? "half" : minute <= MATCH_MS / 60_000 ? "second" : "extra";
+    phase =
+      minute < 47
+        ? "first"
+        : minute < 62
+          ? "half"
+          : minute <= MATCH_MS / 60_000
+            ? "second"
+            : "extra";
   }
 
   return {
     externalId: String(m.matchID),
-    kickoffUtc: Number.isNaN(kickoff) ? undefined : new Date(kickoff).toISOString().replace(".000Z", "Z"),
+    kickoffUtc: Number.isNaN(kickoff)
+      ? undefined
+      : new Date(kickoff).toISOString().replace(".000Z", "Z"),
     city: m.location?.locationCity ?? null,
     stadium: m.location?.locationStadium ?? null,
     homeName: m.team1?.teamName ?? m.team1?.shortName ?? null,
@@ -209,7 +227,11 @@ export function applyLiveFixtures(
       if (away && !known?.away) patch.away = away;
     }
     // Offizielle Uhrzeit übernehmen, aber nur am selben Spieltag.
-    if (f.kickoffUtc && ukDay(f.kickoffUtc) === ukDay(def.kickoffUtc) && f.kickoffUtc !== def.kickoffUtc) {
+    if (
+      f.kickoffUtc &&
+      ukDay(f.kickoffUtc) === ukDay(def.kickoffUtc) &&
+      f.kickoffUtc !== def.kickoffUtc
+    ) {
       patch.kickoffUtc = f.kickoffUtc;
     }
     if (Object.keys(patch).length > 0) patches[id] = patch;

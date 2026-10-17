@@ -74,7 +74,10 @@ describe("Tipps", () => {
     const m = state.matches[0];
     const done = { ...m, status: "finished" as const, score: { home: 1, away: 0 } };
     const s = summarize(
-      { [m.id]: { home: 1, away: 0, createdAt: 0 }, [state.matches[1].id]: { home: 0, away: 0, createdAt: 0 } },
+      {
+        [m.id]: { home: 1, away: 0, createdAt: 0 },
+        [state.matches[1].id]: { home: 0, away: 0, createdAt: 0 },
+      },
       [done, state.matches[1]],
     );
     expect(s).toMatchObject({ rated: 1, open: 1, points: 4, hitRate: 1 });

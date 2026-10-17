@@ -32,7 +32,7 @@ export function slotShort(slot: string): string {
   m = slot.match(/^3([A-F]+)$/);
   if (m) return `3. ${m[1].split("").join("/")}`;
   m = slot.match(/^W(\d+)$/);
-  if (m) return `S${m[1]}`;
+  if (m) return `Sieger ${m[1]}`;
   return slot;
 }
 
@@ -54,5 +54,11 @@ export type TeamDisplay = {
 export function teamDisplay(code: string | null, slot: string): TeamDisplay {
   const n = getNation(code);
   if (n) return { code: n.code, name: n.name, short: n.short, flag: n.flag, placeholder: false };
-  return { code: null, name: slotLabel(slot), short: slotShort(slot), flag: null, placeholder: true };
+  return {
+    code: null,
+    name: slotLabel(slot),
+    short: slotShort(slot),
+    flag: null,
+    placeholder: true,
+  };
 }

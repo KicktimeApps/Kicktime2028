@@ -26,7 +26,11 @@ describe("fromOpenLiga", () => {
       },
       Date.parse("2024-06-15T00:00:00Z"),
     );
-    expect(f).toMatchObject({ status: "finished", score: { home: 5, away: 1 }, homeName: "Deutschland" });
+    expect(f).toMatchObject({
+      status: "finished",
+      score: { home: 5, away: 1 },
+      homeName: "Deutschland",
+    });
     expect(f.penalties).toBeUndefined();
   });
 
@@ -79,25 +83,68 @@ describe("matchFixture", () => {
   const empty = teamsOf({});
 
   it("ordnet über Tag + Stadt zu, auch ohne bekannte Teams", () => {
-    const f: LiveFixture = { externalId: "x", kickoffUtc: "2028-06-09T19:00:00Z", city: "Cardiff", status: "scheduled" };
+    const f: LiveFixture = {
+      externalId: "x",
+      kickoffUtc: "2028-06-09T19:00:00Z",
+      city: "Cardiff",
+      status: "scheduled",
+    };
     expect(matchFixture(f, FIXTURES, empty)).toBe(1);
   });
 
   it("unterscheidet die beiden Londoner Stadien", () => {
     // 11.6.: Wembley (Spiel 5). 12.6.: Tottenham (Spiel 8)
-    expect(matchFixture({ externalId: "a", kickoffUtc: "2028-06-11T12:00:00Z", city: "London", stadium: "Wembley", status: "scheduled" }, FIXTURES, empty)).toBe(5);
-    expect(matchFixture({ externalId: "b", kickoffUtc: "2028-06-12T15:30:00Z", city: "London", status: "scheduled" }, FIXTURES, empty)).toBe(8);
+    expect(
+      matchFixture(
+        {
+          externalId: "a",
+          kickoffUtc: "2028-06-11T12:00:00Z",
+          city: "London",
+          stadium: "Wembley",
+          status: "scheduled",
+        },
+        FIXTURES,
+        empty,
+      ),
+    ).toBe(5);
+    expect(
+      matchFixture(
+        {
+          externalId: "b",
+          kickoffUtc: "2028-06-12T15:30:00Z",
+          city: "London",
+          status: "scheduled",
+        },
+        FIXTURES,
+        empty,
+      ),
+    ).toBe(8);
   });
 
   it("nutzt die Paarung, wenn Teams bekannt sind", () => {
-    const f: LiveFixture = { externalId: "y", homeName: "Irland", awayName: "Deutschland", status: "scheduled" };
+    const f: LiveFixture = {
+      externalId: "y",
+      homeName: "Irland",
+      awayName: "Deutschland",
+      status: "scheduled",
+    };
     expect(matchFixture(f, FIXTURES, teamsOf(DEMO_DRAW))).toBe(9);
   });
 
   it("übernimmt die offizielle Uhrzeit und dreht vertauschte Paarungen", () => {
     const official = "2028-06-12T19:00:00Z"; // Spiel 9 offiziell um 21 Uhr statt 18 Uhr
     const { results, patches } = applyLiveFixtures(
-      [{ externalId: "z", homeName: "Deutschland", awayName: "Irland", kickoffUtc: official, city: "Dublin", status: "finished", score: { home: 2, away: 1 } }],
+      [
+        {
+          externalId: "z",
+          homeName: "Deutschland",
+          awayName: "Irland",
+          kickoffUtc: official,
+          city: "Dublin",
+          status: "finished",
+          score: { home: 2, away: 1 },
+        },
+      ],
       FIXTURES,
       teamsOf(DEMO_DRAW),
       0,

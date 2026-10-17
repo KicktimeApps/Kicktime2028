@@ -11,17 +11,21 @@ export type DayWindow = { start: number; end: number; off?: boolean };
 /** Index 0 = Montag … 6 = Sonntag. */
 export type WeekAvailability = DayWindow[];
 
-export const DAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+export const DAY_NAMES = [
+  "Montag",
+  "Dienstag",
+  "Mittwoch",
+  "Donnerstag",
+  "Freitag",
+  "Samstag",
+  "Sonntag",
+];
 export const DAY_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
 export const DEFAULT_AVAILABILITY: WeekAvailability = [
-  { start: 17.5, end: 23.5 },
-  { start: 17.5, end: 23.5 },
-  { start: 17.5, end: 23.5 },
-  { start: 17.5, end: 23.5 },
-  { start: 17, end: 24.5 },
+  ...Array.from({ length: 5 }, () => ({ start: 17.5, end: 23.5 })),
   { start: 11, end: 24.5 },
-  { start: 11, end: 23 },
+  { start: 11, end: 24.5 },
 ];
 
 /** Typische Spieldauer inkl. Halbzeit (ohne Verlängerung). */
@@ -58,7 +62,15 @@ function partsFormatter(timeZone: string) {
   return f;
 }
 
-const WEEKDAY_INDEX: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+const WEEKDAY_INDEX: Record<string, number> = {
+  Mon: 0,
+  Tue: 1,
+  Wed: 2,
+  Thu: 3,
+  Fri: 4,
+  Sat: 5,
+  Sun: 6,
+};
 
 export function localParts(utc: string | number | Date, timeZone: string): LocalParts {
   const date = utc instanceof Date ? utc : new Date(utc);
@@ -151,7 +163,9 @@ function fmt(timeZone: string, opts: Intl.DateTimeFormatOptions) {
 }
 
 export function formatTime(utc: string, timeZone: string): string {
-  return fmt(timeZone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(utc));
+  return fmt(timeZone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
+    new Date(utc),
+  );
 }
 
 /** „Fr., 9. Juni“ */

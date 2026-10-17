@@ -16,7 +16,13 @@ const finished = (home: number, away: number, penalties?: [number, number]): Res
 const BEFORE = Date.parse("2027-01-01T00:00:00Z");
 
 describe("resolveTournament – vor der Auslosung", () => {
-  const state = resolveTournament({ fixtures: FIXTURES, draw: {}, results: {}, patches: {}, now: BEFORE });
+  const state = resolveTournament({
+    fixtures: FIXTURES,
+    draw: {},
+    results: {},
+    patches: {},
+    now: BEFORE,
+  });
 
   it("liefert 51 Spiele ohne Teams, alle geplant", () => {
     expect(state.matches).toHaveLength(51);
@@ -31,7 +37,13 @@ describe("resolveTournament – vor der Auslosung", () => {
 
 describe("resolveTournament – Auslosung & Gruppenphase", () => {
   it("setzt Teams aus der Auslosung ein", () => {
-    const s = resolveTournament({ fixtures: FIXTURES, draw: DEMO_DRAW, results: {}, patches: {}, now: BEFORE });
+    const s = resolveTournament({
+      fixtures: FIXTURES,
+      draw: DEMO_DRAW,
+      results: {},
+      patches: {},
+      now: BEFORE,
+    });
     const opener = s.matches.find((m) => m.number === 1)!;
     expect([opener.home, opener.away]).toEqual(["WAL", "POR"]);
   });
@@ -41,14 +53,27 @@ describe("resolveTournament – Auslosung & Gruppenphase", () => {
     // Gruppe A: A1 gewinnt alles, A2 Zweiter
     const groupA = FIXTURES.filter((f) => f.group === "A");
     for (const f of groupA.slice(0, 5)) {
-      results[matchId(f.number)] = f.home === "A1" ? finished(2, 0) : f.away === "A1" ? finished(0, 2) : finished(1, 1);
+      results[matchId(f.number)] =
+        f.home === "A1" ? finished(2, 0) : f.away === "A1" ? finished(0, 2) : finished(1, 1);
     }
-    let s = resolveTournament({ fixtures: FIXTURES, draw: DEMO_DRAW, results, patches: {}, now: BEFORE });
+    let s = resolveTournament({
+      fixtures: FIXTURES,
+      draw: DEMO_DRAW,
+      results,
+      patches: {},
+      now: BEFORE,
+    });
     expect(s.matches.find((m) => m.number === 37)!.home).toBeNull();
 
     const last = groupA[5];
     results[matchId(last.number)] = finished(1, 0);
-    s = resolveTournament({ fixtures: FIXTURES, draw: DEMO_DRAW, results, patches: {}, now: BEFORE });
+    s = resolveTournament({
+      fixtures: FIXTURES,
+      draw: DEMO_DRAW,
+      results,
+      patches: {},
+      now: BEFORE,
+    });
     const r16 = s.matches.find((m) => m.number === 37)!;
     expect(r16.home).toBe("WAL");
     expect(s.tables.find((t) => t.group === "A")!.complete).toBe(true);
@@ -57,7 +82,13 @@ describe("resolveTournament – Auslosung & Gruppenphase", () => {
 
 describe("resolveTournament – komplettes Demo-Turnier", () => {
   const demo = buildDemo("done");
-  const state = resolveTournament({ fixtures: FIXTURES, draw: demo.draw, results: demo.results, patches: demo.patches, now: demo.now });
+  const state = resolveTournament({
+    fixtures: FIXTURES,
+    draw: demo.draw,
+    results: demo.results,
+    patches: demo.patches,
+    now: demo.now,
+  });
 
   it("alle Spiele beendet und alle Paarungen aufgelöst", () => {
     expect(state.matches.every((m) => m.status === "finished")).toBe(true);
@@ -75,10 +106,14 @@ describe("resolveTournament – komplettes Demo-Turnier", () => {
   });
 
   it("jedes K.-o.-Spiel hat einen Sieger, der Europameister steht fest", () => {
-    for (const m of state.matches.filter((x) => x.stage !== "group")) expect(winnerOf(m)).not.toBeNull();
+    for (const m of state.matches.filter((x) => x.stage !== "group"))
+      expect(winnerOf(m)).not.toBeNull();
     const champ = tournamentWinner(state);
     expect(champ).toBeTruthy();
-    const statuses = computeTeamStatuses(state, Object.values(DEMO_DRAW), { qualified: [], eliminated: [] });
+    const statuses = computeTeamStatuses(state, Object.values(DEMO_DRAW), {
+      qualified: [],
+      eliminated: [],
+    });
     expect([...statuses.values()].filter((s) => s.phase === "champion")).toHaveLength(1);
     expect([...statuses.values()].filter((s) => s.phase === "out")).toHaveLength(23);
   });
@@ -88,7 +123,9 @@ describe("winnerOf", () => {
   const base = { status: "finished" as const, home: "GER", away: "ESP" };
   it("regulär", () => expect(winnerOf({ ...base, score: { home: 2, away: 1 } })).toBe("GER"));
   it("Elfmeterschießen", () =>
-    expect(winnerOf({ ...base, score: { home: 1, away: 1 }, penalties: { home: 3, away: 4 } })).toBe("ESP"));
+    expect(
+      winnerOf({ ...base, score: { home: 1, away: 1 }, penalties: { home: 3, away: 4 } }),
+    ).toBe("ESP"));
   it("Unentschieden ohne Elfmeterdaten → offen", () =>
     expect(winnerOf({ ...base, score: { home: 1, away: 1 } })).toBeNull());
 });
@@ -113,7 +150,13 @@ describe("Status aus der Uhr", () => {
   it("vorläufige Anstoßzeit → nicht live schalten", () => {
     const f = FIXTURES[1];
     const now = Date.parse(f.kickoffUtc) + 30 * 60_000;
-    const s = resolveTournament({ fixtures: FIXTURES, draw: DEMO_DRAW, results: {}, patches: {}, now });
+    const s = resolveTournament({
+      fixtures: FIXTURES,
+      draw: DEMO_DRAW,
+      results: {},
+      patches: {},
+      now,
+    });
     expect(s.matches.find((x) => x.number === 2)!.status).toBe("scheduled");
   });
 });

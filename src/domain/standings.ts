@@ -18,7 +18,18 @@ export type StandingRow = {
 type Played = { home: string; away: string; score: Score };
 
 function emptyRow(code: string): StandingRow {
-  return { code, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0, form: [] };
+  return {
+    code,
+    played: 0,
+    won: 0,
+    drawn: 0,
+    lost: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    goalDiff: 0,
+    points: 0,
+    form: [],
+  };
 }
 
 function tally(teams: string[], games: Played[]): Map<string, StandingRow> {
@@ -142,9 +153,13 @@ export function groupTable(
     list.push(r.code);
     byPoints.set(r.points, list);
   }
-  const order = [...byPoints.keys()]
-    .sort((a, b) => b - a)
-    .flatMap((pts) => resolveTie(byPoints.get(pts)!.sort(), all, games));
+  // Vor dem ersten Spiel: Auslosungsreihenfolge (A1..A4) statt alphabetisch.
+  const order =
+    games.length === 0
+      ? teams
+      : [...byPoints.keys()]
+          .sort((a, b) => b - a)
+          .flatMap((pts) => resolveTie(byPoints.get(pts)!.sort(), all, games));
 
   const complete =
     groupMatches.length > 0 &&

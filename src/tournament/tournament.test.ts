@@ -67,8 +67,14 @@ describe("Spielplan EURO 2028", () => {
   });
 
   it("Wembley ist kein Achtelfinal-Spielort, Halbfinals und Finale in Wembley", () => {
-    expect(FIXTURES.filter((f) => f.stage === "r16").some((f) => f.venueId === "wembley")).toBe(false);
-    expect(FIXTURES.filter((f) => f.stage === "sf" || f.stage === "final").every((f) => f.venueId === "wembley")).toBe(true);
+    expect(FIXTURES.filter((f) => f.stage === "r16").some((f) => f.venueId === "wembley")).toBe(
+      false,
+    );
+    expect(
+      FIXTURES.filter((f) => f.stage === "sf" || f.stage === "final").every(
+        (f) => f.venueId === "wembley",
+      ),
+    ).toBe(true);
   });
 
   it("alle Stadien existieren", () => {
@@ -101,8 +107,12 @@ describe("Drittplatzierten-Tabelle", () => {
 
   it("Bracket-Layout enthält jedes K.-o.-Spiel genau einmal", () => {
     const all = [
-      ...BRACKET_LAYOUT.left.r16, ...BRACKET_LAYOUT.left.qf, ...BRACKET_LAYOUT.left.sf,
-      ...BRACKET_LAYOUT.right.r16, ...BRACKET_LAYOUT.right.qf, ...BRACKET_LAYOUT.right.sf,
+      ...BRACKET_LAYOUT.left.r16,
+      ...BRACKET_LAYOUT.left.qf,
+      ...BRACKET_LAYOUT.left.sf,
+      ...BRACKET_LAYOUT.right.r16,
+      ...BRACKET_LAYOUT.right.qf,
+      ...BRACKET_LAYOUT.right.sf,
       BRACKET_LAYOUT.final,
     ].sort((a, b) => a - b);
     expect(all).toEqual(Array.from({ length: 15 }, (_, i) => i + 37));
@@ -114,7 +124,11 @@ describe("Nationen", () => {
     expect(NATIONS).toHaveLength(54);
     expect(new Set(NATIONS.map((n) => n.code)).size).toBe(54);
     expect(new Set(NATIONS.map((n) => n.flag)).size).toBe(54);
-    expect(NATIONS.filter((n) => n.host).map((n) => n.code).sort()).toEqual(["ENG", "IRL", "SCO", "WAL"]);
+    expect(
+      NATIONS.filter((n) => n.host)
+        .map((n) => n.code)
+        .sort(),
+    ).toEqual(["ENG", "IRL", "SCO", "WAL"]);
   });
 
   it("erkennt deutsche, englische und OpenLigaDB-Schreibweisen", () => {

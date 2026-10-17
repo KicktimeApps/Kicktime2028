@@ -45,9 +45,19 @@ export function getTvInfo(match: {
   }
   const germany = match.home === "GER" || match.away === "GER";
   if (germany || ALWAYS_FREE.includes(match.stage)) {
-    return { freeTv: null, freeTvLikely: true, magentaExclusive: false, label: "ARD/ZDF · MagentaTV" };
+    return {
+      freeTv: null,
+      freeTvLikely: true,
+      magentaExclusive: false,
+      label: "ARD/ZDF · MagentaTV",
+    };
   }
-  return { freeTv: null, freeTvLikely: false, magentaExclusive: false, label: "MagentaTV · Free-TV offen" };
+  return {
+    freeTv: null,
+    freeTvLikely: false,
+    magentaExclusive: false,
+    label: "MagentaTV · Free-TV offen",
+  };
 }
 
 export const BROADCASTER_URLS: Record<string, string> = {

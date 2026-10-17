@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AVAILABILITY, fitFor, localParts, relativeDay, watchableMinutes, type WeekAvailability } from "./time";
+import {
+  DEFAULT_AVAILABILITY,
+  fitFor,
+  localParts,
+  relativeDay,
+  watchableMinutes,
+  type WeekAvailability,
+} from "./time";
 
 const TZ = "Europe/Berlin";
-const week = (w: { start: number; end: number; off?: boolean }): WeekAvailability => Array(7).fill(w);
+const week = (w: { start: number; end: number; off?: boolean }): WeekAvailability =>
+  Array(7).fill(w);
 
 describe("localParts", () => {
   it("rechnet UTC korrekt in MESZ um, Montag = 0", () => {
@@ -47,7 +55,9 @@ describe("Zeitfenster", () => {
 
   it("andere Zeitzone verschiebt die Bewertung", () => {
     // 21:00 MESZ = 15:00 in New York → im Feierabend-Fenster dort nicht
-    expect(fitFor("2028-06-12T19:00:00Z", "America/New_York", week({ start: 17.5, end: 23.5 }))).toBe("none");
+    expect(
+      fitFor("2028-06-12T19:00:00Z", "America/New_York", week({ start: 17.5, end: 23.5 })),
+    ).toBe("none");
   });
 });
 

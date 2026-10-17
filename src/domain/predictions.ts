@@ -22,11 +22,15 @@ export const RESULT_POINTS: Record<PredictionResult, number> = {
  * richtige Tordifferenz, 2 für die richtige Tendenz. Gewertet wird das
  * Ergebnis nach Verlängerung (ohne Elfmeterschießen).
  */
-export function scorePrediction(pred: Score, actual: Score): { result: PredictionResult; points: number } {
+export function scorePrediction(
+  pred: Score,
+  actual: Score,
+): { result: PredictionResult; points: number } {
   let result: PredictionResult = "miss";
   if (pred.home === actual.home && pred.away === actual.away) result = "exact";
   else if (pred.home - pred.away === actual.home - actual.away) result = "diff";
-  else if (Math.sign(pred.home - pred.away) === Math.sign(actual.home - actual.away)) result = "tendency";
+  else if (Math.sign(pred.home - pred.away) === Math.sign(actual.home - actual.away))
+    result = "tendency";
   return { result, points: RESULT_POINTS[result] };
 }
 
@@ -44,7 +48,10 @@ export type PredictionSummary = {
   hitRate: number;
 };
 
-export function summarize(predictions: Record<string, Prediction>, matches: MatchView[]): PredictionSummary {
+export function summarize(
+  predictions: Record<string, Prediction>,
+  matches: MatchView[],
+): PredictionSummary {
   const byId = new Map(matches.map((m) => [m.id, m]));
   const counts: Record<PredictionResult, number> = { exact: 0, diff: 0, tendency: 0, miss: 0 };
   let rated = 0;

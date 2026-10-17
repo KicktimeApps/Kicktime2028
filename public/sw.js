@@ -35,7 +35,7 @@ self.addEventListener("push", (event) => {
       data: { url },
       requireInteraction: false,
       renotify: false,
-    })
+    }),
   );
 });
 
@@ -56,6 +56,6 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       if (self.clients.openWindow) return self.clients.openWindow(url);
-    })
+    }),
   );
 });

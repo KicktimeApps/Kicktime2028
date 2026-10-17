@@ -11,23 +11,71 @@ import { FIXTURES, matchId } from "@/tournament/schedule";
  * deutlich als DEMO markiert und nie mit echten Daten vermischt.
  */
 export const DEMO_DRAW: Record<string, string> = {
-  A1: "WAL", A2: "POR", A3: "AUT", A4: "CZE",
-  B1: "ENG", B2: "NED", B3: "SUI", B4: "GEO",
-  C1: "ESP", C2: "ITA", C3: "NOR", C4: "SRB",
-  D1: "FRA", D2: "BEL", D3: "UKR", D4: "SVN",
-  E1: "IRL", E2: "GER", E3: "TUR", E4: "HUN",
-  F1: "SCO", F2: "CRO", F3: "DEN", F4: "POL",
+  A1: "WAL",
+  A2: "POR",
+  A3: "AUT",
+  A4: "CZE",
+  B1: "ENG",
+  B2: "NED",
+  B3: "SUI",
+  B4: "GEO",
+  C1: "ESP",
+  C2: "ITA",
+  C3: "NOR",
+  C4: "SRB",
+  D1: "FRA",
+  D2: "BEL",
+  D3: "UKR",
+  D4: "SVN",
+  E1: "IRL",
+  E2: "GER",
+  E3: "TUR",
+  E4: "HUN",
+  F1: "SCO",
+  F2: "CRO",
+  F3: "DEN",
+  F4: "POL",
 };
 
-export type DemoScenario = "predraw" | "drawn" | "group" | "knockout" | "final" | "done";
+export type DemoScenario = "drawn" | "group" | "knockout" | "final" | "done";
 
 export const DEMO_SCENARIOS: { id: DemoScenario; label: string; hint: string; now: string }[] = [
-  { id: "drawn", label: "Nach der Auslosung", hint: "Teams stehen fest, noch kein Spiel gespielt", now: "2028-05-20T10:00:00Z" },
-  { id: "group", label: "Gruppenphase live", hint: "20. Juni, 3. Spieltag läuft gerade", now: "2028-06-20T17:05:00Z" },
-  { id: "knockout", label: "Achtelfinale", hint: "26. Juni, Achtelfinale läuft", now: "2028-06-26T20:10:00Z" },
-  { id: "final", label: "Finaltag", hint: "9. Juli, kurz vor dem Finale", now: "2028-07-09T14:00:00Z" },
-  { id: "done", label: "Nach dem Finale", hint: "Turnier vorbei, Europameister steht fest", now: "2028-07-10T09:00:00Z" },
+  {
+    id: "drawn",
+    label: "Nach der Auslosung",
+    hint: "Teams stehen fest, noch kein Spiel gespielt",
+    now: "2028-05-20T10:00:00Z",
+  },
+  {
+    id: "group",
+    label: "Gruppenphase live",
+    hint: "20. Juni, 3. Spieltag läuft gerade",
+    now: "2028-06-20T17:05:00Z",
+  },
+  {
+    id: "knockout",
+    label: "Achtelfinale",
+    hint: "26. Juni, Achtelfinale läuft",
+    now: "2028-06-26T20:10:00Z",
+  },
+  {
+    id: "final",
+    label: "Finaltag",
+    hint: "9. Juli, kurz vor dem Finale",
+    now: "2028-07-09T14:00:00Z",
+  },
+  {
+    id: "done",
+    label: "Nach dem Finale",
+    hint: "Turnier vorbei, Europameister steht fest",
+    now: "2028-07-10T09:00:00Z",
+  },
 ];
+
+export function demoStart(scenario: DemoScenario): number {
+  const meta = DEMO_SCENARIOS.find((s) => s.id === scenario) ?? DEMO_SCENARIOS[1];
+  return Date.parse(meta.now);
+}
 
 /** Deterministischer Zufall (mulberry32), damit die Demo immer gleich aussieht. */
 function rng(seed: number) {
@@ -88,10 +136,9 @@ export type DemoData = {
  * bzw. gerade laufen. K.-o.-Spiele werden rundenweise simuliert, damit die
  * Sieger korrekt in die nächste Runde wandern.
  */
-export function buildDemo(scenario: DemoScenario): DemoData {
-  const meta = DEMO_SCENARIOS.find((s) => s.id === scenario) ?? DEMO_SCENARIOS[1];
-  const now = Date.parse(meta.now);
-  const draw = scenario === "predraw" ? {} : DEMO_DRAW;
+export function buildDemo(scenario: DemoScenario, elapsedMs = 0): DemoData {
+  const now = demoStart(scenario) + Math.max(0, elapsedMs);
+  const draw = DEMO_DRAW;
   const results: Record<string, ResultRecord> = {};
   // In der Demo gelten die vorläufigen Anstoßzeiten als bestätigt.
   const patches: Record<string, FixturePatch> = {};

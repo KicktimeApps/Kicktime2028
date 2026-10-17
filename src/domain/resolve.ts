@@ -28,7 +28,9 @@ export type TournamentState = {
 };
 
 /** Sieger eines beendeten Spiels (inkl. Elfmeterschießen) oder null. */
-export function winnerOf(m: Pick<MatchView, "status" | "home" | "away" | "score" | "penalties">): string | null {
+export function winnerOf(
+  m: Pick<MatchView, "status" | "home" | "away" | "score" | "penalties">,
+): string | null {
   if (m.status !== "finished" || !m.score || !m.home || !m.away) return null;
   if (m.score.home > m.score.away) return m.home;
   if (m.score.away > m.score.home) return m.away;
@@ -38,7 +40,9 @@ export function winnerOf(m: Pick<MatchView, "status" | "home" | "away" | "score"
   return null;
 }
 
-export function loserOf(m: Pick<MatchView, "status" | "home" | "away" | "score" | "penalties">): string | null {
+export function loserOf(
+  m: Pick<MatchView, "status" | "home" | "away" | "score" | "penalties">,
+): string | null {
   const w = winnerOf(m);
   if (!w) return null;
   return w === m.home ? m.away : m.home;
@@ -159,7 +163,9 @@ export function resolveTournament(input: ResolveInput): TournamentState {
   };
 
   // 3) K.-o.-Runde
-  for (const f of [...fixtures].filter((x) => x.stage !== "group").sort((a, b) => a.number - b.number)) {
+  for (const f of [...fixtures]
+    .filter((x) => x.stage !== "group")
+    .sort((a, b) => a.number - b.number)) {
     const p = patches[matchId(f.number)];
     const home = fromPatch(p?.home) ?? resolveSlot(f.home, f.number);
     const away = fromPatch(p?.away) ?? resolveSlot(f.away, f.number);

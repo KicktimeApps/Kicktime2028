@@ -11,11 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TurnierRouteImport } from './routes/turnier'
 import { Route as TippsRouteImport } from './routes/tipps'
-import { Route as TabellenRouteImport } from './routes/tabellen'
-import { Route as SpieleRouteImport } from './routes/spiele'
+import { Route as SpielplanRouteImport } from './routes/spielplan'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as ProfilRouteImport } from './routes/profil'
-import { Route as BarsRouteImport } from './routes/bars'
+import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TurnierRoute = TurnierRouteImport.update({
@@ -28,14 +26,9 @@ const TippsRoute = TippsRouteImport.update({
   path: '/tipps',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TabellenRoute = TabellenRouteImport.update({
-  id: '/tabellen',
-  path: '/tabellen',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SpieleRoute = SpieleRouteImport.update({
-  id: '/spiele',
-  path: '/spiele',
+const SpielplanRoute = SpielplanRouteImport.update({
+  id: '/spielplan',
+  path: '/spielplan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -43,14 +36,9 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProfilRoute = ProfilRouteImport.update({
-  id: '/profil',
-  path: '/profil',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BarsRoute = BarsRouteImport.update({
-  id: '/bars',
-  path: '/bars',
+const EinstellungenRoute = EinstellungenRouteImport.update({
+  id: '/einstellungen',
+  path: '/einstellungen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -61,32 +49,26 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/bars': typeof BarsRoute
-  '/profil': typeof ProfilRoute
+  '/einstellungen': typeof EinstellungenRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/spiele': typeof SpieleRoute
-  '/tabellen': typeof TabellenRoute
+  '/spielplan': typeof SpielplanRoute
   '/tipps': typeof TippsRoute
   '/turnier': typeof TurnierRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/bars': typeof BarsRoute
-  '/profil': typeof ProfilRoute
+  '/einstellungen': typeof EinstellungenRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/spiele': typeof SpieleRoute
-  '/tabellen': typeof TabellenRoute
+  '/spielplan': typeof SpielplanRoute
   '/tipps': typeof TippsRoute
   '/turnier': typeof TurnierRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/bars': typeof BarsRoute
-  '/profil': typeof ProfilRoute
+  '/einstellungen': typeof EinstellungenRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/spiele': typeof SpieleRoute
-  '/tabellen': typeof TabellenRoute
+  '/spielplan': typeof SpielplanRoute
   '/tipps': typeof TippsRoute
   '/turnier': typeof TurnierRoute
 }
@@ -94,42 +76,34 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/bars'
-    | '/profil'
+    | '/einstellungen'
     | '/sitemap.xml'
-    | '/spiele'
-    | '/tabellen'
+    | '/spielplan'
     | '/tipps'
     | '/turnier'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/bars'
-    | '/profil'
+    | '/einstellungen'
     | '/sitemap.xml'
-    | '/spiele'
-    | '/tabellen'
+    | '/spielplan'
     | '/tipps'
     | '/turnier'
   id:
     | '__root__'
     | '/'
-    | '/bars'
-    | '/profil'
+    | '/einstellungen'
     | '/sitemap.xml'
-    | '/spiele'
-    | '/tabellen'
+    | '/spielplan'
     | '/tipps'
     | '/turnier'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BarsRoute: typeof BarsRoute
-  ProfilRoute: typeof ProfilRoute
+  EinstellungenRoute: typeof EinstellungenRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  SpieleRoute: typeof SpieleRoute
-  TabellenRoute: typeof TabellenRoute
+  SpielplanRoute: typeof SpielplanRoute
   TippsRoute: typeof TippsRoute
   TurnierRoute: typeof TurnierRoute
 }
@@ -150,18 +124,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TippsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tabellen': {
-      id: '/tabellen'
-      path: '/tabellen'
-      fullPath: '/tabellen'
-      preLoaderRoute: typeof TabellenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/spiele': {
-      id: '/spiele'
-      path: '/spiele'
-      fullPath: '/spiele'
-      preLoaderRoute: typeof SpieleRouteImport
+    '/spielplan': {
+      id: '/spielplan'
+      path: '/spielplan'
+      fullPath: '/spielplan'
+      preLoaderRoute: typeof SpielplanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -171,18 +138,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/profil': {
-      id: '/profil'
-      path: '/profil'
-      fullPath: '/profil'
-      preLoaderRoute: typeof ProfilRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bars': {
-      id: '/bars'
-      path: '/bars'
-      fullPath: '/bars'
-      preLoaderRoute: typeof BarsRouteImport
+    '/einstellungen': {
+      id: '/einstellungen'
+      path: '/einstellungen'
+      fullPath: '/einstellungen'
+      preLoaderRoute: typeof EinstellungenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -197,11 +157,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BarsRoute: BarsRoute,
-  ProfilRoute: ProfilRoute,
+  EinstellungenRoute: EinstellungenRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  SpieleRoute: SpieleRoute,
-  TabellenRoute: TabellenRoute,
+  SpielplanRoute: SpielplanRoute,
   TippsRoute: TippsRoute,
   TurnierRoute: TurnierRoute,
 }

@@ -83,7 +83,8 @@ export function recommend(m: MatchView, p: Prefs): Recommendation {
     fit,
     score: Math.min(100, score),
     reasons,
-    mine: reasons.includes("favorite") || reasons.includes("interesting") || reasons.includes("pinned"),
+    mine:
+      reasons.includes("favorite") || reasons.includes("interesting") || reasons.includes("pinned"),
   };
 }
 
@@ -100,7 +101,11 @@ export type Feed = {
 
 const BONUS_MIN_SCORE = 30;
 
-export function buildFeed(matches: MatchView[], p: Prefs, opts: { bonusLimit?: number } = {}): Feed {
+export function buildFeed(
+  matches: MatchView[],
+  p: Prefs,
+  opts: { bonusLimit?: number } = {},
+): Feed {
   const feed: Feed = { perfect: [], outside: [], bonus: [], recap: [] };
   for (const m of matches) {
     const r = recommend(m, p);
@@ -124,9 +129,10 @@ export function buildFeed(matches: MatchView[], p: Prefs, opts: { bonusLimit?: n
   return feed;
 }
 
-/** Nächstes Spiel mit eigenem Team (oder vorgemerkt), unabhängig vom Zeitfenster. */
+/**
+ * Nächstes noch nicht begonnenes Spiel mit eigenem Team (oder vorgemerkt),
+ * unabhängig vom Zeitfenster. Laufende Spiele zeigt die Live-Leiste.
+ */
 export function nextOwnMatch(matches: MatchView[], p: Prefs): MatchView | null {
-  return (
-    matches.find((m) => m.status !== "finished" && recommend(m, p).mine) ?? null
-  );
+  return matches.find((m) => m.status === "scheduled" && recommend(m, p).mine) ?? null;
 }

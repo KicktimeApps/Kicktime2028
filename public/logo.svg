@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs><clipPath id="ball"><circle cx="32" cy="32" r="20.5"/></clipPath></defs>
+  <circle cx="32" cy="32" r="20.5" fill="#F5F7FB" stroke="#0B1430" stroke-width="1.6"/>
+  <g clip-path="url(#ball)">
+    <path d="M32.00 24.80 L38.85 29.78 L36.23 37.82 L27.77 37.82 L25.15 29.78Z" fill="#0B1430"/>
+    <path d="M32.00 16.90 L25.91 12.48 L28.24 5.32 L35.76 5.32 L38.09 12.48Z" fill="#0B1430"/><path d="M46.36 27.33 L48.69 20.18 L56.21 20.18 L58.53 27.33 L52.45 31.76Z" fill="#0B1430"/><path d="M40.88 44.22 L48.40 44.22 L50.72 51.37 L44.64 55.79 L38.55 51.37Z" fill="#0B1430"/><path d="M23.12 44.22 L25.45 51.37 L19.36 55.79 L13.28 51.37 L15.60 44.22Z" fill="#0B1430"/><path d="M17.64 27.33 L11.55 31.76 L5.47 27.33 L7.79 20.18 L15.31 20.18Z" fill="#0B1430"/>
+    <path d="M32.00 24.80L32.00 16.00M38.85 29.78L47.22 27.06M36.23 37.82L41.40 44.94M27.77 37.82L22.60 44.94M25.15 29.78L16.78 27.06" stroke="#0B1430" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+  <path d="M32 3.5a28.5 28.5 0 0 1 24.68 42.75" fill="none" stroke="#3EE58C" stroke-width="4.2" stroke-linecap="round"/>
+  <circle cx="32" cy="3.5" r="3" fill="#3EE58C"/>
+</svg>
