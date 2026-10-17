@@ -57,17 +57,13 @@ export async function subscribePush(): Promise<boolean> {
     }
     const json = sub.toJSON();
     if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return false;
-    const { error } = await sb.from("push_subscriptions").upsert(
-      {
-        device_id: getDeviceId(),
-        endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth,
-        user_agent: navigator.userAgent.slice(0, 250),
-        last_seen_at: new Date().toISOString(),
-      },
-      { onConflict: "device_id" },
-    );
+    const { error } = await sb.rpc("kt_save_subscription", {
+      p_device: getDeviceId(),
+      p_endpoint: json.endpoint,
+      p_p256dh: json.keys.p256dh,
+      p_auth: json.keys.auth,
+      p_user_agent: navigator.userAgent,
+    });
     if (error) throw new Error(error.message);
     return true;
   } catch (err) {
@@ -84,42 +80,20 @@ export type AlarmPayload = {
 };
 
 /**
- * Gleicht die serverseitigen Erinnerungen mit der lokalen Liste ab: fehlende
- * anlegen, nicht mehr gewünschte löschen. Anstoßzeiten werden aktualisiert.
+ * Ersetzt die serverseitigen Erinnerungen dieses Geräts durch die lokale
+ * Liste (fehlende anlegen, überflüssige löschen, Anstoßzeiten aktualisieren).
  */
 export async function syncServerAlarms(wanted: AlarmPayload[]): Promise<void> {
   const sb = getSupabase();
   if (!hasPushBackend() || !sb) return;
-  const device_id = getDeviceId();
-  try {
-    const { data, error } = await sb
-      .from("match_alarms")
-      .select("match_id")
-      .eq("device_id", device_id);
-    if (error) throw new Error(error.message);
-    const existing = new Set((data ?? []).map((r: { match_id: string }) => r.match_id));
-    const wantedIds = new Set(wanted.map((w) => w.matchId));
-    const remove = [...existing].filter((id) => !wantedIds.has(id));
-    if (remove.length > 0) {
-      await sb.from("match_alarms").delete().eq("device_id", device_id).in("match_id", remove);
-    }
-    if (wanted.length > 0) {
-      const rows = wanted.map((w) => ({
-        device_id,
-        match_id: w.matchId,
-        kickoff_utc: w.kickoffUtc,
-        lead_minutes: w.leadMinutes,
-        title: w.title,
-      }));
-      const { error: upErr } = await sb
-        .from("match_alarms")
-        .upsert(rows, { onConflict: "device_id,match_id" });
-      if (upErr) throw new Error(upErr.message);
-    }
-  } catch (err) {
-    logError(
-      "push",
-      `Erinnerungen synchronisieren: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
+  const { error } = await sb.rpc("kt_sync_alarms", {
+    p_device: getDeviceId(),
+    p_alarms: wanted.map((w) => ({
+      match_id: w.matchId,
+      kickoff_utc: w.kickoffUtc,
+      lead_minutes: w.leadMinutes,
+      title: w.title,
+    })),
+  });
+  if (error) logError("push", `Erinnerungen synchronisieren: ${error.message}`);
 }

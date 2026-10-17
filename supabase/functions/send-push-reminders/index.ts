@@ -1,165 +1,87 @@
 /**
  * Edge Function: send-push-reminders
  *
- * Wird von pg_cron (alle 1 Minute) getriggert. Findet alle Match-Alarme,
- * deren Kickoff in <= lead_minutes liegt und noch nicht zugestellt wurden,
- * und sendet pro registriertem Gerät einen VAPID-signierten Web Push.
+ * Wird jede Minute per pg_cron aufgerufen (siehe Migration). Sendet für alle
+ * fälligen Erinnerungen einen Web Push (VAPID). Hat sich die Anstoßzeit seit
+ * der letzten Benachrichtigung geändert, wird erneut erinnert.
  *
- * Endpoints, die mit 404/410 antworten, werden entfernt (Browser/Device abgemeldet).
+ * Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRON_SECRET
+ * Deploy mit --no-verify-jwt; geschützt über den Header x-cron-secret.
  */
-
-// deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
+import { env, json, preflight } from "../_shared/http.ts";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-api-version",
-  "Access-Control-Max-Age": "86400",
-};
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-  });
-}
-
-type AlarmRow = {
+type Row = {
   device_id: string;
   match_id: string;
   kickoff_utc: string;
   lead_minutes: number;
-  team_a_name: string | null;
-  team_b_name: string | null;
-  push_subscriptions: {
-    endpoint: string;
-    p256dh: string;
-    auth: string;
-  } | null;
+  title: string;
+  notified_for: string | null;
+  // Many-to-one-Relation: zur Laufzeit ein Objekt, ohne generierte Typen
+  // aber als Array typisiert – daher beides zulassen.
+  push_subscriptions: Sub | Sub[] | null;
 };
+type Sub = { endpoint: string; p256dh: string; auth: string };
 
-serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
-
+Deno.serve(async (req) => {
+  const pre = preflight(req);
+  if (pre) return pre;
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY");
-    const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY");
-    const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:admin@kicktime2026.de";
+    const secret = Deno.env.get("CRON_SECRET");
+    if (secret && req.headers.get("x-cron-secret") !== secret) return json({ error: "Nicht erlaubt" }, 401);
 
-    if (!SUPABASE_URL || !SERVICE_KEY) {
-      return json({ error: "Supabase env missing" }, 500);
-    }
-    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-      return json({ error: "VAPID keys missing" }, 500);
-    }
+    webpush.setVapidDetails(
+      env("VAPID_SUBJECT", "mailto:kontakt@kicktime.app"),
+      env("VAPID_PUBLIC_KEY"),
+      env("VAPID_PRIVATE_KEY"),
+    );
+    const db = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
+    const now = Date.now();
+    const { data, error } = await db
+      .from("match_alarms")
+      .select("device_id, match_id, kickoff_utc, lead_minutes, title, notified_for, push_subscriptions ( endpoint, p256dh, auth )")
+      .gte("kickoff_utc", new Date(now).toISOString())
+      .lte("kickoff_utc", new Date(now + 31 * 60_000).toISOString());
+    if (error) throw error;
 
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
-
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
-      auth: { persistSession: false },
-    });
-
-    const nowIso = new Date().toISOString();
-    const horizonIso = new Date(Date.now() + 20 * 60_000).toISOString();
-
-    // Alle fälligen Alarme inkl. zugehöriger Push-Subscription holen.
-    const { data, error } = await supabase
-      .from("match_alarm_subscriptions")
-      .select(
-        "device_id, match_id, kickoff_utc, lead_minutes, team_a_name, team_b_name, push_subscriptions ( endpoint, p256dh, auth )"
-      )
-      .is("notified_at", null)
-      .gte("kickoff_utc", nowIso)
-      .lte("kickoff_utc", horizonIso);
-
-    if (error) {
-      console.error("[push] select failed", error);
-      return json({ error: error.message }, 500);
-    }
-
-    const rows = (data ?? []) as AlarmRow[];
-    if (rows.length === 0) return json({ ok: true, sent: 0, checked: 0 });
-
-    const dueNow = new Date();
     let sent = 0;
-    let failed = 0;
-    const expiredEndpoints: string[] = [];
-    const notifiedKeys: Array<{ device_id: string; match_id: string }> = [];
-
-    for (const row of rows) {
-      // Nur senden, wenn jetzt innerhalb des Lead-Fensters
-      const kickoff = new Date(row.kickoff_utc).getTime();
-      const leadMs = (row.lead_minutes ?? 15) * 60_000;
-      if (kickoff - dueNow.getTime() > leadMs) continue;
-      const sub = row.push_subscriptions;
+    const expired: string[] = [];
+    for (const row of (data ?? []) as unknown as Row[]) {
+      const kickoff = Date.parse(row.kickoff_utc);
+      if (kickoff - now > row.lead_minutes * 60_000) continue;
+      if (row.notified_for && Date.parse(row.notified_for) === kickoff) continue;
+      const sub = Array.isArray(row.push_subscriptions) ? row.push_subscriptions[0] : row.push_subscriptions;
       if (!sub) continue;
-
-      const minutesLeft = Math.max(
-        1,
-        Math.round((kickoff - dueNow.getTime()) / 60000)
-      );
-      const teamA = row.team_a_name ?? "Team A";
-      const teamB = row.team_b_name ?? "Team B";
-      const payload = JSON.stringify({
-        title: "Anpfiff steht bevor! 🏆",
-        body: `${teamA} - ${teamB} startet in ${minutesLeft} Minuten!`,
-        url: "/",
-        tag: `match-${row.match_id}`,
-      });
-
+      const minutes = Math.max(1, Math.round((kickoff - now) / 60_000));
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload,
-          { TTL: 60 * 30 }
+          JSON.stringify({
+            title: "Gleich geht's los ⚽",
+            body: `${row.title} – Anpfiff in ${minutes} Minuten.`,
+            url: "/",
+            tag: `match-${row.match_id}`,
+          }),
+          { TTL: 30 * 60 },
         );
         sent++;
-        notifiedKeys.push({ device_id: row.device_id, match_id: row.match_id });
-      } catch (err: any) {
-        failed++;
-        const status = err?.statusCode || err?.status;
-        if (status === 404 || status === 410) {
-          expiredEndpoints.push(sub.endpoint);
-        } else {
-          console.warn("[push] send failed", status, err?.body || err?.message);
-        }
+        await db
+          .from("match_alarms")
+          .update({ notified_for: row.kickoff_utc })
+          .eq("device_id", row.device_id)
+          .eq("match_id", row.match_id);
+      } catch (err) {
+        const status = (err as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) expired.push(row.device_id);
+        else console.warn("[push] Versand fehlgeschlagen", status);
       }
     }
-
-    // Erfolgreiche Sends markieren
-    for (const key of notifiedKeys) {
-      await supabase
-        .from("match_alarm_subscriptions")
-        .update({ notified_at: new Date().toISOString() })
-        .eq("device_id", key.device_id)
-        .eq("match_id", key.match_id);
-    }
-
-    // Tote Endpoints löschen
-    if (expiredEndpoints.length > 0) {
-      await supabase
-        .from("push_subscriptions")
-        .delete()
-        .in("endpoint", expiredEndpoints);
-    }
-
-    return json({
-      ok: true,
-      checked: rows.length,
-      sent,
-      failed,
-      cleaned: expiredEndpoints.length,
-    });
+    if (expired.length > 0) await db.from("push_subscriptions").delete().in("device_id", expired);
+    return json({ ok: true, sent, cleaned: expired.length });
   } catch (err) {
-    console.error("[push] fatal", err);
-    return json({ error: String(err) }, 500);
+    console.error("[push]", err);
+    return json({ error: "Interner Fehler" }, 500);
   }
 });

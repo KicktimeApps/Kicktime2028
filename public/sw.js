@@ -1,9 +1,9 @@
 /**
- * KickTime Service Worker — ausschließlich für Web-Push.
+ * KickTime Service Worker – ausschließlich für Web-Push.
  *
- * Bewusst KEIN Offline-/HTML-Cache, damit es mit Lovable-Preview-Builds
- * keinen Stale-Content geben kann. Registrierung läuft ausschließlich
- * im veröffentlichten Build über src/lib/push-client.ts (Guards inside).
+ * Bewusst KEIN Offline-Cache für HTML/JS, damit nach einem Deployment nie
+ * veraltete Versionen hängen bleiben. Registrierung nur im Produktions-Build
+ * (siehe src/lib/push.ts).
  */
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -14,27 +14,15 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    try {
-      payload = { title: "KickTime", body: event.data ? event.data.text() : "" };
-    } catch {
-      payload = {};
-    }
+    payload = { body: event.data ? event.data.text() : "" };
   }
-
-  const title = payload.title || "Anpfiff steht bevor! 🏆";
-  const body = payload.body || "Gleich startet dein Spiel!";
-  const url = payload.url || "/";
-  const tag = payload.tag || "kicktime-match";
-
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag,
-      icon: "/logo.png",
-      badge: "/logo.png",
-      data: { url },
-      requireInteraction: false,
-      renotify: false,
+    self.registration.showNotification(payload.title || "KickTime", {
+      body: payload.body || "Gleich geht's los!",
+      tag: payload.tag || "kicktime",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: payload.url || "/" },
     }),
   );
 });
@@ -45,17 +33,13 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        try {
-          if ("focus" in client) {
-            client.focus();
-            if ("navigate" in client) client.navigate(url);
-            return;
-          }
-        } catch {
-          /* noop */
+        if ("focus" in client) {
+          client.focus();
+          if ("navigate" in client) client.navigate(url);
+          return;
         }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
+      return self.clients.openWindow ? self.clients.openWindow(url) : undefined;
     }),
   );
 });

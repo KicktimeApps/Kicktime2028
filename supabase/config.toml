@@ -1,0 +1,12 @@
+# Supabase-CLI-Konfiguration (nur die Teile, die KickTime braucht)
+
+[functions.live-scores]
+verify_jwt = true
+
+[functions.admin]
+# PIN-Prüfung + Rate-Limit in der Funktion selbst
+verify_jwt = true
+
+[functions.send-push-reminders]
+# Aufruf durch pg_cron, geschützt über x-cron-secret
+verify_jwt = false

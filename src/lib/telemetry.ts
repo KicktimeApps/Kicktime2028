@@ -21,15 +21,11 @@ export async function sendPing(): Promise<void> {
     const last = Number(localStorage.getItem(LAST_KEY) ?? 0);
     if (Date.now() - last < MIN_INTERVAL) return;
     localStorage.setItem(LAST_KEY, String(Date.now()));
-    await sb.from("app_pings").upsert(
-      {
-        client_id: getDeviceId(),
-        last_ping: new Date().toISOString(),
-        app_version: APP_VERSION,
-        fav_team: useAppStore.getState().favorites[0] ?? null,
-      },
-      { onConflict: "client_id" },
-    );
+    await sb.rpc("kt_ping", {
+      p_client: getDeviceId(),
+      p_version: APP_VERSION,
+      p_fav: useAppStore.getState().favorites[0] ?? null,
+    });
   } catch {
     /* Statistik ist unkritisch */
   }
