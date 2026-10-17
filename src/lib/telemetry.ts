@@ -13,7 +13,7 @@ const MIN_INTERVAL = 10 * 60_000;
 const BOT_UA = /(bot|crawl|spider|slurp|preview|headless|lighthouse|pingdom|uptime)/i;
 
 export async function sendPing(): Promise<void> {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb || typeof navigator === "undefined") return;
   if (BOT_UA.test(navigator.userAgent) || navigator.doNotTrack === "1") return;
   if (useAppStore.getState().demo.enabled) return;

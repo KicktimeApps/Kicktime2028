@@ -6,7 +6,7 @@ export type FeedbackRating = -1 | 0 | 1;
 
 /** Anonymes Kurz-Feedback. Gibt false zurück, wenn kein Backend vorhanden ist. */
 export async function submitFeedback(rating: FeedbackRating, message?: string): Promise<boolean> {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return false;
   const { error } = await sb.from("app_feedback").insert({
     device_id: getDeviceId(),

@@ -214,6 +214,34 @@ function NextHero({ matches, now }: { matches: MatchView[]; now: number }) {
 
 function ChampionBanner({ code }: { code: string }) {
   const n = getNation(code)!;
+  const tournament = useTournament();
+  const final = tournament.matches.find((m) => m.stage === "final")!;
+  const hidden = useAppStore((s) => s.spoilerProtection && !s.revealed[final.id]);
+  const reveal = useAppStore((s) => s.reveal);
+  if (hidden) {
+    return (
+      <HeroShell className="border-gold/40">
+        <div className="flex flex-wrap items-center gap-4">
+          <Trophy className="h-12 w-12 shrink-0 text-gold" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gold">
+              Das Finale ist gespielt
+            </div>
+            <p className="mt-1 text-[14px] text-muted-foreground">
+              Der Spoilerschutz verbirgt den Europameister – bereit für die Auflösung?
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => reveal(final.id)}
+            className="h-11 rounded-full bg-gold px-5 text-[14px] font-semibold text-gold-foreground"
+          >
+            Europameister zeigen
+          </button>
+        </div>
+      </HeroShell>
+    );
+  }
   return (
     <HeroShell className="border-gold/40">
       <div className="gold-shimmer pointer-events-none absolute inset-0 -m-7" aria-hidden />

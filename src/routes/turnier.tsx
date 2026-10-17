@@ -46,7 +46,7 @@ function TournamentPage() {
       />
       {view === "groups" && <Groups spoiler={spoiler} />}
       {view === "bracket" && <BracketView spoiler={spoiler} />}
-      {view === "teams" && <Teams />}
+      {view === "teams" && <Teams spoiler={spoiler} />}
     </div>
   );
 }
@@ -197,12 +197,14 @@ function BracketView({ spoiler }: { spoiler: Spoiler }) {
   );
 }
 
-function Teams() {
+function Teams({ spoiler }: { spoiler: Spoiler }) {
   const statuses = useTeamStatuses();
   const favorites = useAppStore((s) => s.favorites);
   const interesting = useAppStore((s) => s.interesting);
   const openTeam = useUi((s) => s.openTeam);
   const drawn = [...statuses.values()].some((s) => s.group);
+  const tournament = useTournament();
+  const anyPlayed = tournament.matches.some((m) => m.status !== "scheduled" && m.score);
 
   const groups = useMemo(() => {
     const list = NATIONS.map((n) => ({ n, s: statuses.get(n.code)! }));
@@ -230,6 +232,12 @@ function Teams() {
       { title: "Nicht qualifiziert", items: phase(["missed", "qualifying"]) },
     ];
   }, [statuses, drawn, favorites, interesting]);
+
+  if (spoiler.hidden && anyPlayed) {
+    return (
+      <SpoilerGate text="Die Teamliste verrät, wer ausgeschieden ist." onShow={spoiler.show} />
+    );
+  }
 
   return (
     <div className="space-y-6">

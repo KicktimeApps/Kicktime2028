@@ -17,8 +17,11 @@ export function ChampionCelebration() {
   const celebrated = useAppStore((s) => s.celebratedChampion);
   const demo = useAppStore((s) => s.demo.enabled);
   const setCelebrated = useAppStore((s) => s.setCelebrated);
+  // Spoilerschutz: erst feiern, wenn das Finale-Ergebnis aufgedeckt wurde.
+  const finalId = tournament.matches.find((m) => m.stage === "final")?.id ?? "";
+  const visible = useAppStore((s) => !s.spoilerProtection || !!s.revealed[finalId]);
   const key = demo ? `demo:${champion}` : champion;
-  const open = !!champion && celebrated !== key;
+  const open = !!champion && visible && celebrated !== key;
   const nation = getNation(champion);
   const pieces = useMemo(
     () =>

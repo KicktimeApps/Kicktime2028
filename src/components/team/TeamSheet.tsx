@@ -32,6 +32,7 @@ function TeamBody({ code }: { code: string }) {
   const status = statuses.get(code);
   const tournament = useTournament();
   const mark = useAppStore((s) => teamMarkOf(s, code));
+  const spoiler = useAppStore((s) => s.spoilerProtection);
   const setTeamMark = useAppStore((s) => s.setTeamMark);
   const matches = useMemo(
     () => tournament.matches.filter((m) => m.home === code || m.away === code),
@@ -122,7 +123,7 @@ function TeamBody({ code }: { code: string }) {
 
       {table && (
         <div className="mt-3">
-          <GroupTableCard table={table} highlight={[code]} compact />
+          <GroupTableCard table={table} highlight={[code]} hideScores={spoiler} compact />
         </div>
       )}
 

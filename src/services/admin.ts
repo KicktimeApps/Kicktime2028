@@ -9,7 +9,7 @@ import { getSupabase } from "./supabase";
 async function invoke<T>(
   body: Record<string, unknown>,
 ): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { ok: false, error: "Kein Backend konfiguriert" };
   try {
     const { data, error } = await sb.functions.invoke("admin", { body });

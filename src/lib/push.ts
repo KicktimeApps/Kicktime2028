@@ -2,14 +2,14 @@
  * Web Push (VAPID) über Service Worker + Supabase.
  * Ohne VITE_VAPID_PUBLIC_KEY oder Backend bleibt es bei lokalen Erinnerungen.
  */
-import { getSupabase } from "@/services/supabase";
+import { getSupabase, isBackendConfigured } from "@/services/supabase";
 import { getDeviceId } from "./device-id";
 import { logError } from "./error-log";
 
 const SW_PATH = "/sw.js";
 const VAPID = ((import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) ?? "").trim();
 
-export const hasPushBackend = () => VAPID.length > 20 && !!getSupabase();
+export const hasPushBackend = () => VAPID.length > 20 && isBackendConfigured();
 
 function unsafeContext(): boolean {
   if (typeof window === "undefined" || !import.meta.env.PROD) return true;
@@ -42,7 +42,7 @@ function b64ToBytes(base64: string): Uint8Array {
 
 /** Push-Abo anlegen und im Backend speichern. Gibt false zurück, wenn nicht möglich. */
 export async function subscribePush(): Promise<boolean> {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!hasPushBackend() || !sb || Notification.permission !== "granted") return false;
   const reg = await ensureServiceWorker();
   if (!reg) return false;
@@ -84,7 +84,7 @@ export type AlarmPayload = {
  * Liste (fehlende anlegen, überflüssige löschen, Anstoßzeiten aktualisieren).
  */
 export async function syncServerAlarms(wanted: AlarmPayload[]): Promise<void> {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!hasPushBackend() || !sb) return;
   const { error } = await sb.rpc("kt_sync_alarms", {
     p_device: getDeviceId(),

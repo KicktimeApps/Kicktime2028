@@ -38,7 +38,7 @@ type BackendFixture = {
 };
 
 async function fetchFromBackend(force = false): Promise<LiveFixture[]> {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) throw new Error("Backend nicht konfiguriert");
   const { data, error } = await sb.functions.invoke<{
     fixtures?: BackendFixture[];
@@ -69,7 +69,7 @@ type OverrideRow = {
 };
 
 export async function fetchOverrides(): Promise<Record<string, ResultRecord>> {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return {};
   const { data, error } = await sb
     .from("match_overrides")
