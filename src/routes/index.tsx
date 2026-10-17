@@ -221,9 +221,9 @@ function ChampionBanner({ code }: { code: string }) {
   if (hidden) {
     return (
       <HeroShell className="border-gold/40">
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
           <Trophy className="h-12 w-12 shrink-0 text-gold" />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 sm:flex-1">
             <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gold">
               Das Finale ist gespielt
             </div>
@@ -234,7 +234,7 @@ function ChampionBanner({ code }: { code: string }) {
           <button
             type="button"
             onClick={() => reveal(final.id)}
-            className="h-11 rounded-full bg-gold px-5 text-[14px] font-semibold text-gold-foreground"
+            className="h-11 w-full rounded-full bg-gold px-5 text-[14px] font-semibold text-gold-foreground sm:w-auto"
           >
             Europameister zeigen
           </button>
@@ -266,7 +266,11 @@ function ChampionBanner({ code }: { code: string }) {
 /* ------------------------------------------------------------------ */
 
 function Feed({ feed }: { feed: ReturnType<typeof buildFeed> }) {
-  const [tab, setTab] = useState<Tab>("perfect");
+  const [tab, setTab] = useState<Tab>(() =>
+    feed.perfect.length === 0 && feed.outside.length === 0 && feed.recap.length > 0
+      ? "recap"
+      : "perfect",
+  );
   const list: Recommendation[] = feed[tab];
   const upcomingMine = [...feed.perfect, ...feed.outside].map((r) => r.match);
 
