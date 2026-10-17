@@ -1,0 +1,45 @@
+{
+  "name": "KickTime 2026",
+  "short_name": "KickTime",
+  "description": "Plane die FIFA WM 2026 nach deiner Zeitzone, deinen Teams und deinen freien Abenden.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1018",
+  "theme_color": "#0b1018",
+  "lang": "de",
+  "icons": [
+    { "src": "/app-icon.jpeg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" },
+    { "src": "/app-icon.jpeg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dein WM-Tag",
+      "short_name": "Heute",
+      "description": "Direkt zum Dashboard mit deinen Spielen.",
+      "url": "/",
+      "icons": [{ "src": "/app-icon.jpeg", "sizes": "192x192", "type": "image/jpeg" }]
+    },
+    {
+      "name": "Tipps",
+      "short_name": "Tipps",
+      "description": "Tipp-Statistik & offene Tipps.",
+      "url": "/tipps",
+      "icons": [{ "src": "/app-icon.jpeg", "sizes": "192x192", "type": "image/jpeg" }]
+    },
+    {
+      "name": "Tabellen",
+      "short_name": "Tabellen",
+      "description": "Gruppen- und K.-o.-Stände.",
+      "url": "/tabellen",
+      "icons": [{ "src": "/app-icon.jpeg", "sizes": "192x192", "type": "image/jpeg" }]
+    },
+    {
+      "name": "Gastro in der Nähe",
+      "short_name": "Gastro",
+      "description": "Bars & Public Viewing in deiner Stadt.",
+      "url": "/bars",
+      "icons": [{ "src": "/app-icon.jpeg", "sizes": "192x192", "type": "image/jpeg" }]
+    }
+  ]
+}

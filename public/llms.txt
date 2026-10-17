@@ -1,0 +1,16 @@
+# KickTime 2026
+
+> KickTime 2026 ist ein persönlicher Planer für die FIFA Fussball-WM 2026: alle Spiele in deiner Zeitzone, Gruppen-Tabellen, K.-o.-Baum, Tipprunden und Public-Viewing-Bars.
+
+## Seiten
+
+- [Dashboard](/): Übersicht der laufenden Turnier-Phase, persönliche Empfehlungen und Countdown.
+- [Alle Spiele](/spiele): Vollständiger Spielplan der WM 2026 in deiner Zeitzone mit Suche und Filter.
+- [Tabellen](/tabellen): Live-Gruppentabellen mit aktuellen Spielständen und kommenden Partien.
+- [Turnierbaum](/turnier): K.-o.-Runden von Sechzehntel- bis Finale, inklusive Team-Status.
+- [Tipps](/tipps): Tipprunden für Freunde – Vorhersagen für Gruppenspiele und K.-o.-Runden.
+- [Public-Viewing-Bars](/bars): Bars und Locations für gemeinsames Schauen der WM-Spiele.
+
+## Optional
+
+- [Profil](/profil): Persönliche Einstellungen – Zeitzone, Favoriten, Benachrichtigungen.
