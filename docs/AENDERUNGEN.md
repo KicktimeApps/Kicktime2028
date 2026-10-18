@@ -67,7 +67,7 @@ Projekt weiter mit Lovable funktioniert.
   gekennzeichnet. Nachgetragen wird es in einer einzigen Pflege-Datei (siehe
   [PFLEGE.md](PFLEGE.md)).
 
-### Neue Logik (mit 61 Unit-Tests)
+### Neue Logik (mit 62 Tests)
 
 - **Zeitfenster pro Wochentag**, Fenster über Mitternacht gehören zum Vorabend. Dazu gibt es
   „teilweise schaubar“ (z. B. nur die 2. Halbzeit).

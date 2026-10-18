@@ -99,7 +99,7 @@ gibt es dann nur bei geöffneter App, als Alternative bietet sich der Kalender-E
 
 ## Qualitätssicherung
 
-- `bun run check`: TypeScript, ESLint (inkl. Prettier) und 61 Unit-Tests
+- `bun run check`: TypeScript, ESLint (inkl. Prettier) und 62 Tests
 - Edge Functions: `deno check` (Deno 2)
 - Visuelle Prüfung mit Playwright (mobil 390 px und Desktop 1440 px, Dark und Light) über alle
   Seiten und Demo-Szenarien
