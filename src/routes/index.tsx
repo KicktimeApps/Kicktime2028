@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { CalendarPlus, ChevronDown, ChevronRight, FlaskConical, Star, Trophy } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Countdown } from "@/components/dashboard/Countdown";
 import { LiveBar } from "@/components/dashboard/LiveBar";
@@ -54,7 +54,7 @@ function ForYou() {
     <div className="mx-auto max-w-2xl">
       <header className="mb-3 flex items-center justify-between gap-3">
         <h1 className="font-display text-[1.6rem] font-bold uppercase leading-none tracking-tight md:text-3xl">
-          {greeting(now, prefs.timeZone)}
+          <Greeting tz={prefs.timeZone} />
         </h1>
         <span className="shrink-0 rounded-full border border-primary/30 bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
           {champion ? "Beendet" : stage && started ? STAGE_LABEL[stage] : TOURNAMENT.name}
@@ -65,6 +65,19 @@ function ForYou() {
       {drawn ? <Drawn started={started} /> : <PreDraw />}
     </div>
   );
+}
+
+/**
+ * Begrüßung nach der echten Uhrzeit – nicht nach der Turnier-Uhr, die im
+ * Vorschau-Modus simuliert ist. Aktualisiert sich jede Minute.
+ */
+function Greeting({ tz }: { tz: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return <>{greeting(now, tz)}</>;
 }
 
 function greeting(now: number, tz: string) {
