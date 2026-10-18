@@ -3,7 +3,7 @@
  *
  * Einziger Schreibweg für Admin-Korrekturen + Statistik/Feedback-Abfrage.
  * Die PIN liegt nur als Secret ADMIN_PIN auf dem Server. Brute-Force-Schutz:
- * nach 5 Fehlversuchen pro IP ist der Zugang 15 Minuten gesperrt.
+ * nach 5 Fehlversuchen pro IP (bzw. 30 insgesamt) ist der Zugang 15 Minuten gesperrt.
  *
  * Aktionen: verify | set | clear | stats | feedback
  */
@@ -11,6 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { env, json, preflight } from "../_shared/http.ts";
 
 const MAX_FAILURES = 5;
+const MAX_GLOBAL_FAILURES = 30;
 const LOCK_MS = 15 * 60_000;
 const STATUSES = ["scheduled", "live", "finished"];
 const PHASES = ["first", "half", "second", "extra", "penalties"];
@@ -45,22 +46,39 @@ Deno.serve(async (req) => {
   if (!body) return json({ error: "Ungültige Anfrage" }, 400);
 
   // ---- Brute-Force-Schutz ----
+  // Pro IP 5 Fehlversuche / 15 min. Da Header gefälscht werden können, gilt
+  // zusätzlich eine globale Obergrenze (30 / 15 min) – damit ist Durchprobieren
+  // einer 6-stelligen PIN praktisch ausgeschlossen.
   const ip = (req.headers.get("x-forwarded-for") ?? "unbekannt").split(",")[0].trim();
-  const key = `ip:${ip}`;
-  const { data: attempt } = await db.from("admin_attempts").select("failures, window_start").eq("key", key).maybeSingle();
-  const windowActive = attempt && Date.now() - Date.parse(attempt.window_start) < LOCK_MS;
-  if (windowActive && attempt.failures >= MAX_FAILURES) {
+  const keys = [
+    { key: `ip:${ip}`, max: MAX_FAILURES },
+    { key: "global", max: MAX_GLOBAL_FAILURES },
+  ];
+  const { data: attempts } = await db
+    .from("admin_attempts")
+    .select("key, failures, window_start")
+    .in("key", keys.map((k) => k.key));
+  const active = (k: string) => {
+    const a = (attempts ?? []).find((x: { key: string }) => x.key === k);
+    return a && Date.now() - Date.parse(a.window_start) < LOCK_MS ? a : null;
+  };
+  if (keys.some(({ key, max }) => (active(key)?.failures ?? 0) >= max)) {
     return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
   }
   if (!safeEqual(String(body.pin ?? ""), pin)) {
-    await db.from("admin_attempts").upsert({
-      key,
-      failures: windowActive ? attempt.failures + 1 : 1,
-      window_start: windowActive ? attempt.window_start : new Date().toISOString(),
-    });
+    await db.from("admin_attempts").upsert(
+      keys.map(({ key }) => {
+        const a = active(key);
+        return {
+          key,
+          failures: a ? a.failures + 1 : 1,
+          window_start: a ? a.window_start : new Date().toISOString(),
+        };
+      }),
+    );
     return json({ error: "Falsche PIN" }, 401);
   }
-  if (attempt) await db.from("admin_attempts").delete().eq("key", key);
+  if (active(`ip:${ip}`)) await db.from("admin_attempts").delete().eq("key", `ip:${ip}`);
 
   const matchId = String(body.matchId ?? "");
   const validId = /^m\d{2}$/.test(matchId);

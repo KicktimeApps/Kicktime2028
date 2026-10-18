@@ -109,7 +109,7 @@ Projekt weiter mit Lovable funktioniert.
 
 - Läuft **komplett ohne Backend** (OpenLigaDB direkt aus dem Browser), Supabase ist optional.
 - Komplette **SQL-Migration** mit RLS. Der Browser schreibt nur noch über abgesicherte Funktionen.
-- **Admin-PIN mit Sperre** nach 5 Fehlversuchen (15 Minuten).
+- **Admin-PIN mit Sperre** nach 5 Fehlversuchen pro IP bzw. 30 insgesamt (je 15 Minuten).
 - Beendete Ergebnisse werden serverseitig **unveränderlich** gespeichert.
 - Erinnerungen gehen erneut raus, wenn sich die Anstoßzeit ändert. Der Cron-Aufruf ist per
   Secret geschützt.

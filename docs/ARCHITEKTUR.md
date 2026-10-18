@@ -88,7 +88,7 @@ gesetzt.
 Browser ──invoke──▶ live-scores ──▶ OpenLigaDB
    │                   │  live_cache (60 s / 5 min), match_results (beendet = unveränderlich)
    ├──select──▶ match_overrides (öffentlich lesbar)
-   ├──invoke──▶ admin (PIN + Sperre) ──▶ match_overrides, Statistik, Feedback
+   ├──invoke──▶ admin (PIN + Sperre pro IP + global) ──▶ match_overrides, Statistik, Feedback
    ├──rpc──▶ kt_save_subscription / kt_sync_alarms / kt_ping (SECURITY DEFINER)
    └──insert──▶ app_feedback
 pg_cron (jede Minute) ──▶ send-push-reminders ──▶ Web Push (VAPID) ──▶ public/sw.js
