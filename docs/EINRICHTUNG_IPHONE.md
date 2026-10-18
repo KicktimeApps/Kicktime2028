@@ -82,9 +82,10 @@ Wiederhole das für jede der drei Funktionen:
 | `admin`               | `supabase/functions/admin/index.ts`               |
 | `send-push-reminders` | `supabase/functions/send-push-reminders/index.ts` |
 
-**Wichtig nur bei `send-push-reminders`:** Danach die Funktion öffnen → **„Details“** bzw.
-**„Settings“** → **„Enforce JWT Verification“** (bzw. „Verify JWT“) **ausschalten** →
-speichern. Bei den anderen beiden bleibt der Schalter **an**.
+**Wichtig bei allen drei Funktionen:** Danach die Funktion öffnen → **„Settings“** →
+**„Verify JWT with legacy secret“** (bzw. „Enforce JWT Verification“) **ausschalten** →
+**„Save changes“**. Die Absicherung steckt in den Funktionen selbst (PIN, Cron-Secret,
+Drosselung).
 
 ## Schritt 7 – Erinnerungen automatisch versenden (Cron)
 

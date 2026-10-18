@@ -63,8 +63,8 @@ Produktions-Build lokal ansehen: `bun run build && cd .output && npx wrangler de
 2. `supabase/migrations/20261018000000_kicktime_2028.sql` im SQL-Editor ausführen.
 3. Edge Functions deployen:
    ```bash
-   supabase functions deploy live-scores
-   supabase functions deploy admin
+   supabase functions deploy live-scores --no-verify-jwt
+   supabase functions deploy admin --no-verify-jwt
    supabase functions deploy send-push-reminders --no-verify-jwt
    ```
 4. Secrets setzen: `ADMIN_PIN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,

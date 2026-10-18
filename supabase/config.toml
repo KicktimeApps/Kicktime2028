@@ -1,12 +1,16 @@
 # Supabase-CLI-Konfiguration (nur die Teile, die KickTime braucht)
+#
+# JWT-Prüfung bei allen Funktionen AUS: Die neuen „publishable“ Keys sind
+# keine JWTs. Die Absicherung steckt in den Funktionen selbst:
+#  - admin: PIN + Sperre nach Fehlversuchen
+#  - send-push-reminders: Header x-cron-secret
+#  - live-scores: nur öffentliche Daten, Neuladen gedrosselt
 
 [functions.live-scores]
-verify_jwt = true
+verify_jwt = false
 
 [functions.admin]
-# PIN-Prüfung + Rate-Limit in der Funktion selbst
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-push-reminders]
-# Aufruf durch pg_cron, geschützt über x-cron-secret
 verify_jwt = false
