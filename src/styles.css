@@ -182,7 +182,7 @@
     --top-offset: calc(env(safe-area-inset-top) + 3.5rem + var(--demo-banner-h));
   }
   .app-shell.has-demo-banner {
-    --demo-banner-h: 2.75rem;
+    --demo-banner-h: 2.25rem;
   }
   @media (min-width: 768px) {
     .app-shell {

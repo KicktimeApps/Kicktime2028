@@ -4,7 +4,8 @@ import { CalendarPlus, ChevronDown, ChevronRight, FlaskConical, Star, Trophy } f
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Countdown } from "@/components/dashboard/Countdown";
-import { FitNote, MatchList, MatchRow } from "@/components/dashboard/MatchRow";
+import { LiveBar } from "@/components/dashboard/LiveBar";
+import { FitNote, MatchList } from "@/components/dashboard/MatchRow";
 import { MatchCard } from "@/components/match/MatchCard";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
@@ -51,11 +52,11 @@ function ForYou() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="font-display text-[2rem] font-bold uppercase leading-none tracking-tight md:text-4xl">
+      <header className="mb-3 flex items-center justify-between gap-3">
+        <h1 className="font-display text-[1.6rem] font-bold uppercase leading-none tracking-tight md:text-3xl">
           {greeting(now, prefs.timeZone)}
         </h1>
-        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/12 px-3 py-1 text-[12px] font-semibold uppercase tracking-wider text-primary">
+        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
           {champion ? "Beendet" : stage && started ? STAGE_LABEL[stage] : TOURNAMENT.name}
         </span>
       </header>
@@ -167,15 +168,7 @@ function Drawn({ started }: { started: boolean }) {
 
   return (
     <>
-      {live.length > 0 && (
-        <Block title="Jetzt live">
-          <MatchList className="border-live/40">
-            {live.map((m) => (
-              <MatchRow key={m.id} match={m} />
-            ))}
-          </MatchList>
-        </Block>
-      )}
+      <LiveBar matches={live} />
 
       {!started && !next ? (
         <OpenerHero now={now} matches={matches} />
@@ -203,7 +196,7 @@ function Drawn({ started }: { started: boolean }) {
               aria-selected={active}
               onClick={() => setPill(p.id)}
               className={cn(
-                "flex min-w-0 flex-col items-center justify-center rounded-2xl border px-1 py-2 transition-colors",
+                "flex min-w-0 flex-col items-center justify-center rounded-2xl border px-1 py-1.5 transition-colors",
                 active
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-foreground hover:border-muted-foreground/40",
@@ -337,43 +330,38 @@ function NextHero({ match: m, now }: { match: MatchView; now: number }) {
   const rel = relativeDay(m.kickoffUtc, now, prefs.timeZone);
   const fit = fitFor(m.kickoffUtc, prefs.timeZone, prefs.availability);
   return (
-    <HeroShell className="p-0 md:p-0">
+    <HeroShell className="mb-5 p-0 md:p-0">
       <button
         type="button"
         onClick={() => openMatch(m.id)}
-        className="block w-full p-5 text-left md:p-6"
+        className="block w-full px-4 py-3.5 text-left"
         aria-label={`Dein nächstes Spiel: ${a.name} gegen ${b.name}, Details öffnen`}
       >
-        <div className="flex items-center justify-between text-[14px] font-medium text-muted-foreground">
-          Dein nächstes Spiel
-          <ChevronRight className="h-5 w-5" />
-        </div>
-        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          {[a, b].map((t, i) => (
-            <div
-              key={i}
-              className={cn("flex min-w-0 flex-col items-center gap-2", i === 1 && "col-start-3")}
-            >
-              <Flag flag={t.flag} size="lg" />
-              <span className="w-full truncate text-center font-display text-[20px] font-bold uppercase leading-none md:text-2xl">
-                {t.name}
-              </span>
-            </div>
-          ))}
-          <span className="col-start-2 row-start-1 text-[14px] font-semibold text-muted-foreground">
-            gegen
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[13px] font-medium text-muted-foreground">Dein nächstes Spiel</span>
+          <span className="font-display text-[20px] font-bold leading-none">
+            {rel ?? formatDayLong(m.kickoffUtc, prefs.timeZone)},{" "}
+            {formatTime(m.kickoffUtc, prefs.timeZone)}
           </span>
         </div>
-        <div className="mt-4 text-center">
-          <div className="font-display text-[26px] font-bold leading-none md:text-3xl">
-            {rel ?? formatDayLong(m.kickoffUtc, prefs.timeZone)},{" "}
-            {formatTime(m.kickoffUtc, prefs.timeZone)} Uhr
+        <div className="mt-2.5 flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-[18px] font-bold leading-tight">
+            <span className="inline-flex items-center gap-2">
+              <Flag flag={a.flag} size="md" />
+              {a.name}
+            </span>
+            <span className="text-[14px] font-normal text-muted-foreground">gegen</span>
+            <span className="inline-flex items-center gap-2">
+              <Flag flag={b.flag} size="md" />
+              {b.name}
+            </span>
           </div>
-          <div className="mt-2 text-[14px] text-muted-foreground">
-            {untilText(Date.parse(m.kickoffUtc), now)} · {getTvInfo(m).label}
-          </div>
-          <FitNote fit={fit} className="mt-2 text-[14px] font-medium" />
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/60" />
         </div>
+        <div className="mt-2 text-[13px] text-muted-foreground">
+          {untilText(Date.parse(m.kickoffUtc), now)} · {getTvInfo(m).label}
+        </div>
+        <FitNote fit={fit} className="mt-1 text-[13px] font-medium" />
       </button>
     </HeroShell>
   );

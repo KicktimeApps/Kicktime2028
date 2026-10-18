@@ -9,7 +9,7 @@ export function DemoBanner() {
   if (!demo.enabled) return null;
   const meta = DEMO_SCENARIOS.find((s) => s.id === demo.scenario);
   return (
-    <div className="flex h-11 items-center gap-2.5 bg-gold px-4 text-[14px] font-semibold text-gold-foreground">
+    <div className="flex h-9 items-center gap-2 bg-gold px-4 text-[13px] font-semibold text-gold-foreground">
       <FlaskConical className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">
         Vorschau · {meta?.label}
@@ -18,7 +18,7 @@ export function DemoBanner() {
       <button
         type="button"
         onClick={() => setDemo(false)}
-        className="h-8 shrink-0 rounded-full bg-black/12 px-3.5 hover:bg-black/20"
+        className="h-7 shrink-0 rounded-full bg-black/12 px-3 hover:bg-black/20"
       >
         Beenden
       </button>
