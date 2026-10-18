@@ -156,8 +156,16 @@ die Fehlermeldung aus dem Build-Log.
    Reiter **„System“**: Bei **Quelle** muss `backend` stehen.
 4. **Profil → Erinnerungen** einschalten und die Mitteilungen erlauben.
 5. In Supabase → **„Table Editor“** → `push_subscriptions`: Hier steht jetzt ein Eintrag.
-   Die eigentlichen Erinnerungen werden verschickt, sobald die offiziellen Anstoßzeiten
+6. **Profil → Erinnerungen → „Test-Benachrichtigung senden“** antippen, dann zum
+   Home-Bildschirm wechseln oder das iPhone sperren. Nach etwa 1 Minute kommt eine echte
+   Mitteilung („Gleich geht's los ⚽ …“). Damit ist der komplette Weg (Supabase → Apple →
+   iPhone) geprüft. Die echten Erinnerungen kommen, sobald die offiziellen Anstoßzeiten
    eingetragen sind (nach der Auslosung).
+
+> **Nach einem Update, das das Verhalten oben am Bildschirm ändert:** Das iPhone merkt
+> sich manche Einstellungen beim Hinzufügen zum Home-Bildschirm. Dann das App-Symbol
+> löschen, die Seite in Safari neu öffnen und erneut „Zum Home-Bildschirm“ wählen.
+> Danach die Erinnerungen einmal neu einschalten.
 
 ---
 

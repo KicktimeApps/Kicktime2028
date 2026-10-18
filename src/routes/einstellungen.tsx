@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Bell,
+  BellRing,
   CalendarPlus,
   ChevronRight,
   Clock3,
@@ -43,7 +44,7 @@ import { downloadIcs } from "@/lib/calendar";
 import { submitFeedback, type FeedbackRating } from "@/lib/feedback";
 import { haptics } from "@/lib/haptics";
 import { detectPushSupport } from "@/lib/notifications";
-import { hasPushBackend } from "@/lib/push";
+import { hasPushBackend, sendTestPush } from "@/lib/push";
 import { enableReminders } from "@/lib/reminders";
 import { ACCENTS, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -227,6 +228,7 @@ function SettingsPage() {
               aria-label="Automatisch für Favoriten"
             />
           </label>
+          {s.pushEnabled && hasPushBackend() && <TestPushButton />}
           <button
             type="button"
             disabled={myUpcoming.length === 0}
@@ -307,6 +309,36 @@ function SettingsPage() {
         </DrawerContent>
       </Drawer>
     </div>
+  );
+}
+
+/** Schickt eine echte Push-Nachricht über Server und Apple – zum Prüfen der Einrichtung. */
+function TestPushButton() {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        const ok = await sendTestPush();
+        setBusy(false);
+        if (ok) {
+          toast.success("Test-Nachricht ist unterwegs", {
+            description:
+              "Kommt in etwa 1 Minute. Geh solange zum Home-Bildschirm oder sperre das iPhone.",
+            duration: 8000,
+          });
+        } else {
+          toast.error("Test hat nicht geklappt", {
+            description: "Schalte die Erinnerungen einmal aus und wieder ein.",
+          });
+        }
+      }}
+      className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 text-[14px] font-semibold text-primary disabled:opacity-50"
+    >
+      <BellRing className="h-4 w-4" /> {busy ? "Wird gesendet …" : "Test-Benachrichtigung senden"}
+    </button>
   );
 }
 

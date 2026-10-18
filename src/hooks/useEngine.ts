@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { isAlarmActive, ALARM_LEAD_MINUTES } from "@/domain/alarms";
 import { teamDisplay } from "@/domain/labels";
 import { applyTheme } from "@/lib/theme";
 import { scheduleLocalNotification } from "@/lib/notifications";
-import { hasPushBackend, syncServerAlarms } from "@/lib/push";
+import { hasPushBackend, subscribePush, syncServerAlarms } from "@/lib/push";
 import { pollInterval, refreshLiveData } from "@/services/live-data";
 import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";
@@ -96,12 +96,30 @@ export function useEngine(): void {
         ]),
     ),
   );
+  // Push-Abo bei jedem Start auffrischen: iOS kann Abos austauschen oder
+  // verwerfen. Erst danach wissen wir, ob der Server zuständig ist.
+  const [serverPush, setServerPush] = useState<boolean | null>(null);
   useEffect(() => {
-    if (!pushEnabled || demo.enabled) return;
+    const granted = typeof Notification !== "undefined" && Notification.permission === "granted";
+    if (!pushEnabled || demo.enabled || !hasPushBackend() || !granted) {
+      setServerPush(false);
+      return;
+    }
+    let cancelled = false;
+    setServerPush(null);
+    subscribePush().then((ok) => !cancelled && setServerPush(ok));
+    return () => {
+      cancelled = true;
+    };
+  }, [pushEnabled, demo.enabled]);
+
+  useEffect(() => {
+    if (!pushEnabled || demo.enabled || serverPush === null) return;
     const due = JSON.parse(dueKey) as Array<[string, string, string]>;
-    // Lokal (solange die App offen ist)
+    // Lokal (solange die App offen ist) – nur ohne Server-Push, sonst käme
+    // jede Erinnerung doppelt.
     const cancel =
-      typeof Notification !== "undefined" && Notification.permission === "granted"
+      !serverPush && typeof Notification !== "undefined" && Notification.permission === "granted"
         ? due.map(([id, kickoff, title]) =>
             scheduleLocalNotification(
               Date.parse(kickoff) - ALARM_LEAD_MINUTES * 60_000,
@@ -112,7 +130,7 @@ export function useEngine(): void {
           )
         : [];
     // Server (zuverlässig im Hintergrund), leicht entprellt
-    const t = hasPushBackend()
+    const t = serverPush
       ? window.setTimeout(() => {
           syncServerAlarms(
             due.map(([matchId, kickoffUtc, title]) => ({
@@ -128,5 +146,5 @@ export function useEngine(): void {
       cancel.forEach((c) => c());
       window.clearTimeout(t);
     };
-  }, [dueKey, pushEnabled, demo.enabled]);
+  }, [dueKey, pushEnabled, demo.enabled, serverPush]);
 }

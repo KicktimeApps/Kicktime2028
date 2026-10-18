@@ -82,16 +82,16 @@ export type AlarmPayload = {
   leadMinutes: number;
 };
 
-/**
- * Ersetzt die serverseitigen Erinnerungen dieses Geräts durch die lokale
- * Liste (fehlende anlegen, überflüssige löschen, Anstoßzeiten aktualisieren).
- */
-export async function syncServerAlarms(wanted: AlarmPayload[]): Promise<void> {
+// Zuletzt an den Server übertragene Liste – für die Test-Benachrichtigung,
+// die sonst die echten Erinnerungen ersetzen würde.
+let lastWanted: AlarmPayload[] = [];
+
+async function pushAlarms(list: AlarmPayload[]): Promise<boolean> {
   const sb = await getSupabase();
-  if (!hasPushBackend() || !sb) return;
+  if (!hasPushBackend() || !sb) return false;
   const { error } = await sb.rpc("kt_sync_alarms", {
     p_device: getDeviceId(),
-    p_alarms: wanted.map((w) => ({
+    p_alarms: list.map((w) => ({
       match_id: w.matchId,
       kickoff_utc: w.kickoffUtc,
       lead_minutes: w.leadMinutes,
@@ -99,4 +99,35 @@ export async function syncServerAlarms(wanted: AlarmPayload[]): Promise<void> {
     })),
   });
   if (error) logError("push", `Erinnerungen synchronisieren: ${error.message}`);
+  return !error;
+}
+
+/**
+ * Ersetzt die serverseitigen Erinnerungen dieses Geräts durch die lokale
+ * Liste (fehlende anlegen, überflüssige löschen, Anstoßzeiten aktualisieren).
+ */
+export async function syncServerAlarms(wanted: AlarmPayload[]): Promise<void> {
+  lastWanted = wanted;
+  await pushAlarms(wanted);
+}
+
+/**
+ * Echte Test-Benachrichtigung über den kompletten Weg (Server → Apple →
+ * iPhone): legt eine Test-Erinnerung mit Anpfiff in 2 Minuten an. Der
+ * Cron-Job verschickt sie beim nächsten Lauf (spätestens nach ca. 1 Minute).
+ * Danach wird die Liste wieder auf die echten Erinnerungen zurückgesetzt.
+ */
+export async function sendTestPush(): Promise<boolean> {
+  if (!(await subscribePush())) return false;
+  const ok = await pushAlarms([
+    ...lastWanted,
+    {
+      matchId: `test-${Date.now()}`,
+      kickoffUtc: new Date(Date.now() + 2 * 60_000).toISOString(),
+      title: "Test: So kommt deine KickTime-Erinnerung an",
+      leadMinutes: 15,
+    },
+  ]);
+  window.setTimeout(() => void pushAlarms(lastWanted), 4 * 60_000);
+  return ok;
 }

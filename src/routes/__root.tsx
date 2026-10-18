@@ -79,9 +79,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
+      // Bewusst KEIN apple-mobile-web-app-capable / status-bar-style: Damit
+      // startet iOS die Home-Bildschirm-App im alten Vollbildmodus, der Inhalt
+      // rutscht unter die Statusleiste und wird dort weichgezeichnet. Ohne die
+      // Tags gilt das Manifest (display: standalone) – wie bei KickTime 2026.
       { name: "theme-color", content: "#0b1122" },
-      { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "KickTime" },
       { property: "og:site_name", content: `KickTime ${TOURNAMENT.year}` },
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },

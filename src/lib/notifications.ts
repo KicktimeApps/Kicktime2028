@@ -43,13 +43,29 @@ export function scheduleLocalNotification(
   const delay = whenMs - Date.now();
   // setTimeout ist auf ~24,8 Tage begrenzt
   if (delay <= 0 || delay > 2_000_000_000) return () => {};
-  const handle = window.setTimeout(() => {
-    if (Notification.permission !== "granted") return;
-    try {
-      new Notification(title, { body, tag, icon: "/icon-192.png" });
-    } catch {
-      /* noop */
-    }
-  }, delay);
+  const handle = window.setTimeout(() => void showNotification(title, body, tag), delay);
   return () => window.clearTimeout(handle);
+}
+
+/**
+ * Zeigt eine Benachrichtigung – bevorzugt über den Service Worker, denn als
+ * Home-Bildschirm-App kennt iOS `new Notification()` nicht.
+ */
+async function showNotification(title: string, body: string, tag: string): Promise<void> {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  const options = { body, tag, icon: "/icon-192.png" };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration("/sw.js");
+    if (reg) {
+      await reg.showNotification(title, options);
+      return;
+    }
+  } catch {
+    /* Fallback unten */
+  }
+  try {
+    new Notification(title, options);
+  } catch {
+    /* noop */
+  }
 }
