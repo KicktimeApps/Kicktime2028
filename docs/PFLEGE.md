@@ -94,6 +94,9 @@ Halbfinale, Finale) oder „MagentaTV · Free-TV offen“.
   „SV Großefehn“ bei der EM 2024) ignoriert KickTime. Falsche Spielstände korrigierst du im
   **Admin-Bereich → Korrektur**. Eine Korrektur gilt so lange, bis die Quelle das Spielende
   oder mehr Tore meldet.
+- Elfmeterschießen: OpenLigaDB führt das Ergebnis „nach Elfmeterschießen“ nicht immer
+  einheitlich (mal mit, mal ohne die Tore aus dem Spiel). Der **Sieger** wird in beiden Fällen
+  richtig erkannt; sollte die angezeigte Elfmeterzahl nicht stimmen, im Admin-Bereich korrigieren.
 - Im Admin-Bereich → System siehst du Quelle, letzten Abruf und die Zahl der Spiele, die die App
   nicht zuordnen konnte.
 
