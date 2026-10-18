@@ -191,6 +191,7 @@ ohne sie weiter (mit dem alten Verhalten), aber mit Update sind sie sicherer und
 | -------------------- | ------------------------------------------------------------ | ------------------------------ |
 | Korrektur überbrückt | `supabase/migrations/20261018120000_override_source_sig.sql` | `admin`                        |
 | Härtung              | `supabase/migrations/20261018180000_haertung.sql`            | `admin`, `send-push-reminders` |
+| Tipprunde            | `supabase/migrations/20261019000000_tipprunde.sql`           | `admin`                        |
 
 Edge Function neu einfügen: **Edge Functions** → Funktion öffnen → **Code** → alles ersetzen
 → **Deploy**. Danach prüfen, dass „Verify JWT“ aus ist.
