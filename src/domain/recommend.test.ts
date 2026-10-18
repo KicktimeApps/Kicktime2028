@@ -66,7 +66,12 @@ describe("Tipps", () => {
     expect(scorePrediction({ home: 2, away: 1 }, { home: 2, away: 1 }).points).toBe(4);
     expect(scorePrediction({ home: 3, away: 2 }, { home: 2, away: 1 }).points).toBe(3);
     expect(scorePrediction({ home: 1, away: 0 }, { home: 3, away: 1 }).points).toBe(2);
-    expect(scorePrediction({ home: 1, away: 1 }, { home: 2, away: 2 }).result).toBe("diff");
+    // Remis falsch getippt: nur Tendenz (2), keine Tordifferenz
+    expect(scorePrediction({ home: 1, away: 1 }, { home: 2, away: 2 }).result).toBe("tendency");
+    expect(scorePrediction({ home: 1, away: 1 }, { home: 2, away: 2 }).points).toBe(2);
+    // Halbfinale und Finale doppelt
+    expect(scorePrediction({ home: 2, away: 1 }, { home: 2, away: 1 }, "final").points).toBe(8);
+    expect(scorePrediction({ home: 1, away: 0 }, { home: 3, away: 1 }, "sf").points).toBe(4);
     expect(scorePrediction({ home: 0, away: 1 }, { home: 2, away: 1 }).points).toBe(0);
   });
 

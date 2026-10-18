@@ -189,7 +189,43 @@ Deno.serve(async (req) => {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 6)
         .map(([team, count]) => ({ team, count }));
-      return json({ online, day, week, total, topTeams });
+      // Push-Zustand: Abos, anstehende Erinnerungen, in 24 h verschickte.
+      const head = { count: "exact" as const, head: true };
+      const nowIso = new Date().toISOString();
+      const [subs, upcoming, sent24h] = await Promise.all([
+        db.from("push_subscriptions").select("device_id", head),
+        db.from("match_alarms").select("device_id", head).gt("kickoff_utc", nowIso),
+        db
+          .from("match_alarms")
+          .select("device_id", head)
+          .gte("notified_for", since(86_400_000))
+          .lte("notified_for", new Date(Date.now() + 3_600_000).toISOString()),
+      ]);
+      const push = {
+        subscriptions: subs.count ?? 0,
+        upcoming: upcoming.count ?? 0,
+        sent24h: sent24h.count ?? 0,
+      };
+      return json({ online, day, week, total, topTeams, push });
+    }
+
+    // Anstoßzeiten für die Tipprunden-Sperre (kt_fixtures) aus der App übernehmen.
+    case "fixtures": {
+      const list = Array.isArray(body.fixtures) ? body.fixtures.slice(0, 60) : [];
+      const rows = list
+        .filter(
+          (f: { matchId?: string; kickoffUtc?: string }) =>
+            /^m\d{2}$/.test(String(f.matchId)) && !Number.isNaN(Date.parse(String(f.kickoffUtc))),
+        )
+        .map((f: { matchId: string; kickoffUtc: string }) => ({
+          match_id: f.matchId,
+          kickoff_utc: new Date(f.kickoffUtc).toISOString(),
+        }));
+      if (rows.length === 0) return json({ error: "Keine gültigen Anstoßzeiten" }, 400);
+      const { error } = await db.from("kt_fixtures").upsert(rows);
+      return error
+        ? json({ error: "Speichern fehlgeschlagen (SQL-Update Tipprunde ausgeführt?)" }, 500)
+        : json({ ok: true, count: rows.length });
     }
 
     case "feedback": {

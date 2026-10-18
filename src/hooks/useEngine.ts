@@ -3,8 +3,8 @@ import { isAlarmActive, ALARM_LEAD_MINUTES } from "@/domain/alarms";
 import { teamDisplay } from "@/domain/labels";
 import { applyTheme } from "@/lib/theme";
 import { scheduleLocalNotification } from "@/lib/notifications";
-import { hasPushBackend, subscribePush, syncServerAlarms } from "@/lib/push";
-import { pollInterval, refreshLiveData } from "@/services/live-data";
+import { ensureServiceWorker, hasPushBackend, subscribePush, syncServerAlarms } from "@/lib/push";
+import { pollInterval, refreshLiveData, restoreLiveCache } from "@/services/live-data";
 import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";
 import { KO_MATCH_WINDOW_MIN } from "@/tournament/config";
@@ -35,6 +35,12 @@ export function useEngine(): void {
     };
   }, [tick]);
 
+  // Große Schrift
+  const largeText = useAppStore((s) => s.largeText);
+  useEffect(() => {
+    document.documentElement.classList.toggle("text-large", largeText);
+  }, [largeText]);
+
   // Demo
   useEffect(() => {
     useMatchStore.getState().setDemo(demo);
@@ -57,6 +63,13 @@ export function useEngine(): void {
       return s.now >= k - 15 * 60_000 && s.now <= k + (KO_MATCH_WINDOW_MIN + 20) * 60_000;
     }),
   );
+  // Offline: gespeicherten Stand sofort zeigen; Service Worker hält die App
+  // für das Funkloch bereit (und wird für Push ohnehin gebraucht).
+  useEffect(() => {
+    restoreLiveCache();
+    void ensureServiceWorker();
+  }, []);
+
   useEffect(() => {
     if (demo.enabled) return;
     let timer: number | undefined;

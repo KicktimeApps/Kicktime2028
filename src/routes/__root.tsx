@@ -17,6 +17,7 @@ import { TeamSheet } from "@/components/team/TeamSheet";
 import { ChampionCelebration } from "@/components/tournament/ChampionCelebration";
 import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
+import { useTipSync } from "@/hooks/useTipSync";
 import { logError } from "@/lib/error-log";
 import { sendPing } from "@/lib/telemetry";
 import { useAppStore } from "@/store/app-store";
@@ -33,7 +34,7 @@ const DESCRIPTION =
  * Setzt Dark/Light-Klasse vor dem ersten Paint (kein Aufblitzen).
  * Liest die gespeicherte Einstellung direkt aus localStorage.
  */
-const THEME_BOOT = `(function(){try{var s=JSON.parse(localStorage.getItem("${TOURNAMENT.storagePrefix}")||"{}").state||{};var t=s.theme||"system";if(t==="system"){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}var r=document.documentElement;r.classList.remove("dark","light");r.classList.add(t)}catch(e){}})();`;
+const THEME_BOOT = `(function(){try{var s=JSON.parse(localStorage.getItem("${TOURNAMENT.storagePrefix}")||"{}").state||{};var t=s.theme||"system";if(t==="system"){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}var r=document.documentElement;r.classList.remove("dark","light");r.classList.add(t);r.classList.toggle("text-large",!!s.largeText)}catch(e){}})();`;
 
 function NotFound() {
   return (
@@ -192,6 +193,7 @@ function RootComponent() {
 function App() {
   const onboarded = useAppStore((s) => s.onboarded);
   useEngine();
+  useTipSync();
   useGlobalErrorLogging();
   useEffect(() => {
     sendPing();

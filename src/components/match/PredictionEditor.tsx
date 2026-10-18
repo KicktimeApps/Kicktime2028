@@ -28,7 +28,7 @@ function Stepper({
         disabled={disabled || v === 0 || value === null}
         onClick={() => onChange(v - 1)}
         aria-label={`${label} weniger`}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground disabled:opacity-30"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border text-muted-foreground disabled:opacity-30"
       >
         <Minus className="h-4 w-4" />
       </button>
@@ -45,7 +45,7 @@ function Stepper({
         disabled={disabled || v >= 15}
         onClick={() => onChange(value === null ? 0 : v + 1)}
         aria-label={`${label} mehr`}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary disabled:opacity-30"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary disabled:opacity-30"
       >
         <Plus className="h-4 w-4" />
       </button>
@@ -77,7 +77,9 @@ export function PredictionEditor({ match: m }: { match: MatchView }) {
 
   // Bei verborgenem Ergebnis keine Wertung – „Volltreffer“ würde es verraten.
   const result =
-    pred && m.status === "finished" && m.score && !hidden ? scorePrediction(pred, m.score) : null;
+    pred && m.status === "finished" && m.score && !hidden
+      ? scorePrediction(pred, m.score, m.stage)
+      : null;
   const set = (home: number, away: number) => {
     haptics.tap();
     if (!pred) toast.success("Tipp gespeichert");
@@ -137,7 +139,22 @@ export function PredictionEditor({ match: m }: { match: MatchView }) {
         {pred && open && (
           <button
             type="button"
-            onClick={() => clearPrediction(m.id)}
+            onClick={() => {
+              const before = pred;
+              clearPrediction(m.id);
+              toast("Tipp gelöscht", {
+                duration: 6000,
+                description: before
+                  ? `${a.name} ${before.home}:${before.away} ${b.name}`
+                  : undefined,
+                action: before
+                  ? {
+                      label: "Rückgängig",
+                      onClick: () => setPrediction(m.id, before.home, before.away),
+                    }
+                  : undefined,
+              });
+            }}
             className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:text-foreground"
           >
             <Trash2 className="h-3 w-3" /> Löschen

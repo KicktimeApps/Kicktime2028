@@ -201,7 +201,7 @@ function Overview() {
           to="darstellung"
           icon={<Palette />}
           title="Darstellung"
-          value={THEME_LABEL[s.theme]}
+          value={THEME_LABEL[s.theme] + (s.largeText ? " · groß" : "")}
         />
         <NavRow
           to="vorschau"
@@ -418,6 +418,21 @@ function AppearanceContent() {
         />
       </Panel>
       <Panel>
+        <label className="flex items-center gap-3">
+          <span className="flex-1">
+            <span className="block text-[16px] font-medium">Große Schrift</span>
+            <span className="mt-0.5 block text-[13.5px] text-muted-foreground">
+              Macht Schrift, Knöpfe und Abstände in der ganzen App etwas größer.
+            </span>
+          </span>
+          <Switch
+            checked={s.largeText}
+            onCheckedChange={s.setLargeText}
+            aria-label="Große Schrift"
+          />
+        </label>
+      </Panel>
+      <Panel>
         <div className="mb-3 text-[15px] font-medium">Akzentfarbe</div>
         <div className="flex flex-wrap gap-3">
           {ACCENTS.map((a) => (
@@ -516,10 +531,14 @@ function FeedbackContent() {
   if (!isBackendConfigured()) return null;
   const send = async (rating: FeedbackRating) => {
     haptics.tap();
-    const ok = await submitFeedback(rating, text);
-    if (ok) {
+    const res = await submitFeedback(rating, text);
+    if (res === "ok") {
       setSent(true);
       toast.success("Danke für dein Feedback!");
+    } else if (res === "limit") {
+      toast("Für heute ist genug Feedback angekommen", {
+        description: "Danke! Morgen kannst du wieder etwas schicken.",
+      });
     } else toast.error("Konnte nicht gesendet werden");
   };
   return (

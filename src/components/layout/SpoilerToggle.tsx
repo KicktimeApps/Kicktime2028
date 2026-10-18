@@ -26,11 +26,11 @@ export function SpoilerToggle({
       aria-pressed={on}
       aria-label={on ? "Spoilerschutz ausschalten" : "Spoilerschutz einschalten"}
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-full border px-3 text-[13px] font-medium transition-colors",
+        "inline-flex h-11 items-center gap-2 rounded-full border px-3 text-[13px] font-medium transition-colors",
         on
           ? "border-primary/40 bg-primary/12 text-primary"
           : "border-border text-muted-foreground hover:text-foreground",
-        !withLabel && "w-9 justify-center px-0",
+        !withLabel && "w-11 justify-center px-0",
         className,
       )}
     >

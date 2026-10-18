@@ -1,4 +1,4 @@
-import { Loader2, Lock, Minus, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
+import { Clock, Loader2, Lock, Minus, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Segmented } from "@/components/common/Segmented";
@@ -20,6 +20,7 @@ import {
   fetchFeedback,
   fetchStats,
   setOverride,
+  syncFixtures,
   verifyPin,
   type FeedbackRow,
   type Stats,
@@ -62,7 +63,7 @@ export function AdminPanel({ open, onClose }: { open: boolean; onClose: () => vo
                 { value: "stats", label: "Statistik" },
               ]}
             />
-            {tab === "system" && <SystemTab />}
+            {tab === "system" && <SystemTab pin={pin} />}
             {tab === "override" && <OverrideTab pin={pin} />}
             {tab === "stats" && <StatsTab pin={pin} />}
           </>
@@ -130,7 +131,7 @@ function PinGate({ onUnlock }: { onUnlock: (pin: string) => void }) {
   );
 }
 
-function SystemTab() {
+function SystemTab({ pin }: { pin: string }) {
   const live = useMatchStore((s) => s.live);
   const errors = useSyncExternalStore(subscribeErrors, getErrors, getErrors);
   const [busy, setBusy] = useState(false);
@@ -139,7 +140,7 @@ function SystemTab() {
       <div className="grid grid-cols-2 gap-2">
         <Info label="Quelle" value={live.source ?? "–"} />
         <Info
-          label="Letzter Abruf"
+          label="Zuletzt geladen"
           value={live.lastFetchAt ? new Date(live.lastFetchAt).toLocaleTimeString("de-DE") : "–"}
         />
         <Info label="Fehler" value={live.lastError ?? "keiner"} />
@@ -157,6 +158,23 @@ function SystemTab() {
         className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[14px] font-semibold text-primary-foreground disabled:opacity-50"
       >
         <Zap className="h-4 w-4" /> Sofort neu laden (Cache umgehen)
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          const fixtures = useMatchStore
+            .getState()
+            .tournament.matches.map((m) => ({ matchId: m.id, kickoffUtc: m.kickoffUtc }));
+          const res = await syncFixtures(pin, fixtures);
+          setBusy(false);
+          if (res.ok) toast.success(`${res.data.count} Anstoßzeiten übernommen`);
+          else toast.error("Fehler", { description: res.error });
+        }}
+        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border text-[14px] font-semibold disabled:opacity-50"
+      >
+        <Clock className="h-4 w-4" /> Anstoßzeiten für Tipprunden abgleichen
       </button>
       <div>
         <div className="mb-1 flex items-center justify-between">
@@ -479,6 +497,20 @@ function StatsTab({ pin }: { pin: string }) {
         <Info label="24 Stunden" value={String(stats?.day ?? "–")} />
         <Info label="7 Tage" value={String(stats?.week ?? "–")} />
         <Info label="Gesamt" value={String(stats?.total ?? "–")} />
+      </div>
+      <div>
+        <div className="mb-1 font-semibold">Push-Erinnerungen</div>
+        {stats?.push ? (
+          <div className="grid grid-cols-3 gap-2">
+            <Info label="Abos" value={String(stats.push.subscriptions)} />
+            <Info label="Anstehend" value={String(stats.push.upcoming)} />
+            <Info label="Gesendet 24 h" value={String(stats.push.sent24h)} />
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            {stats ? "Server-Funktion „admin“ aktualisieren, um das zu sehen." : "–"}
+          </p>
+        )}
       </div>
       {stats && stats.topTeams.length > 0 && (
         <div>

@@ -29,6 +29,8 @@ type State = {
 
   theme: ThemeMode;
   accent: AccentId;
+  /** Alles etwas größer (Schrift, Knöpfe, Abstände). */
+  largeText: boolean;
 
   pushEnabled: boolean;
   autoAlarmFavorites: boolean;
@@ -36,6 +38,12 @@ type State = {
   alarms: Record<string, boolean>;
 
   predictions: Record<string, Prediction>;
+  /** Europameister-Tipp (Ländercode), bis zum Eröffnungsspiel änderbar. */
+  championTip: string | null;
+  /** Zuletzt verwendeter Name in Tipprunden. */
+  tipName: string;
+  /** Ist das Gerät in mindestens einer Tipprunde? (dann werden Tipps geteilt) */
+  inTipGroups: boolean;
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -53,8 +61,13 @@ type Actions = {
   restartOnboarding: () => void;
   setSpoiler: (v: boolean) => void;
   reveal: (matchId: string) => void;
+  revealMany: (matchIds: string[]) => void;
   setTheme: (t: ThemeMode) => void;
   setAccent: (a: AccentId) => void;
+  setLargeText: (v: boolean) => void;
+  setChampionTip: (code: string | null) => void;
+  setTipName: (name: string) => void;
+  setInTipGroups: (v: boolean) => void;
   setPushEnabled: (v: boolean) => void;
   setAutoAlarmFavorites: (v: boolean) => void;
   setAlarm: (matchId: string, v: boolean | null) => void;
@@ -77,6 +90,10 @@ export const useAppStore = create<State & Actions>()(
       revealed: {},
       theme: "system",
       accent: "floodlight",
+      largeText: false,
+      championTip: null,
+      tipName: "",
+      inTipGroups: false,
       pushEnabled: false,
       autoAlarmFavorites: true,
       alarms: {},
@@ -124,10 +141,18 @@ export const useAppStore = create<State & Actions>()(
       completeOnboarding: () => set({ onboarded: true }),
       restartOnboarding: () => set({ onboarded: false }),
       setSpoiler: (v) => set({ spoilerProtection: v }),
+      revealMany: (ids) =>
+        set((s) => ({
+          revealed: { ...s.revealed, ...Object.fromEntries(ids.map((id) => [id, true as const])) },
+        })),
       reveal: (id) =>
         set((s) => (s.revealed[id] ? s : { revealed: { ...s.revealed, [id]: true } })),
       setTheme: (theme) => set({ theme }),
       setAccent: (accent) => set({ accent }),
+      setLargeText: (largeText) => set({ largeText }),
+      setChampionTip: (championTip) => set({ championTip }),
+      setTipName: (tipName) => set({ tipName }),
+      setInTipGroups: (inTipGroups) => set({ inTipGroups }),
       setPushEnabled: (v) => set(v ? { pushEnabled: true } : { pushEnabled: false }),
       setAutoAlarmFavorites: (v) => set({ autoAlarmFavorites: v }),
       setAlarm: (id, v) =>

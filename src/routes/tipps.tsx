@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Section } from "@/components/common/Section";
 import { Segmented } from "@/components/common/Segmented";
 import { PredictionEditor } from "@/components/match/PredictionEditor";
+import { ChampionTipCard, RulesCard, TipGroupsSection } from "@/components/tipgroups/TipGroups";
 import { useSpoiler } from "@/components/match/useSpoiler";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
@@ -65,7 +66,7 @@ function MatchHead({ m }: { m: MatchView }) {
 function RatedRow({ m }: { m: MatchView }) {
   const p = useAppStore((s) => s.predictions[m.id]);
   const { hidden, reveal } = useSpoiler(m);
-  const r = scorePrediction(p, m.score!);
+  const r = scorePrediction(p, m.score!, m.stage);
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
       <span
@@ -180,6 +181,9 @@ function TipsPage() {
         ))}
       </div>
 
+      <ChampionTipCard />
+      <TipGroupsSection />
+
       {summary.rated > 0 && (
         <div className="-mt-4 mb-7">
           <div className="flex h-2 overflow-hidden rounded-full bg-muted">
@@ -284,10 +288,7 @@ function TipsPage() {
               </div>
             )}
           </Section>
-          <p className="text-[12px] text-muted-foreground">
-            Gewertet wird das Ergebnis nach 90 bzw. 120 Minuten, ohne Elfmeterschießen. Max.{" "}
-            {RESULT_POINTS.exact} Punkte pro Spiel.
-          </p>
+          <RulesCard />
         </>
       )}
     </div>

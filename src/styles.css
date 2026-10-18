@@ -333,3 +333,16 @@
     animation: none;
   }
 }
+
+/* „Große Schrift“: alles gleichmäßig größer. zoom statt transform, damit
+   Layout und fest platzierte Leisten korrekt bleiben. */
+html.text-large body {
+  zoom: 1.15;
+}
+/* Volle Bildschirmhöhe trotz Zoom nicht überschreiten. */
+html.text-large .min-h-dvh {
+  min-height: calc(100dvh / 1.15);
+}
+html.text-large .h-dvh {
+  height: calc(100dvh / 1.15);
+}

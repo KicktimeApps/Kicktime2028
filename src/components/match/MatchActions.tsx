@@ -31,7 +31,7 @@ function IconButton({
         onClick();
       }}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors [&_svg]:h-[18px] [&_svg]:w-[18px]",
+        "inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors [&_svg]:h-5 [&_svg]:w-5",
         active
           ? "bg-primary/14 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -112,6 +112,9 @@ export function MatchActions({
           togglePinned(m.id);
           toast(pinned ? "Nicht mehr vorgemerkt" : "Vorgemerkt – erscheint bei „Für dich“", {
             description: title,
+            // Versehentlich entfernt? Mit einem Tipp zurückholen.
+            action: pinned ? { label: "Rückgängig", onClick: () => togglePinned(m.id) } : undefined,
+            duration: pinned ? 6000 : undefined,
           });
         }}
       >

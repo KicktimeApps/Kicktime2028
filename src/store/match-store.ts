@@ -6,7 +6,8 @@ import { DRAW } from "@/tournament/draw";
 import { FIXTURES } from "@/tournament/schedule";
 
 export type LiveMeta = {
-  source: "backend" | "openligadb" | null;
+  /** "cache" = zuletzt gespeicherter Stand (offline / vor dem ersten Abruf). */
+  source: "backend" | "openligadb" | "cache" | null;
   lastFetchAt: number | null;
   lastError: string | null;
   unmatched: number;

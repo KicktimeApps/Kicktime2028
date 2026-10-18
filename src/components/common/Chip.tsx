@@ -51,7 +51,7 @@ export function FilterChip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors [&_svg]:h-3.5 [&_svg]:w-3.5",
+        "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium transition-colors [&_svg]:h-4 [&_svg]:w-4",
         active
           ? "border-primary/50 bg-primary/12 text-primary"
           : "border-border bg-card text-muted-foreground hover:text-foreground",

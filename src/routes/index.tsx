@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { CalendarPlus, ChevronDown, ChevronRight, FlaskConical, Star, Trophy } from "lucide-react";
+import {
+  CalendarPlus,
+  ChevronDown,
+  ChevronRight,
+  FlaskConical,
+  Play,
+  Star,
+  Trophy,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Countdown } from "@/components/dashboard/Countdown";
@@ -29,7 +37,7 @@ import { useNow, useTournament } from "@/store/match-store";
 import { useUi } from "@/store/ui-store";
 import { MILESTONES, STAGE_LABEL, TOURNAMENT } from "@/tournament/config";
 import { getNation } from "@/tournament/nations";
-import { getTvInfo } from "@/tournament/tv";
+import { BROADCASTER_URLS, broadcastersOf, getTvInfo } from "@/tournament/tv";
 
 export const Route = createFileRoute("/")({
   component: ForYou,
@@ -198,7 +206,11 @@ function Drawn({ started }: { started: boolean }) {
         </div>
       )}
 
-      <div role="tablist" aria-label="Deine Spiele" className="flex gap-1 min-[380px]:gap-1.5">
+      <div
+        role="tablist"
+        aria-label="Deine Spiele"
+        className="flex flex-wrap gap-1 min-[380px]:gap-1.5"
+      >
         {PILLS.map((p) => {
           const active = p.id === pill;
           return (
@@ -347,6 +359,8 @@ function NextHero({ match: m, now }: { match: MatchView; now: number }) {
   const b = teamDisplay(m.away, m.slotAway);
   const rel = relativeDay(m.kickoffUtc, now, prefs.timeZone);
   const fit = fitFor(m.kickoffUtc, prefs.timeZone, prefs.availability);
+  // 30 Minuten vor Anpfiff: Sender direkt antippbar.
+  const soon = Date.parse(m.kickoffUtc) - now <= 30 * 60_000;
   return (
     <HeroShell className="mb-5 p-0 md:p-0">
       <button
@@ -381,6 +395,22 @@ function NextHero({ match: m, now }: { match: MatchView; now: number }) {
         </div>
         <FitNote fit={fit} className="mt-1 text-[13px] font-medium" />
       </button>
+      {soon && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/70 px-4 py-3">
+          <span className="text-[13px] font-semibold">Gleich geht's los – einschalten:</span>
+          {broadcastersOf(getTvInfo(m)).map((name) => (
+            <a
+              key={name}
+              href={BROADCASTER_URLS[name]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-[14px] font-semibold text-primary-foreground"
+            >
+              <Play className="h-3.5 w-3.5 fill-current" /> {name}
+            </a>
+          ))}
+        </div>
+      )}
     </HeroShell>
   );
 }

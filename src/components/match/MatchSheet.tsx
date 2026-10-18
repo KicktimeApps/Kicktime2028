@@ -5,6 +5,7 @@ import {
   Info,
   MapPin,
   Plane,
+  Play,
   Share2,
   Target,
   ThermometerSun,
@@ -29,7 +30,7 @@ import { useMatch, useNow, useTournament } from "@/store/match-store";
 import { useAppStore } from "@/store/app-store";
 import { useUi } from "@/store/ui-store";
 import { STAGE_LABEL } from "@/tournament/config";
-import { BROADCASTER_URLS, getTvInfo } from "@/tournament/tv";
+import { BROADCASTER_URLS, broadcastersOf, getTvInfo } from "@/tournament/tv";
 import { COUNTRY_LABEL } from "@/tournament/venues";
 import { MatchActions } from "./MatchActions";
 import { phaseLabel } from "./phase";
@@ -212,7 +213,7 @@ function SheetBody({ matchId }: { matchId: string }) {
             downloadIcs([m], `kicktime-spiel-${m.number}.ics`);
             toast.success("Kalendereintrag erstellt");
           }}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <CalendarPlus className="h-4 w-4" /> Kalender
         </button>
@@ -226,7 +227,7 @@ function SheetBody({ matchId }: { matchId: string }) {
               toast.error("Teilen nicht möglich");
             }
           }}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <Share2 className="h-4 w-4" /> Teilen
         </button>
@@ -297,15 +298,13 @@ function TvBlock({ tv }: { tv: ReturnType<typeof getTvInfo> }) {
       rel="noopener noreferrer"
       className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-subtle px-3.5 text-[14px] font-semibold hover:border-primary/50"
     >
-      {name} <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+      <Play className="h-3.5 w-3.5 fill-current text-primary" /> {name}
+      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
     </a>
   );
   return (
     <div>
-      <div className="flex flex-wrap gap-2">
-        {tv.freeTv ? link(tv.freeTv) : tv.freeTvLikely ? [link("ARD"), link("ZDF")] : null}
-        {link("MagentaTV")}
-      </div>
+      <div className="flex flex-wrap gap-2">{broadcastersOf(tv).map(link)}</div>
       <p className="mt-2.5 text-[12.5px] leading-relaxed text-muted-foreground">
         {tv.freeTv
           ? `Free-TV bei ${tv.freeTv}, außerdem bei MagentaTV.`

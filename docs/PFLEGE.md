@@ -119,3 +119,13 @@ Die Turnierdaten liegen gekapselt in `src/tournament/`. Diese Dateien ersetzt du
 `bracket.ts` (K.-o.-Struktur und ggf. Drittplatzierten-Regel), `tv.ts` und `draw.ts`.
 Die Logik in `src/domain/` ist turnierunabhängig. Anpassen musst du sie nur bei einem anderen
 Format, z. B. 48 Teams mit Sechzehntelfinale; dann `Stage`-Typ und `STAGE_*` erweitern.
+
+## Tipprunden: Anstoßzeiten für die Sperre
+
+Der Server nimmt Tipps nur bis zum Anpfiff an. Dafür kennt er die Anstoßzeiten (Tabelle
+`kt_fixtures`). Sobald offizielle Zeiten in `src/tournament/draw.ts` stehen (oder
+OpenLigaDB sie liefert), die Zeiten abgleichen – eine der beiden Möglichkeiten:
+
+- **Admin-Bereich → System → „Anstoßzeiten für Tipprunden abgleichen“** (übernimmt die Zeiten,
+  die die App gerade anzeigt), oder
+- `npm run fixtures:sql` und die Ausgabe im Supabase SQL-Editor ausführen.

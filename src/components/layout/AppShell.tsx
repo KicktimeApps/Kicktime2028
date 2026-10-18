@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { DemoBanner } from "./DemoBanner";
 import { LogoMark, Wordmark } from "./Logo";
 import { NAV_ITEMS } from "./nav";
+import { OfflineBanner } from "./OfflineBanner";
 import { SpoilerToggle } from "./SpoilerToggle";
 import { useAppStore } from "@/store/app-store";
 import { TOURNAMENT } from "@/tournament/config";
@@ -65,6 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <main className="app-rise mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 md:px-8 md:pb-12 md:pt-8">
+          <OfflineBanner />
           {children}
         </main>
 
@@ -78,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Link
                     to={to}
                     className={cn(
-                      "flex h-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+                      "flex h-full flex-col items-center justify-center gap-1 text-[12.5px] font-medium transition-colors",
                       active ? "text-primary" : "text-muted-foreground",
                     )}
                   >

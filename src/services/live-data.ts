@@ -4,7 +4,7 @@ import {
   type LiveFixture,
   type OpenLigaMatch,
 } from "@/domain/live";
-import type { LivePhase, MatchStatus, ResultRecord, Score } from "@/domain/types";
+import type { FixturePatch, LivePhase, MatchStatus, ResultRecord, Score } from "@/domain/types";
 import { LIVE_SOURCE, TOURNAMENT } from "@/tournament/config";
 import { FIXTURES } from "@/tournament/schedule";
 import { useMatchStore } from "@/store/match-store";
@@ -69,7 +69,8 @@ type OverrideRow = {
   source_sig?: string | null;
 };
 
-export async function fetchOverrides(): Promise<Record<string, ResultRecord>> {
+/** Admin-Korrekturen laden; null bei Fehler (dann bleiben die bisherigen). */
+export async function fetchOverrides(): Promise<Record<string, ResultRecord> | null> {
   const sb = await getSupabase();
   if (!sb) return {};
   const { data, error } = await sb
@@ -78,7 +79,7 @@ export async function fetchOverrides(): Promise<Record<string, ResultRecord>> {
     .select("*");
   if (error) {
     logError("supabase", `Overrides: ${error.message}`);
-    return {};
+    return null;
   }
   const out: Record<string, ResultRecord> = {};
   for (const r of (data ?? []) as OverrideRow[]) {
@@ -96,6 +97,54 @@ export async function fetchOverrides(): Promise<Record<string, ResultRecord>> {
     };
   }
   return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Offline: zuletzt geladener Stand bleibt auf dem Gerät               */
+/* ------------------------------------------------------------------ */
+
+const CACHE_KEY = `${TOURNAMENT.storagePrefix}-live`;
+
+type LiveCache = {
+  at: number;
+  results: Record<string, ResultRecord>;
+  patches: Record<string, FixturePatch>;
+  admin: Record<string, ResultRecord>;
+};
+
+function saveLiveCache() {
+  const s = useMatchStore.getState();
+  if (s.demo.enabled || !s.live.lastFetchAt || s.live.lastError) return;
+  try {
+    const data: LiveCache = {
+      at: s.live.lastFetchAt,
+      results: s.apiResults,
+      patches: s.apiPatches,
+      admin: s.adminResults,
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  } catch {
+    /* Speicher voll oder gesperrt – dann eben ohne */
+  }
+}
+
+/**
+ * Beim Start den zuletzt gespeicherten Stand anzeigen, bis frische Daten da
+ * sind – so ist die App auch im Funkloch sofort nutzbar.
+ */
+export function restoreLiveCache(): void {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return;
+    const c = JSON.parse(raw) as LiveCache;
+    const store = useMatchStore.getState();
+    if (store.live.lastFetchAt) return; // schon frische Daten
+    store.setApiData(c.results ?? {}, c.patches ?? {});
+    store.setAdminResults(c.admin ?? {});
+    store.setLiveMeta({ lastFetchAt: c.at, source: "cache" });
+  } catch {
+    /* kaputter Eintrag – ignorieren */
+  }
 }
 
 let inflight: Promise<void> | null = null;
@@ -126,12 +175,15 @@ export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      useMatchStore.getState().setLiveMeta({ lastError: msg, lastFetchAt: Date.now() });
+      // lastFetchAt bleibt beim letzten erfolgreichen Abruf („Stand von …“).
+      useMatchStore.getState().setLiveMeta({ lastError: msg });
       logError("api", msg);
     }
     if (backend) {
-      useMatchStore.getState().setAdminResults(await fetchOverrides());
+      const overrides = await fetchOverrides().catch(() => null);
+      if (overrides) useMatchStore.getState().setAdminResults(overrides);
     }
+    saveLiveCache();
   })().finally(() => {
     inflight = null;
   });

@@ -46,6 +46,8 @@ export type Stats = {
   week: number;
   total: number;
   topTeams: { team: string; count: number }[];
+  /** Fehlt bei älterer Server-Funktion. */
+  push?: { subscriptions: number; upcoming: number; sent24h: number };
 };
 export const fetchStats = (pin: string) => invoke<Stats>({ action: "stats", pin });
 
@@ -57,3 +59,7 @@ export type FeedbackRow = {
 };
 export const fetchFeedback = (pin: string) =>
   invoke<{ rows: FeedbackRow[] }>({ action: "feedback", pin });
+
+/** Anstoßzeiten an den Server geben (Sperre für Tipprunden ab Anpfiff). */
+export const syncFixtures = (pin: string, fixtures: { matchId: string; kickoffUtc: string }[]) =>
+  invoke<{ ok: true; count: number }>({ action: "fixtures", pin, fixtures });

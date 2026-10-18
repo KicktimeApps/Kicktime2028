@@ -69,7 +69,7 @@ function SpoilerGate({ text, onShow }: { text: string; onShow: () => void }) {
       <button
         type="button"
         onClick={onShow}
-        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"
+        className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-[14px] font-semibold text-primary-foreground"
       >
         <Eye className="h-4 w-4" /> Anzeigen
       </button>

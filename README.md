@@ -25,9 +25,16 @@ Ergebnisse geheim, bis du sie sehen willst.
   zum heutigen Tag.
 - **Turnier**: Live-Tabellen nach UEFA-Regeln (direkter Vergleich), Rangliste der Gruppendritten,
   symmetrischer K.-o.-Baum und alle 54 Nationen mit Status.
-- **Tipps** direkt in der Liste, sofort gespeichert, Wertung 4/3/2 Punkte.
+- **Tipps** direkt in der Liste, sofort gespeichert: 4 Punkte exakt, 3 richtige Tordifferenz
+  (nicht bei Remis), 2 richtige Tendenz; Halbfinale und Finale doppelt; Europameister-Tipp
+  +10.
+- **Tipprunden** mit Freunden (optional): Code bzw. Link `/runde/CODE`, ohne Login, nur ein
+  Name. Gemeinsame Tabelle, fremde Tipps erst ab Anpfiff sichtbar, Ersteller kann Mitspieler
+  entfernen. Der Server sperrt Tipps ab Anpfiff.
 - **Spoilerschutz** für Spielstände, Live-Stände, Tabellen, K.-o.-Baum und Europameister.
 - **Erinnerungen** (Web Push) 15 Minuten vor Anpfiff, automatisch für Favoriten.
+- **Offline nutzbar**: zuletzt geladener Stand bleibt, App öffnet auch im Funkloch.
+- **Große Schrift** und große Tippflächen für eine bequeme Bedienung.
 - **Kalender-Export** einzelner Spiele oder aller eigenen Spiele (.ics).
 - **Teilen** als Bild, **Vormerken** einzelner Spiele, **Dark/Light/System** und Akzentfarben.
 - **Vorschau-Modus**: spielt das Turnier mit erfundener Auslosung durch, um die App schon heute im

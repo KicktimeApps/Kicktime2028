@@ -120,7 +120,7 @@ function Schedule() {
               type="button"
               onClick={() => setQ("")}
               aria-label="Suche leeren"
-              className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+              className="absolute right-1 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
             >
               <X className="h-4 w-4" />
             </button>
@@ -148,7 +148,7 @@ function Schedule() {
             onChange={(e) => setPhase(e.target.value as Phase)}
             aria-label="Runde filtern"
             className={cn(
-              "h-8 shrink-0 rounded-full border bg-card px-3 text-[13px] font-medium outline-none",
+              "h-10 shrink-0 rounded-full border bg-card px-3.5 text-[14px] font-medium outline-none",
               phase !== "all"
                 ? "border-primary/50 text-primary"
                 : "border-border text-muted-foreground",

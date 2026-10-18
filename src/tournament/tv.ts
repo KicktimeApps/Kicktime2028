@@ -60,8 +60,16 @@ export function getTvInfo(match: {
   };
 }
 
+/** Wohin „Einschalten“ führt – möglichst direkt zum Livestream. */
 export const BROADCASTER_URLS: Record<string, string> = {
   ARD: "https://www.sportschau.de",
-  ZDF: "https://www.zdf.de/sport",
-  MagentaTV: "https://www.magentatv.de",
+  ZDF: "https://www.zdf.de/live-tv",
+  MagentaTV: "https://web.magentatv.de",
 };
+
+/** Sender, bei denen ein Spiel läuft – Free-TV zuerst. */
+export function broadcastersOf(tv: TvInfo): string[] {
+  if (tv.freeTv) return [tv.freeTv, "MagentaTV"];
+  if (tv.freeTvLikely) return ["ARD", "ZDF", "MagentaTV"];
+  return ["MagentaTV"];
+}

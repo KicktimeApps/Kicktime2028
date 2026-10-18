@@ -25,7 +25,7 @@ function MarkButton({
       aria-label={label}
       onClick={onClick}
       className={cn(
-        "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold transition-colors",
+        "inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13.5px] font-semibold transition-colors",
         active
           ? kind === "favorite"
             ? "border-gold/60 bg-gold/15 text-gold"

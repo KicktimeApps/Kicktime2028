@@ -15,6 +15,7 @@ import { Route as SpielplanRouteImport } from './routes/spielplan'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RundeCodeRouteImport } from './routes/runde.$code'
 
 const TurnierRoute = TurnierRouteImport.update({
   id: '/turnier',
@@ -46,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RundeCodeRoute = RundeCodeRouteImport.update({
+  id: '/runde/$code',
+  path: '/runde/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/spielplan': typeof SpielplanRoute
   '/tipps': typeof TippsRoute
   '/turnier': typeof TurnierRoute
+  '/runde/$code': typeof RundeCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/spielplan': typeof SpielplanRoute
   '/tipps': typeof TippsRoute
   '/turnier': typeof TurnierRoute
+  '/runde/$code': typeof RundeCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/spielplan': typeof SpielplanRoute
   '/tipps': typeof TippsRoute
   '/turnier': typeof TurnierRoute
+  '/runde/$code': typeof RundeCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/spielplan'
     | '/tipps'
     | '/turnier'
+    | '/runde/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/spielplan'
     | '/tipps'
     | '/turnier'
+    | '/runde/$code'
   id:
     | '__root__'
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/spielplan'
     | '/tipps'
     | '/turnier'
+    | '/runde/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   SpielplanRoute: typeof SpielplanRoute
   TippsRoute: typeof TippsRoute
   TurnierRoute: typeof TurnierRoute
+  RundeCodeRoute: typeof RundeCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/runde/$code': {
+      id: '/runde/$code'
+      path: '/runde/$code'
+      fullPath: '/runde/$code'
+      preLoaderRoute: typeof RundeCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   SpielplanRoute: SpielplanRoute,
   TippsRoute: TippsRoute,
   TurnierRoute: TurnierRoute,
+  RundeCodeRoute: RundeCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

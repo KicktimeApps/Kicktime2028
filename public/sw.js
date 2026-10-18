@@ -1,13 +1,73 @@
 /**
- * KickTime Service Worker – ausschließlich für Web-Push.
+ * KickTime Service Worker – Web-Push und Offline-Reserve.
  *
- * Bewusst KEIN Offline-Cache für HTML/JS, damit nach einem Deployment nie
- * veraltete Versionen hängen bleiben. Registrierung nur im Produktions-Build
- * (siehe src/lib/push.ts).
+ * Offline: Netz zuerst. Jede erfolgreiche Antwort (gleiche Herkunft) landet
+ * im Zwischenspeicher und wird NUR genutzt, wenn das Netz fehlt oder hängt.
+ * So bleibt nie eine veraltete Version hängen, im Funkloch öffnet die App
+ * aber trotzdem. Registrierung nur im Produktions-Build (siehe src/lib/push.ts).
  */
 
+const CACHE = "kicktime-offline-v1";
+const MAX_ENTRIES = 150;
+
 self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener("activate", (event) =>
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  ),
+);
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
+async function trim(cache) {
+  const keys = await cache.keys();
+  for (let i = 0; i < keys.length - MAX_ENTRIES; i++) await cache.delete(keys[i]);
+}
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE);
+  const navigate = request.mode === "navigate";
+  try {
+    // Bei schwachem Netz nicht ewig warten – dann lieber den gespeicherten Stand.
+    const response = await withTimeout(fetch(request), navigate ? 5000 : 10000);
+    if (response.ok && response.type === "basic") {
+      await cache.put(request, response.clone());
+      void trim(cache);
+    }
+    return response;
+  } catch (err) {
+    const hit =
+      (await cache.match(request)) ||
+      (navigate ? (await cache.match("/")) || (await cache.match("/spielplan")) : undefined);
+    if (hit) return hit;
+    throw err;
+  }
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.pathname === "/sw.js") return;
+  event.respondWith(networkFirst(request));
+});
 
 self.addEventListener("push", (event) => {
   let payload = {};
