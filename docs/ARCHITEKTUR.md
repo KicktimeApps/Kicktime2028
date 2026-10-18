@@ -30,38 +30,39 @@ abgedeckt.
 
 ### `src/tournament/` – Turnierdaten
 
-| Datei         | Inhalt                                                                                          |
-| ------------- | ----------------------------------------------------------------------------------------------- |
-| `types.ts`    | turnierunabhängige Typen (`Nation`, `Venue`, `FixtureDef`, Slot-Referenzen)                    |
-| `config.ts`   | Name, Daten, Gruppen, Runden-Labels, Meilensteine, Live-Quelle, URLs                            |
-| `nations.ts`  | 54 Nationen, Namens-Mapping für Live-Daten (`nationFromName`)                                   |
-| `venues.ts`   | 9 Stadien inkl. Zeitzone, Anreise, Klima                                                        |
-| `schedule.ts` | 51 Spiele mit Slots (`A1`, `1A`, `3ADEF`, `W37`), Datum, Ort, vorläufiger Uhrzeit               |
-| `bracket.ts`  | Drittplatzierten-Tabelle, Bracket-Layout                                                        |
-| `tv.ts`       | Sender-Logik (ARD/ZDF/MagentaTV)                                                                |
-| `draw.ts`     | **Pflege-Datei**: Qualifikation, Auslosung, bestätigte Uhrzeiten                                 |
+| Datei         | Inhalt                                                                            |
+| ------------- | --------------------------------------------------------------------------------- |
+| `types.ts`    | turnierunabhängige Typen (`Nation`, `Venue`, `FixtureDef`, Slot-Referenzen)       |
+| `config.ts`   | Name, Daten, Gruppen, Runden-Labels, Meilensteine, Live-Quelle, URLs              |
+| `nations.ts`  | 54 Nationen, Namens-Mapping für Live-Daten (`nationFromName`)                     |
+| `venues.ts`   | 9 Stadien inkl. Zeitzone, Anreise, Klima                                          |
+| `schedule.ts` | 51 Spiele mit Slots (`A1`, `1A`, `3ADEF`, `W37`), Datum, Ort, vorläufiger Uhrzeit |
+| `bracket.ts`  | Drittplatzierten-Tabelle, Bracket-Layout                                          |
+| `tv.ts`       | Sender-Logik (ARD/ZDF/MagentaTV)                                                  |
+| `draw.ts`     | **Pflege-Datei**: Qualifikation, Auslosung, bestätigte Uhrzeiten                  |
 
 ### `src/domain/` – Logik (getestet)
 
-| Datei            | Aufgabe                                                                                  |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| `time.ts`        | Zeitzonen, Zeitfenster pro Wochentag, „wie viele Minuten sind schaubar?“                  |
-| `standings.ts`   | Gruppentabellen nach UEFA-Reglement (direkter Vergleich), Rangliste der Dritten           |
-| `resolve.ts`     | Gesamtzustand: Status aus Daten/Uhr, Slots → Teams, Sieger inkl. Elfmeter                 |
-| `recommend.ts`   | Relevanz-Score mit Gründen, Feed (Für dich / Später / Bonus / Rückblick)                  |
-| `status.ts`      | Team-Status (Quali läuft, dabei, raus in Runde X, Europameister)                          |
-| `live.ts`        | OpenLigaDB → normalisiert, Zuordnung zu Spielnummern (Paarung → Tag+Stadion → Uhrzeit)    |
-| `predictions.ts` | Tipp-Wertung 4/3/2                                                                        |
-| `alarms.ts`      | Erinnerungen (an / bewusst aus / automatisch für Favoriten)                               |
-| `labels.ts`      | Anzeigenamen für Platzhalter („Sieger Gruppe A“, „Dritter A/D/E/F“)                        |
+| Datei            | Aufgabe                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `time.ts`        | Zeitzonen, Zeitfenster pro Wochentag, „wie viele Minuten sind schaubar?“               |
+| `standings.ts`   | Gruppentabellen nach UEFA-Reglement (direkter Vergleich), Rangliste der Dritten        |
+| `resolve.ts`     | Gesamtzustand: Status aus Daten/Uhr, Slots → Teams, Sieger inkl. Elfmeter              |
+| `recommend.ts`   | Relevanz-Score mit Gründen, Feed (Für dich / Später / Bonus / Rückblick)               |
+| `status.ts`      | Team-Status (Quali läuft, dabei, raus in Runde X, Europameister)                       |
+| `live.ts`        | OpenLigaDB → normalisiert, Zuordnung zu Spielnummern (Paarung → Tag+Stadion → Uhrzeit) |
+| `predictions.ts` | Tipp-Wertung 4/3/2                                                                     |
+| `alarms.ts`      | Erinnerungen (an / bewusst aus / automatisch für Favoriten)                            |
+| `labels.ts`      | Anzeigenamen für Platzhalter („Sieger Gruppe A“, „Dritter A/D/E/F“)                    |
 
 ### Zustand (`src/store/`)
 
 - **`app-store.ts`** (persistiert unter `kicktime-2028`): Teams, Zeitfenster, Zeitzone,
   Spoilerschutz und Aufgedecktes, Theme, Erinnerungen, Tipps, Vorschau-Modus.
 - **`match-store.ts`** (flüchtig): Live-Ergebnisse, Patches, Admin-Korrekturen, Uhr und der
-  daraus berechnete `tournament`-Zustand. Admin-Korrekturen gewinnen, bis die Quelle das
-  Spielende oder mehr Tore meldet (`mergeResults`).
+  daraus berechnete `tournament`-Zustand. Admin-Korrekturen sperren die Live-Daten eines
+  Spiels, bis sie entfernt werden; meldet die Quelle das Spielende, wird mit dem korrigierten
+  Stand beendet (`mergeResults`, wie KickTime 2026).
 - **`ui-store.ts`**: offene Detail-Sheets (Spiel/Team), einmal global gerendert.
 
 ### Motor (`src/hooks/useEngine.ts`)

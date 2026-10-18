@@ -34,8 +34,11 @@ type MatchStore = Inputs & {
 };
 
 /**
- * Admin-Korrekturen gewinnen – außer die offizielle Quelle meldet bereits das
- * Spielende oder mehr Tore (dann ist die Korrektur veraltet).
+ * Admin-Korrekturen wie bei KickTime 2026: Solange eine Korrektur besteht,
+ * werden Live-Daten der Quelle für dieses Spiel komplett ignoriert – bis der
+ * Admin die Korrektur entfernt. Einzige Ausnahme: Meldet die offizielle
+ * Quelle das Spielende, wird das Spiel beendet, der Spielstand aus der
+ * Korrektur bleibt aber erhalten.
  */
 export function mergeResults(
   api: Record<string, ResultRecord>,
@@ -44,12 +47,18 @@ export function mergeResults(
   const out: Record<string, ResultRecord> = { ...api };
   for (const [id, a] of Object.entries(admin)) {
     const b = api[id];
-    if (b) {
-      const total = (r: ResultRecord) => (r.score ? r.score.home + r.score.away : -1);
-      if (b.status === "finished" && a.status !== "finished") continue;
-      if (total(b) > total(a)) continue;
+    if (b?.status === "finished" && a.status !== "finished") {
+      out[id] = {
+        ...a,
+        status: "finished",
+        score: a.score ?? b.score,
+        penalties: a.penalties ?? b.penalties,
+        phase: undefined,
+        minute: undefined,
+      };
+    } else {
+      out[id] = a;
     }
-    out[id] = a;
   }
   return out;
 }

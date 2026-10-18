@@ -1,4 +1,4 @@
-import { Loader2, Lock, RefreshCw, Trash2, Zap } from "lucide-react";
+import { Loader2, Lock, Minus, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Segmented } from "@/components/common/Segmented";
@@ -200,59 +200,75 @@ const PHASES: { value: LivePhase; label: string }[] = [
   { value: "penalties", label: "Elfm." },
 ];
 
+const STATUS_LABEL: Record<MatchStatus, string> = {
+  scheduled: "Geplant",
+  live: "Live",
+  finished: "Beendet",
+};
+
+/**
+ * Korrekturen wie bei KickTime 2026: Suche, laufende Spiele oben, danach die
+ * zeitlich nächsten. Jedes Spiel lässt sich direkt in der Liste ändern.
+ */
 function OverrideTab({ pin }: { pin: string }) {
   const matches = useMatchStore((s) => s.tournament.matches);
   const now = useMatchStore((s) => s.now);
-  const [selected, setSelected] = useState<string | null>(null);
-  const list = useMemo(
-    () =>
-      [...matches]
-        .filter((m) => m.home && m.away)
-        .sort(
-          (a, b) =>
-            Math.abs(Date.parse(a.kickoffUtc) - now) - Math.abs(Date.parse(b.kickoffUtc) - now),
-        )
-        .slice(0, 20),
-    [matches, now],
-  );
-  const m = matches.find((x) => x.id === selected);
+  const [query, setQuery] = useState("");
+  const list = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return [...matches]
+      .filter((m) => m.home && m.away)
+      .filter((m) => {
+        if (!q) return true;
+        const hay = [
+          teamDisplay(m.home, m.slotHome).name,
+          teamDisplay(m.away, m.slotAway).name,
+          m.home,
+          m.away,
+          `#${m.number}`,
+          new Date(m.kickoffUtc).toLocaleDateString("de-DE"),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      })
+      .sort((a, b) => {
+        const live = (m: typeof a) => (m.status === "live" ? 0 : 1);
+        if (live(a) !== live(b)) return live(a) - live(b);
+        return Math.abs(Date.parse(a.kickoffUtc) - now) - Math.abs(Date.parse(b.kickoffUtc) - now);
+      })
+      .slice(0, 30);
+  }, [matches, now, query]);
+
   return (
     <div className="space-y-3">
       <p className="text-[12.5px] text-muted-foreground">
-        Korrekturen überschreiben die Live-Daten, bis die offizielle Quelle das Spielende oder mehr
-        Tore meldet.
+        Eine Korrektur gilt für alle Nutzer und sperrt die Live-Daten für dieses Spiel, bis du sie
+        mit dem Papierkorb entfernst. Meldet die Quelle das Spielende, wird das Spiel beendet – mit
+        deinem Spielstand.
       </p>
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Team, Datum oder #Nummer suchen …"
+        className="h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
+      />
       {list.length === 0 && (
-        <p className="text-[13px] text-muted-foreground">Noch keine Paarungen bekannt.</p>
+        <p className="text-[13px] text-muted-foreground">
+          {query ? "Nichts gefunden." : "Noch keine Paarungen bekannt."}
+        </p>
       )}
-      <ul className="max-h-56 space-y-1 overflow-y-auto">
-        {list.map((x) => (
-          <li key={x.id}>
-            <button
-              type="button"
-              onClick={() => setSelected(x.id)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px]",
-                selected === x.id ? "bg-primary/12 text-primary" : "hover:bg-muted",
-              )}
-            >
-              <span className="w-8 text-muted-foreground">#{x.number}</span>
-              <Flag flag={teamDisplay(x.home, x.slotHome).flag} size="xs" />
-              {teamDisplay(x.home, x.slotHome).short} – {teamDisplay(x.away, x.slotAway).short}
-              <span className="ml-auto text-[11px] text-muted-foreground">
-                {x.status}
-                {x.source === "admin" && " · korrigiert"}
-              </span>
-            </button>
-          </li>
+      <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+        {list.map((m) => (
+          <OverrideRow key={m.id} pin={pin} matchId={m.id} />
         ))}
       </ul>
-      {m && <OverrideForm key={m.id} pin={pin} matchId={m.id} />}
     </div>
   );
 }
 
-function Num({
+function Stepper({
   value,
   onChange,
   label,
@@ -262,80 +278,113 @@ function Num({
   label: string;
 }) {
   return (
-    <input
-      type="number"
-      min={0}
-      max={30}
-      value={value}
-      aria-label={label}
-      onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
-      className="h-11 w-16 rounded-xl border border-border bg-subtle text-center font-display text-2xl font-bold"
-    />
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        aria-label={`${label} minus`}
+        onClick={() => onChange(Math.max(0, value - 1))}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border active:scale-95"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+      <span className="w-7 text-center font-display text-2xl font-bold tabular" aria-label={label}>
+        {value}
+      </span>
+      <button
+        type="button"
+        aria-label={`${label} plus`}
+        onClick={() => onChange(Math.min(30, value + 1))}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-primary/50 bg-primary/10 text-primary active:scale-95"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
 
-function OverrideForm({ pin, matchId }: { pin: string; matchId: string }) {
+function OverrideRow({ pin, matchId }: { pin: string; matchId: string }) {
   const m = useMatchStore((s) => s.tournament.matches.find((x) => x.id === matchId))!;
-  const [status, setStatus] = useState<MatchStatus>(m.status === "scheduled" ? "live" : m.status);
+  const [status, setStatus] = useState<MatchStatus>(m.status);
   const [home, setHome] = useState(m.score?.home ?? 0);
   const [away, setAway] = useState(m.score?.away ?? 0);
-  const [pens, setPens] = useState<[number, number] | null>(
-    m.penalties ? [m.penalties.home, m.penalties.away] : null,
+  const [pens, setPens] = useState<[number, number]>(
+    m.penalties ? [m.penalties.home, m.penalties.away] : [0, 0],
   );
   const [phase, setPhase] = useState<LivePhase>(m.phase ?? "first");
   const [busy, setBusy] = useState(false);
+  const a = teamDisplay(m.home, m.slotHome);
+  const b = teamDisplay(m.away, m.slotAway);
+  const ko = m.stage !== "group";
+  const withPens = ko && home === away && (status === "finished" || phase === "penalties");
   const run = useCallback(
-    async (fn: () => Promise<{ ok: boolean; error?: string }>, msg: string) => {
+    async (fn: () => Promise<{ ok: boolean; error?: string }>, ok: string, desc?: string) => {
       setBusy(true);
       const res = await fn();
       setBusy(false);
       if (res.ok) {
-        toast.success(msg);
+        haptics.success();
+        toast.success(ok, desc ? { description: desc } : undefined);
         refreshLiveData();
       } else toast.error("Fehler", { description: res.error });
     },
     [],
   );
   return (
-    <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
+    <li
+      className={cn(
+        "space-y-2.5 rounded-xl border bg-card p-3",
+        m.source === "admin" ? "border-primary/50" : "border-border",
+      )}
+    >
+      <div className="flex items-center gap-1.5 text-[13px] font-semibold">
+        <Flag flag={a.flag} size="xs" />
+        <span className="truncate">{a.name}</span>
+        <span className="text-muted-foreground">–</span>
+        <Flag flag={b.flag} size="xs" />
+        <span className="truncate">{b.name}</span>
+        <span className="ml-auto shrink-0 text-[11px] font-normal text-muted-foreground">
+          {m.status === "live" ? "● live" : STATUS_LABEL[m.status]}
+          {m.source === "admin" && " · korrigiert"}
+        </span>
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        #{m.number} ·{" "}
+        {new Date(m.kickoffUtc).toLocaleString("de-DE", {
+          weekday: "short",
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </div>
+      <div className="flex items-center justify-between">
+        <Stepper value={home} onChange={setHome} label="Tore Heim" />
+        <span className="font-display text-xl text-muted-foreground">:</span>
+        <Stepper value={away} onChange={setAway} label="Tore Gast" />
+      </div>
       <Segmented<MatchStatus>
         size="sm"
         value={status}
         onChange={setStatus}
-        options={[
-          { value: "scheduled", label: "Geplant" },
-          { value: "live", label: "Live" },
-          { value: "finished", label: "Beendet" },
-        ]}
+        options={(["scheduled", "live", "finished"] as const).map((v) => ({
+          value: v,
+          label: STATUS_LABEL[v],
+        }))}
       />
-      <div className="flex items-center justify-center gap-3">
-        <span className="w-16 truncate text-right text-[13px] font-semibold">
-          {teamDisplay(m.home, m.slotHome).short}
-        </span>
-        <Num value={home} onChange={setHome} label="Tore Heim" />
-        <span className="font-display text-2xl">:</span>
-        <Num value={away} onChange={setAway} label="Tore Gast" />
-        <span className="w-16 truncate text-[13px] font-semibold">
-          {teamDisplay(m.away, m.slotAway).short}
-        </span>
-      </div>
       {status === "live" && (
-        <Segmented<LivePhase> size="sm" value={phase} onChange={setPhase} options={PHASES} />
+        <Segmented<LivePhase>
+          size="sm"
+          value={phase}
+          onChange={setPhase}
+          options={ko ? PHASES : PHASES.slice(0, 3)}
+        />
       )}
-      {m.stage !== "group" && status === "finished" && home === away && (
-        <div className="flex items-center justify-center gap-3 text-[13px]">
-          <span>Elfmeter</span>
-          <Num
-            value={pens?.[0] ?? 0}
-            onChange={(v) => setPens([v, pens?.[1] ?? 0])}
-            label="Elfmeter Heim"
-          />
-          <span>:</span>
-          <Num
-            value={pens?.[1] ?? 0}
-            onChange={(v) => setPens([pens?.[0] ?? 0, v])}
-            label="Elfmeter Gast"
-          />
+      {withPens && (
+        <div className="flex items-center justify-between rounded-lg bg-subtle px-2 py-1.5">
+          <span className="text-[12px] font-semibold">Elfmeter</span>
+          <Stepper value={pens[0]} onChange={(v) => setPens([v, pens[1]])} label="Elfmeter Heim" />
+          <span className="text-muted-foreground">:</span>
+          <Stepper value={pens[1]} onChange={(v) => setPens([pens[0], v])} label="Elfmeter Gast" />
         </div>
       )}
       <div className="flex gap-2">
@@ -350,28 +399,30 @@ function OverrideForm({ pin, matchId }: { pin: string; matchId: string }) {
                   status,
                   scoreHome: home,
                   scoreAway: away,
-                  pensHome: m.stage !== "group" && home === away && pens ? pens[0] : null,
-                  pensAway: m.stage !== "group" && home === away && pens ? pens[1] : null,
+                  pensHome: withPens ? pens[0] : null,
+                  pensAway: withPens ? pens[1] : null,
                   phase: status === "live" ? phase : null,
                 }),
-              "Korrektur gespeichert",
+              "Live geschaltet ⚡",
+              `${a.name} ${home}:${away} ${b.name}`,
             )
           }
-          className="h-10 flex-1 rounded-xl bg-primary text-[14px] font-semibold text-primary-foreground disabled:opacity-50"
+          className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary text-[14px] font-semibold text-primary-foreground disabled:opacity-50"
         >
-          Speichern
+          <Zap className="h-4 w-4" /> Änderungen live schalten
         </button>
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || m.source !== "admin"}
           onClick={() => run(() => clearOverride(pin, matchId), "Korrektur entfernt")}
           aria-label="Korrektur entfernen"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border text-muted-foreground"
+          title="Korrektur entfernen – danach gelten wieder die Live-Daten"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-destructive/40 text-destructive disabled:opacity-30"
         >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
-    </div>
+    </li>
   );
 }
 
