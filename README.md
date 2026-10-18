@@ -44,18 +44,20 @@ Statistik wird optional Supabase angebunden (siehe unten). **Für den Live-Betri
 Nutzern wird das Backend empfohlen**: Dann fragt nur der Server OpenLigaDB ab (mit Cache), nicht
 jedes einzelne Gerät.
 
-| Befehl              | Zweck                                       |
-| ------------------- | ------------------------------------------- |
-| `bun run dev`       | Entwicklungsserver                          |
-| `bun run build`     | Produktions-Build (Cloudflare Worker)       |
-| `bun run test`      | Unit-Tests (Vitest)                         |
-| `bun run typecheck` | TypeScript prüfen                           |
-| `bun run lint`      | ESLint + Prettier                           |
+| Befehl              | Zweck                                        |
+| ------------------- | -------------------------------------------- |
+| `bun run dev`       | Entwicklungsserver                           |
+| `bun run build`     | Produktions-Build (Cloudflare Worker)        |
+| `bun run test`      | Unit-Tests (Vitest)                          |
+| `bun run typecheck` | TypeScript prüfen                            |
+| `bun run lint`      | ESLint + Prettier                            |
 | `bun run check`     | Typecheck, Lint und Tests in einem Durchgang |
 
 Produktions-Build lokal ansehen: `bun run build && cd .output && npx wrangler dev`.
 
 ## Backend (optional): Supabase
+
+> **Ohne Computer?** Schritt-für-Schritt-Anleitung fürs iPhone: [docs/EINRICHTUNG_IPHONE.md](docs/EINRICHTUNG_IPHONE.md)
 
 1. Neues Supabase-Projekt anlegen.
 2. `supabase/migrations/20261018000000_kicktime_2028.sql` im SQL-Editor ausführen.
@@ -68,8 +70,9 @@ Produktions-Build lokal ansehen: `bun run build && cd .output && npx wrangler de
 4. Secrets setzen: `ADMIN_PIN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,
    `CRON_SECRET` (VAPID-Schlüssel z. B. mit `npx web-push generate-vapid-keys`).
 5. Cron-Job für Erinnerungen anlegen (SQL steht am Ende der Migration).
-6. Im Frontend `.env` nach Vorlage `.env.example` füllen (`VITE_SUPABASE_URL`,
-   `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`).
+6. Die drei öffentlichen Werte (Project URL, anon key, VAPID Public Key) in
+   `src/public-config.ts` eintragen – oder alternativ als `VITE_…`-Variablen (siehe
+   `.env.example`), die haben Vorrang.
 
 ## Daten pflegen
 

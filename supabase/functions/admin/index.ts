@@ -8,7 +8,34 @@
  * Aktionen: verify | set | clear | stats | feedback
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { env, json, preflight } from "../_shared/http.ts";
+
+// ---------- Helfer (bewusst in dieser Datei, damit sie sich einzeln ins Dashboard kopieren lässt) ----------
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Max-Age": "86400",
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
+function preflight(req: Request): Response | null {
+  return req.method === "OPTIONS"
+    ? new Response(null, { status: 204, headers: CORS_HEADERS })
+    : null;
+}
+
+function env(name: string, fallback?: string): string {
+  const v = Deno.env.get(name) ?? fallback;
+  if (v === undefined) throw new Error(`Secret ${name} fehlt`);
+  return v;
+}
 
 const MAX_FAILURES = 5;
 const MAX_GLOBAL_FAILURES = 30;
@@ -57,7 +84,10 @@ Deno.serve(async (req) => {
   const { data: attempts } = await db
     .from("admin_attempts")
     .select("key, failures, window_start")
-    .in("key", keys.map((k) => k.key));
+    .in(
+      "key",
+      keys.map((k) => k.key),
+    );
   const active = (k: string) => {
     const a = (attempts ?? []).find((x: { key: string }) => x.key === k);
     return a && Date.now() - Date.parse(a.window_start) < LOCK_MS ? a : null;
@@ -88,7 +118,8 @@ Deno.serve(async (req) => {
       return json({ ok: true });
 
     case "set": {
-      if (!validId || !STATUSES.includes(body.status)) return json({ error: "Ungültige Daten" }, 400);
+      if (!validId || !STATUSES.includes(body.status))
+        return json({ error: "Ungültige Daten" }, 400);
       const row = {
         match_id: matchId,
         status: body.status,
@@ -123,7 +154,11 @@ Deno.serve(async (req) => {
         count(since(7 * 86_400_000)),
         count(),
       ]);
-      const { data: favs } = await db.from("app_pings").select("fav_team").not("fav_team", "is", null).limit(5000);
+      const { data: favs } = await db
+        .from("app_pings")
+        .select("fav_team")
+        .not("fav_team", "is", null)
+        .limit(5000);
       const tally = new Map<string, number>();
       for (const r of favs ?? []) tally.set(r.fav_team, (tally.get(r.fav_team) ?? 0) + 1);
       const topTeams = [...tally.entries()]

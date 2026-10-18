@@ -10,7 +10,34 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
-import { env, json, preflight } from "../_shared/http.ts";
+
+// ---------- Helfer (bewusst in dieser Datei, damit sie sich einzeln ins Dashboard kopieren lässt) ----------
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Max-Age": "86400",
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
+function preflight(req: Request): Response | null {
+  return req.method === "OPTIONS"
+    ? new Response(null, { status: 204, headers: CORS_HEADERS })
+    : null;
+}
+
+function env(name: string, fallback?: string): string {
+  const v = Deno.env.get(name) ?? fallback;
+  if (v === undefined) throw new Error(`Secret ${name} fehlt`);
+  return v;
+}
 
 type Row = {
   device_id: string;
@@ -30,7 +57,8 @@ Deno.serve(async (req) => {
   if (pre) return pre;
   try {
     const secret = Deno.env.get("CRON_SECRET");
-    if (secret && req.headers.get("x-cron-secret") !== secret) return json({ error: "Nicht erlaubt" }, 401);
+    if (secret && req.headers.get("x-cron-secret") !== secret)
+      return json({ error: "Nicht erlaubt" }, 401);
 
     webpush.setVapidDetails(
       env("VAPID_SUBJECT", "mailto:kontakt@kicktime.app"),
@@ -41,7 +69,9 @@ Deno.serve(async (req) => {
     const now = Date.now();
     const { data, error } = await db
       .from("match_alarms")
-      .select("device_id, match_id, kickoff_utc, lead_minutes, title, notified_for, push_subscriptions ( endpoint, p256dh, auth )")
+      .select(
+        "device_id, match_id, kickoff_utc, lead_minutes, title, notified_for, push_subscriptions ( endpoint, p256dh, auth )",
+      )
       .gte("kickoff_utc", new Date(now).toISOString())
       .lte("kickoff_utc", new Date(now + 31 * 60_000).toISOString());
     if (error) throw error;
@@ -52,7 +82,9 @@ Deno.serve(async (req) => {
       const kickoff = Date.parse(row.kickoff_utc);
       if (kickoff - now > row.lead_minutes * 60_000) continue;
       if (row.notified_for && Date.parse(row.notified_for) === kickoff) continue;
-      const sub = Array.isArray(row.push_subscriptions) ? row.push_subscriptions[0] : row.push_subscriptions;
+      const sub = Array.isArray(row.push_subscriptions)
+        ? row.push_subscriptions[0]
+        : row.push_subscriptions;
       if (!sub) continue;
       const minutes = Math.max(1, Math.round((kickoff - now) / 60_000));
       try {

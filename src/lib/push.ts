@@ -2,12 +2,15 @@
  * Web Push (VAPID) über Service Worker + Supabase.
  * Ohne VITE_VAPID_PUBLIC_KEY oder Backend bleibt es bei lokalen Erinnerungen.
  */
+import { PUBLIC_CONFIG } from "@/public-config";
 import { getSupabase, isBackendConfigured } from "@/services/supabase";
 import { getDeviceId } from "./device-id";
 import { logError } from "./error-log";
 
 const SW_PATH = "/sw.js";
-const VAPID = ((import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) ?? "").trim();
+const VAPID = (
+  (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) || PUBLIC_CONFIG.vapidPublicKey
+).trim();
 
 export const hasPushBackend = () => VAPID.length > 20 && isBackendConfigured();
 

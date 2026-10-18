@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PUBLIC_CONFIG } from "@/public-config";
 
 /**
  * Supabase ist optional. Ohne Konfiguration läuft die App vollständig lokal
@@ -7,8 +8,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *
  * Das SDK wird erst bei Bedarf nachgeladen – das hält den Start schlank.
  */
-const URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
-const KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? "";
+const URL = (
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined) || PUBLIC_CONFIG.supabaseUrl
+).trim();
+const KEY = (
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || PUBLIC_CONFIG.supabaseAnonKey
+).trim();
 
 let clientPromise: Promise<SupabaseClient> | null = null;
 
