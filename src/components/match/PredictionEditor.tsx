@@ -6,7 +6,7 @@ import { teamDisplay } from "@/domain/labels";
 import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { useSpoiler } from "./useSpoiler";
-import { useAppStore } from "@/store/app-store";
+import { selectPredictions, useAppStore } from "@/store/app-store";
 import { useNow } from "@/store/match-store";
 
 function Stepper({
@@ -59,7 +59,7 @@ function Stepper({
  */
 export function PredictionEditor({ match: m }: { match: MatchView }) {
   const now = useNow();
-  const pred = useAppStore((s) => s.predictions[m.id]);
+  const pred = useAppStore((s) => selectPredictions(s)[m.id]);
   const setPrediction = useAppStore((s) => s.setPrediction);
   const clearPrediction = useAppStore((s) => s.clearPrediction);
   const { hidden } = useSpoiler(m);

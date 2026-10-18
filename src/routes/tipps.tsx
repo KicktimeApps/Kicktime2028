@@ -6,14 +6,13 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Section } from "@/components/common/Section";
 import { Segmented } from "@/components/common/Segmented";
 import { PredictionEditor } from "@/components/match/PredictionEditor";
-import { ChampionTipCard, RulesCard, TipGroupsSection } from "@/components/tipgroups/TipGroups";
+import { ChampionTipCard, RulesButton, TipGroupsSection } from "@/components/tipgroups/TipGroups";
 import { useSpoiler } from "@/components/match/useSpoiler";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
 import {
   canPredict,
   RESULT_LABEL,
-  RESULT_POINTS,
   scorePrediction,
   summarize,
   type PredictionResult,
@@ -23,7 +22,7 @@ import { formatDayShort, formatTime } from "@/domain/time";
 import type { MatchView } from "@/domain/types";
 import { usePrefs } from "@/hooks/usePrefs";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/store/app-store";
+import { selectPredictions, useAppStore } from "@/store/app-store";
 import { useNow, useTournament } from "@/store/match-store";
 import { useUi } from "@/store/ui-store";
 import { TOURNAMENT } from "@/tournament/config";
@@ -64,7 +63,7 @@ function MatchHead({ m }: { m: MatchView }) {
 
 /** Ausgewertetes Spiel – bei Spoilerschutz erst nach „Zeigen“ mit Ergebnis und Punkten. */
 function RatedRow({ m }: { m: MatchView }) {
-  const p = useAppStore((s) => s.predictions[m.id]);
+  const p = useAppStore((s) => selectPredictions(s)[m.id]);
   const { hidden, reveal } = useSpoiler(m);
   const r = scorePrediction(p, m.score!, m.stage);
   return (
@@ -115,7 +114,7 @@ function TipsPage() {
   const { matches } = useTournament();
   const now = useNow();
   const prefs = usePrefs();
-  const predictions = useAppStore((s) => s.predictions);
+  const predictions = useAppStore(selectPredictions);
   const spoiler = useAppStore((s) => s.spoilerProtection);
   const revealed = useAppStore((s) => s.revealed);
   const [filter, setFilter] = useState<Filter>("open");
@@ -150,7 +149,8 @@ function TipsPage() {
       <PageHeader
         eyebrow={TOURNAMENT.name}
         title="Tipps"
-        subtitle="Volltreffer 4 · Tordifferenz 3 · Tendenz 2 Punkte"
+        subtitle="Tippen ist bis zum Anpfiff möglich."
+        action={<RulesButton />}
       />
 
       <div className="mb-7 grid grid-cols-3 gap-2.5">
@@ -181,9 +181,6 @@ function TipsPage() {
         ))}
       </div>
 
-      <ChampionTipCard />
-      <TipGroupsSection />
-
       {summary.rated > 0 && (
         <div className="-mt-4 mb-7">
           <div className="flex h-2 overflow-hidden rounded-full bg-muted">
@@ -207,6 +204,9 @@ function TipsPage() {
           </div>
         </div>
       )}
+
+      <ChampionTipCard />
+      <TipGroupsSection />
 
       {!anyTeams ? (
         <EmptyState
@@ -288,7 +288,6 @@ function TipsPage() {
               </div>
             )}
           </Section>
-          <RulesCard />
         </>
       )}
     </div>

@@ -16,7 +16,8 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Flag } from "@/components/team/Flag";
-import { GroupFormDrawer, RulesCard } from "@/components/tipgroups/TipGroups";
+import { GroupFormDrawer, RulesButton } from "@/components/tipgroups/TipGroups";
+import { DEMO_GROUP, demoBoard } from "@/demo/demoGroup";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import {
   AlertDialog,
@@ -46,9 +47,10 @@ import {
   normalizeCode,
   renameMe,
   TipError,
+  type TipBoard,
   type TipMember,
 } from "@/services/tipgroups";
-import { useAppStore, useTimeZone } from "@/store/app-store";
+import { selectChampionTip, selectPredictions, useAppStore, useTimeZone } from "@/store/app-store";
 import { useTournament } from "@/store/match-store";
 import { getNation } from "@/tournament/nations";
 
@@ -76,16 +78,27 @@ function GroupPage() {
       {!isBackendConfigured() ? (
         <Note>Tipprunden brauchen den KickTime-Server.</Note>
       ) : demo ? (
-        <Note>
-          Tipprunden gibt es nicht im Vorschau-Modus. Beende ihn oben im gelben Band, dann geht es
-          weiter.
-        </Note>
+        code === DEMO_GROUP.code ? (
+          <DemoBoard />
+        ) : (
+          <Note>
+            Im Vorschau-Modus gibt es nur die{" "}
+            <Link
+              to="/runde/$code"
+              params={{ code: DEMO_GROUP.code }}
+              className="font-semibold text-primary"
+            >
+              Beispielrunde
+            </Link>
+            . Echte Runden funktionieren, sobald du die Vorschau beendest.
+          </Note>
+        )
       ) : isLoading ? (
         <p className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Lade …
         </p>
       ) : group ? (
-        <Board groupId={group.id} />
+        <ServerBoard groupId={group.id} />
       ) : (
         <JoinInvite code={code} />
       )}
@@ -127,28 +140,117 @@ function JoinInvite({ code }: { code: string }) {
 
 /* ------------------------------------------------------------------ */
 
-function Board({ groupId }: { groupId: string }) {
+type BoardActions = {
+  /** Vorschau: nichts wird geteilt oder gespeichert. */
+  demo?: boolean;
+  kick: (m: TipMember) => Promise<void>;
+  leave: () => Promise<void>;
+  remove: () => Promise<void>;
+  rename: (name: string) => Promise<void>;
+};
+
+/** Echte Runde: Daten vom Server, Aktionen über die RPC-Funktionen. */
+function ServerBoard({ groupId }: { groupId: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const tournament = useTournament();
-  const predictions = useAppStore((s) => s.predictions);
-  const championTip = useAppStore((s) => s.championTip);
-  const spoiler = useAppStore((s) => s.spoilerProtection);
-  const revealed = useAppStore((s) => s.revealed);
-  const revealMany = useAppStore((s) => s.revealMany);
-  const [selected, setSelected] = useState<TipMember | null>(null);
-  const [renaming, setRenaming] = useState(false);
-
   const { data, error, isLoading, refetch } = useQuery({
     queryKey: ["tip-board", groupId],
     queryFn: () => loadBoard(groupId),
     refetchInterval: 60_000,
   });
 
+  if (isLoading) {
+    return (
+      <p className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Lade Tabelle …
+      </p>
+    );
+  }
+  if (error || !data) {
+    return (
+      <Note>
+        {error instanceof TipError ? error.message : "Die Tabelle konnte nicht geladen werden."}{" "}
+        <button type="button" onClick={() => refetch()} className="font-semibold text-primary">
+          Erneut versuchen
+        </button>
+      </Note>
+    );
+  }
+  const afterLeave = async () => {
+    await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
+    navigate({ to: "/tipps" });
+  };
+  return (
+    <BoardView
+      data={data}
+      actions={{
+        kick: async (m) => {
+          await kickMember(groupId, m.id);
+          await refetch();
+        },
+        leave: async () => {
+          await leaveGroup(groupId);
+          await afterLeave();
+        },
+        remove: async () => {
+          await deleteGroup(groupId);
+          await afterLeave();
+        },
+        rename: async (name) => {
+          await renameMe(groupId, name);
+          useAppStore.getState().setTipName(name);
+          await refetch();
+        },
+      }}
+    />
+  );
+}
+
+/** Beispielrunde im Vorschau-Modus – alles nur auf dem Gerät. */
+function DemoBoard() {
+  const { matches } = useTournament();
+  const tipName = useAppStore((s) => s.tipName);
+  const [kicked, setKicked] = useState<string[]>([]);
+  const [myName, setMyName] = useState(tipName || "Du");
+  const data = useMemo(() => demoBoard(matches, kicked, myName), [matches, kicked, myName]);
+  return (
+    <>
+      <p className="mb-4 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-[14px]">
+        <strong>Beispielrunde zum Ausprobieren.</strong> Tippe unter „Tipps“ – hier siehst du, wie
+        die Tabelle mitläuft. Nichts wird geteilt oder gespeichert.
+      </p>
+      <BoardView
+        data={data}
+        actions={{
+          demo: true,
+          kick: async (m) => setKicked((k) => [...k, m.id]),
+          leave: async () => {
+            toast("In der Vorschau kannst du die Runde nicht verlassen.");
+          },
+          remove: async () => {
+            toast("In der Vorschau kannst du die Runde nicht löschen.");
+          },
+          rename: async (name) => setMyName(name),
+        }}
+      />
+    </>
+  );
+}
+
+function BoardView({ data, actions }: { data: TipBoard; actions: BoardActions }) {
+  const tournament = useTournament();
+  const predictions = useAppStore(selectPredictions);
+  const championTip = useAppStore(selectChampionTip);
+  const spoiler = useAppStore((s) => s.spoilerProtection);
+  const revealed = useAppStore((s) => s.revealed);
+  const revealMany = useAppStore((s) => s.revealMany);
+  const [selected, setSelected] = useState<TipMember | null>(null);
+  const [renaming, setRenaming] = useState(false);
+
   // Eigene Tipps immer frisch vom Gerät (der Server kennt sie evtl. noch nicht).
   const members = useMemo(
     () =>
-      (data?.members ?? []).map((m) =>
+      data.members.map((m) =>
         m.isMe
           ? {
               ...m,
@@ -173,27 +275,15 @@ function Board({ groupId }: { groupId: string }) {
     champion: champion && final && isVisible(final) ? champion : null,
   });
 
-  if (isLoading) {
-    return (
-      <p className="flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Lade Tabelle …
-      </p>
-    );
-  }
-  if (error || !data) {
-    return (
-      <Note>
-        {error instanceof TipError ? error.message : "Die Tabelle konnte nicht geladen werden."}{" "}
-        <button type="button" onClick={() => refetch()} className="font-semibold text-primary">
-          Erneut versuchen
-        </button>
-      </Note>
-    );
-  }
-
   const g = data.group;
   const me = data.members.find((m) => m.isMe);
   const share = async () => {
+    if (actions.demo) {
+      toast("In der Vorschau wird nichts geteilt", {
+        description: "In einer echten Runde schickst du hier den Link an Freunde.",
+      });
+      return;
+    }
     const url = inviteUrl(g.code);
     const text = `Tipp mit mir die EURO 2028 in der Runde „${g.name}“! Code: ${g.code}`;
     try {
@@ -206,14 +296,15 @@ function Board({ groupId }: { groupId: string }) {
       /* Teilen abgebrochen */
     }
   };
-  const afterLeave = async () => {
-    await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
-    navigate({ to: "/tipps" });
-  };
 
   return (
     <>
-      <PageHeader eyebrow="Tipprunde" title={g.name} subtitle={`${rows.length} Mitspieler`} />
+      <PageHeader
+        eyebrow="Tipprunde"
+        title={g.name}
+        subtitle={`${rows.length} Mitspieler`}
+        action={<RulesButton />}
+      />
 
       {/* Einladen */}
       <section className="mb-6 rounded-2xl border border-border bg-card p-4">
@@ -299,8 +390,6 @@ function Board({ groupId }: { groupId: string }) {
         })}
       </ol>
 
-      <RulesCard className="mb-6" />
-
       {/* Eigene Einstellungen */}
       <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
         <button
@@ -321,9 +410,8 @@ function Board({ groupId }: { groupId: string }) {
           }
           action="Verlassen"
           onConfirm={async () => {
-            await leaveGroup(g.id);
-            toast("Runde verlassen");
-            await afterLeave();
+            await actions.leave();
+            if (!actions.demo) toast("Runde verlassen");
           }}
         >
           <button
@@ -340,9 +428,8 @@ function Board({ groupId }: { groupId: string }) {
             text="Die Runde und ihre Tabelle verschwinden für alle Mitspieler. Eure Tipps bleiben auf euren Geräten."
             action="Löschen"
             onConfirm={async () => {
-              await deleteGroup(g.id);
-              toast("Runde gelöscht");
-              await afterLeave();
+              await actions.remove();
+              if (!actions.demo) toast("Runde gelöscht");
             }}
           >
             <button
@@ -362,10 +449,9 @@ function Board({ groupId }: { groupId: string }) {
         canKick={g.isOwner && !!selected && !selected.isMe}
         onClose={() => setSelected(null)}
         onKick={async (m) => {
-          await kickMember(g.id, m.id);
+          await actions.kick(m);
           toast(`${m.name} wurde entfernt`);
           setSelected(null);
-          await refetch();
         }}
         isVisible={isVisible}
       />
@@ -373,11 +459,7 @@ function Board({ groupId }: { groupId: string }) {
         open={renaming}
         current={me?.name ?? ""}
         onClose={() => setRenaming(false)}
-        onSave={async (name) => {
-          await renameMe(g.id, name);
-          useAppStore.getState().setTipName(name);
-          await refetch();
-        }}
+        onSave={actions.rename}
       />
     </>
   );

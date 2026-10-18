@@ -1,6 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Crown, Loader2, Plus, Trophy, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Crown,
+  FlaskConical,
+  Info,
+  Loader2,
+  Plus,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Flag } from "@/components/team/Flag";
@@ -8,10 +17,11 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/compone
 import { CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import { syncTipsNow } from "@/hooks/useTipSync";
+import { DEMO_GROUP } from "@/demo/demoGroup";
 import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
 import { createGroup, joinGroup, normalizeCode, TipError } from "@/services/tipgroups";
-import { useAppStore } from "@/store/app-store";
+import { selectChampionTip, useAppStore } from "@/store/app-store";
 import { useNow, useTournament } from "@/store/match-store";
 import { NATIONS, getNation } from "@/tournament/nations";
 
@@ -64,12 +74,39 @@ export function RulesCard({ className }: { className?: string }) {
   );
 }
 
+/** ⓘ-Knopf: Regeln nur bei Bedarf, nicht ständig auf dem Bildschirm. */
+export function RulesButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="So wird gezählt"
+        title="So wird gezählt"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground"
+      >
+        <Info className="h-5 w-5" />
+      </button>
+      <Drawer open={open} onOpenChange={setOpen} shouldScaleBackground={false}>
+        <DrawerContent className="mx-auto max-h-[90dvh] max-w-lg border-border bg-background">
+          <div className="overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3">
+            <DrawerTitle className="sr-only">So wird gezählt</DrawerTitle>
+            <DrawerDescription className="sr-only">Punkte im Tippspiel</DrawerDescription>
+            <RulesCard />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Europameister-Tipp                                                  */
 /* ------------------------------------------------------------------ */
 
 export function ChampionTipCard() {
-  const champion = useAppStore((s) => s.championTip);
+  const champion = useAppStore(selectChampionTip);
   const setChampion = useAppStore((s) => s.setChampionTip);
   const { matches } = useTournament();
   const now = useNow();
@@ -269,7 +306,8 @@ export function TipGroupsSection() {
   const [form, setForm] = useState<"create" | "join" | null>(null);
 
   // Ohne Server bzw. bevor die Tipprunde dort eingerichtet ist: ausblenden.
-  if (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)) return null;
+  if (!demo && (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)))
+    return null;
 
   return (
     <section className="mb-7">
@@ -279,9 +317,25 @@ export function TipGroupsSection() {
       </div>
 
       {demo ? (
-        <p className="rounded-2xl border border-border bg-card p-4 text-[14px] text-muted-foreground">
-          Im Vorschau-Modus nicht verfügbar – dort sind die Spiele ausgedacht.
-        </p>
+        <>
+          <Link
+            to="/runde/$code"
+            params={{ code: DEMO_GROUP.code }}
+            className="mb-3 flex min-h-[60px] items-center gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3"
+          >
+            <FlaskConical className="h-5 w-5 shrink-0 text-gold" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-semibold">{DEMO_GROUP.name}</span>
+              <span className="text-[13px] text-muted-foreground">
+                Beispielrunde mit ausgedachten Mitspielern – zum Ausprobieren
+              </span>
+            </span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
+          </Link>
+          <p className="text-[13px] text-muted-foreground">
+            Eigene Runden erstellen und beitreten geht, sobald du die Vorschau beendest.
+          </p>
+        </>
       ) : (
         <>
           {groups && groups.length > 0 && (

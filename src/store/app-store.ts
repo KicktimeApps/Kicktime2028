@@ -40,6 +40,9 @@ type State = {
   predictions: Record<string, Prediction>;
   /** Europameister-Tipp (Ländercode), bis zum Eröffnungsspiel änderbar. */
   championTip: string | null;
+  /** Tipps im Vorschau-Modus – getrennt, damit sie nie in echte Runden geraten. */
+  demoPredictions: Record<string, Prediction>;
+  demoChampionTip: string | null;
   /** Zuletzt verwendeter Name in Tipprunden. */
   tipName: string;
   /** Ist das Gerät in mindestens einer Tipprunde? (dann werden Tipps geteilt) */
@@ -92,6 +95,8 @@ export const useAppStore = create<State & Actions>()(
       accent: "floodlight",
       largeText: false,
       championTip: null,
+      demoPredictions: {},
+      demoChampionTip: null,
       tipName: "",
       inTipGroups: false,
       pushEnabled: false,
@@ -150,7 +155,8 @@ export const useAppStore = create<State & Actions>()(
       setTheme: (theme) => set({ theme }),
       setAccent: (accent) => set({ accent }),
       setLargeText: (largeText) => set({ largeText }),
-      setChampionTip: (championTip) => set({ championTip }),
+      setChampionTip: (code) =>
+        set((s) => (s.demo.enabled ? { demoChampionTip: code } : { championTip: code })),
       setTipName: (tipName) => set({ tipName }),
       setInTipGroups: (inTipGroups) => set({ inTipGroups }),
       setPushEnabled: (v) => set(v ? { pushEnabled: true } : { pushEnabled: false }),
@@ -163,21 +169,28 @@ export const useAppStore = create<State & Actions>()(
           return { alarms: next };
         }),
       setPrediction: (id, home, away) =>
-        set((s) => ({
-          predictions: {
-            ...s.predictions,
-            [id]: { home, away, createdAt: s.predictions[id]?.createdAt ?? Date.now() },
-          },
-        })),
+        set((s) => {
+          const key = s.demo.enabled ? "demoPredictions" : "predictions";
+          const cur = s[key];
+          return {
+            [key]: {
+              ...cur,
+              [id]: { home, away, createdAt: cur[id]?.createdAt ?? Date.now() },
+            },
+          };
+        }),
       clearPrediction: (id) =>
         set((s) => {
-          const next = { ...s.predictions };
+          const key = s.demo.enabled ? "demoPredictions" : "predictions";
+          const next = { ...s[key] };
           delete next[id];
-          return { predictions: next };
+          return { [key]: next };
         }),
       setDemo: (enabled, scenario) =>
         set((s) => ({
           demo: { enabled, scenario: scenario ?? s.demo.scenario, startedAt: Date.now() },
+          // Vorschau beendet → Vorschau-Tipps verwerfen.
+          ...(enabled ? {} : { demoPredictions: {}, demoChampionTip: null }),
         })),
       setCelebrated: (code) => set({ celebratedChampion: code }),
     }),
@@ -213,3 +226,7 @@ export function teamMarkOf(s: Pick<State, "favorites" | "interesting">, code: st
   if (s.interesting.includes(code)) return "interesting";
   return null;
 }
+
+/** Tipps, die gerade gelten – im Vorschau-Modus die Vorschau-Tipps. */
+export const selectPredictions = (s: State) => (s.demo.enabled ? s.demoPredictions : s.predictions);
+export const selectChampionTip = (s: State) => (s.demo.enabled ? s.demoChampionTip : s.championTip);
