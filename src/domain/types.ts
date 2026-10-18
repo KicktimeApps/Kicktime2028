@@ -27,14 +27,16 @@ export type ResultRecord = {
 };
 
 /**
- * Kurzform eines Live-Stands (Status, Tore, Elfmeter) – ohne Spielphase, weil
- * die teils aus der Uhr abgeleitet wird und sich ohne neue Daten ändert.
+ * Kurzform eines Live-Stands: beendet ja/nein, Tore, Elfmeter. Spielphase und
+ * „geplant/live“ fehlen bewusst – beides wird teils aus der Uhr abgeleitet und
+ * ändert sich, ohne dass die Quelle Neues meldet. „Noch nichts“ und „live 0:0“
+ * sind deshalb gleich.
  */
 export function resultSignature(r: ResultRecord | undefined): string {
-  if (!r) return "none";
-  const s = r.score ? `${r.score.home}:${r.score.away}` : "-";
-  const p = r.penalties ? `${r.penalties.home}:${r.penalties.away}` : "-";
-  return `${r.status}|${s}|${p}`;
+  const done = r?.status === "finished" ? "F" : "O";
+  const s = r?.score ? `${r.score.home}:${r.score.away}` : "0:0";
+  const p = r?.penalties ? `${r.penalties.home}:${r.penalties.away}` : "-";
+  return `${done}|${s}|${p}`;
 }
 
 /** Zusatzinfos, die eine Live-Quelle zu einem Spiel liefern kann. */

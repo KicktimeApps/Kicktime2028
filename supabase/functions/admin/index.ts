@@ -81,34 +81,50 @@ Deno.serve(async (req) => {
     { key: `ip:${ip}`, max: MAX_FAILURES },
     { key: "global", max: MAX_GLOBAL_FAILURES },
   ];
-  const { data: attempts } = await db
-    .from("admin_attempts")
-    .select("key, failures, window_start")
-    .in(
-      "key",
-      keys.map((k) => k.key),
+  const keyNames = keys.map((k) => k.key);
+  const provided = String(body.pin ?? "");
+
+  // Bevorzugt: atomar hochzählen, BEVOR die PIN geprüft wird (SQL-Update
+  // „Härtung“). So hilft auch das gleichzeitige Senden vieler Anfragen nicht.
+  const { data: counted, error: rpcError } = await db.rpc("kt_admin_attempt", {
+    p_keys: keyNames,
+  });
+  if (!rpcError) {
+    const rows = (counted ?? []) as { r_key: string; r_failures: number }[];
+    const over = keys.some(
+      ({ key, max }) => (rows.find((r) => r.r_key === key)?.r_failures ?? 0) > max,
     );
-  const active = (k: string) => {
-    const a = (attempts ?? []).find((x: { key: string }) => x.key === k);
-    return a && Date.now() - Date.parse(a.window_start) < LOCK_MS ? a : null;
-  };
-  if (keys.some(({ key, max }) => (active(key)?.failures ?? 0) >= max)) {
-    return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
+    if (over) return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
+    if (!safeEqual(provided, pin)) return json({ error: "Falsche PIN" }, 401);
+    await db.rpc("kt_admin_ok", { p_keys: keyNames });
+  } else {
+    // Rückfall ohne SQL-Update: lesen, prüfen, schreiben (nicht atomar).
+    const { data: attempts } = await db
+      .from("admin_attempts")
+      .select("key, failures, window_start")
+      .in("key", keyNames);
+    const active = (k: string) => {
+      const a = (attempts ?? []).find((x: { key: string }) => x.key === k);
+      return a && Date.now() - Date.parse(a.window_start) < LOCK_MS ? a : null;
+    };
+    if (keys.some(({ key, max }) => (active(key)?.failures ?? 0) >= max)) {
+      return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
+    }
+    if (!safeEqual(provided, pin)) {
+      await db.from("admin_attempts").upsert(
+        keys.map(({ key }) => {
+          const a = active(key);
+          return {
+            key,
+            failures: a ? a.failures + 1 : 1,
+            window_start: a ? a.window_start : new Date().toISOString(),
+          };
+        }),
+      );
+      return json({ error: "Falsche PIN" }, 401);
+    }
+    if (active(`ip:${ip}`)) await db.from("admin_attempts").delete().eq("key", `ip:${ip}`);
   }
-  if (!safeEqual(String(body.pin ?? ""), pin)) {
-    await db.from("admin_attempts").upsert(
-      keys.map(({ key }) => {
-        const a = active(key);
-        return {
-          key,
-          failures: a ? a.failures + 1 : 1,
-          window_start: a ? a.window_start : new Date().toISOString(),
-        };
-      }),
-    );
-    return json({ error: "Falsche PIN" }, 401);
-  }
-  if (active(`ip:${ip}`)) await db.from("admin_attempts").delete().eq("key", `ip:${ip}`);
 
   const matchId = String(body.matchId ?? "");
   const validId = /^m\d{2}$/.test(matchId);

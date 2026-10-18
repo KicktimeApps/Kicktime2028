@@ -59,10 +59,12 @@ describe("mergeResults: OpenLigaDB gibt vor, Korrektur überbrückt nur", () => 
     expect(out.m01.status).toBe("finished");
   });
 
-  it("Korrektur, als die Quelle noch gar nichts hatte, gilt bis zur ersten Meldung", () => {
+  it("Korrektur, als die Quelle noch gar nichts hatte, gilt bis zum ersten Tor", () => {
     const admin = withSig(r("live", 1, 0, "admin"), undefined);
     expect(mergeResults({}, { m01: admin }).m01.source).toBe("admin");
-    expect(mergeResults({ m01: r("live", 0, 0, "api") }, { m01: admin }).m01.source).toBe("api");
+    // Nur die Uhr springt auf „live 0:0“ – das ist nichts Neues von der Quelle.
+    expect(mergeResults({ m01: r("live", 0, 0, "api") }, { m01: admin }).m01.source).toBe("admin");
+    expect(mergeResults({ m01: r("live", 1, 0, "api") }, { m01: admin }).m01.source).toBe("api");
   });
 
   it("ältere Korrektur ohne Quellstand bleibt stehen (wie 2026)", () => {

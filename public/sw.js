@@ -34,9 +34,11 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const client of list) {
         if ("focus" in client) {
-          client.focus();
-          if ("navigate" in client) client.navigate(url);
-          return;
+          // navigate() schlägt bei nicht gesteuerten Fenstern fehl – dann reicht der Fokus.
+          return client
+            .focus()
+            .then((c) => (c && "navigate" in c ? c.navigate(url) : undefined))
+            .catch(() => undefined);
         }
       }
       return self.clients.openWindow ? self.clients.openWindow(url) : undefined;

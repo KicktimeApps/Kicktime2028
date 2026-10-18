@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
   Bell,
   BellRing,
@@ -45,7 +45,7 @@ import { downloadIcs } from "@/lib/calendar";
 import { submitFeedback, type FeedbackRating } from "@/lib/feedback";
 import { haptics } from "@/lib/haptics";
 import { detectPushSupport } from "@/lib/notifications";
-import { hasPushBackend, sendTestPush } from "@/lib/push";
+import { hasPushBackend, sendTestPush, syncServerAlarms } from "@/lib/push";
 import { enableReminders } from "@/lib/reminders";
 import { ACCENTS, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -251,11 +251,20 @@ const SECTION_META: Record<Section, { title: string; intro?: string }> = {
 
 function SubPage({ section }: { section: Section }) {
   const meta = SECTION_META[section];
+  const router = useRouter();
   return (
     <div className="mx-auto max-w-2xl">
       <Link
         to="/einstellungen"
         search={{}}
+        onClick={(e) => {
+          // Zurück im Verlauf statt neuem Eintrag – sonst öffnet die
+          // Wisch-Geste danach wieder die Unterseite.
+          if (router.history.canGoBack()) {
+            e.preventDefault();
+            router.history.back();
+          }
+        }}
         className="-ml-2 mb-3 inline-flex h-10 items-center gap-1 rounded-full pl-1 pr-3 text-[15px] font-medium text-primary hover:bg-primary/10"
       >
         <ChevronLeft className="h-5 w-5" /> Einstellungen
@@ -302,7 +311,7 @@ function TimeContent() {
             className="mt-3 h-12 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] outline-none focus:border-primary"
             aria-label="Zeitzone"
           >
-            <option value="">Automatisch ({detectTimeZone().replace("_", " ")})</option>
+            <option value="">Automatisch ({detectTimeZone().replaceAll("_", " ")})</option>
             {COMMON_TIME_ZONES.map((z) => (
               <option key={z.id} value={z.id}>
                 {z.label}
@@ -566,11 +575,27 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
           <span className="flex-1">Datenschutz & Impressum</span>
           <ExternalLink className="h-4 w-4 text-muted-foreground/60" />
         </a>
-        <button type="button" onClick={onRestart} className={row}>
-          <RotateCcw className="h-[18px] w-[18px] text-muted-foreground" />
-          <span className="flex-1">Einrichtung neu starten</span>
-          <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button type="button" className={row}>
+              <RotateCcw className="h-[18px] w-[18px] text-muted-foreground" />
+              <span className="flex-1">Einrichtung neu starten</span>
+              <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Einrichtung neu starten?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Du wählst Teams und Zeiten noch einmal aus. Deine Tipps bleiben erhalten.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction onClick={onRestart}>Neu starten</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button type="button" className={cn(row, "text-destructive")}>
@@ -590,7 +615,9 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
               <AlertDialogCancel>Abbrechen</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={() => {
+                onClick={async () => {
+                  // Erst die Server-Erinnerungen stoppen, solange die Geräte-ID noch da ist.
+                  if (hasPushBackend()) await syncServerAlarms([]).catch(() => {});
                   try {
                     Object.keys(localStorage)
                       .filter((k) => k.startsWith(TOURNAMENT.storagePrefix))

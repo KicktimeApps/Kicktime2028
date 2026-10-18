@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Countdown } from "@/components/dashboard/Countdown";
 import { LiveBar } from "@/components/dashboard/LiveBar";
-import { FitNote, MatchList } from "@/components/dashboard/MatchRow";
+import { FitNote, MatchList } from "@/components/dashboard/MatchList";
 import { MatchCard } from "@/components/match/MatchCard";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
@@ -192,7 +192,7 @@ function Drawn({ started }: { started: boolean }) {
       {!hasTeams && (
         <div className="mb-6 rounded-2xl border border-border bg-card p-4 text-[15px]">
           Du hast noch keine Teams ausgewählt.{" "}
-          <Link to="/einstellungen" className="font-semibold text-primary">
+          <Link to="/einstellungen" search={{ s: "teams" }} className="font-semibold text-primary">
             Jetzt Teams wählen
           </Link>
         </div>
@@ -336,7 +336,7 @@ function untilText(target: number, now: number) {
   if (min < 60) return `noch ${min} Min.`;
   const h = Math.floor(min / 60);
   if (h < 24) return `noch ${h} Std. ${min % 60} Min.`;
-  const d = Math.round(h / 24);
+  const d = Math.floor(h / 24);
   return d === 1 ? "noch 1 Tag" : `noch ${d} Tage`;
 }
 
@@ -454,7 +454,11 @@ function PreDraw() {
         {myTeams.length === 0 ? (
           <div className="rounded-2xl border border-border bg-card p-4 text-[15px]">
             Du hast noch keine Teams ausgewählt.{" "}
-            <Link to="/einstellungen" className="font-semibold text-primary">
+            <Link
+              to="/einstellungen"
+              search={{ s: "teams" }}
+              className="font-semibold text-primary"
+            >
               Jetzt Teams wählen
             </Link>
           </div>

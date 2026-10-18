@@ -5,6 +5,7 @@ import type { MatchView } from "@/domain/types";
 import { teamDisplay } from "@/domain/labels";
 import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { useSpoiler } from "./useSpoiler";
 import { useAppStore } from "@/store/app-store";
 import { useNow } from "@/store/match-store";
 
@@ -61,6 +62,7 @@ export function PredictionEditor({ match: m }: { match: MatchView }) {
   const pred = useAppStore((s) => s.predictions[m.id]);
   const setPrediction = useAppStore((s) => s.setPrediction);
   const clearPrediction = useAppStore((s) => s.clearPrediction);
+  const { hidden } = useSpoiler(m);
   const open = canPredict(m, now);
   const a = teamDisplay(m.home, m.slotHome);
   const b = teamDisplay(m.away, m.slotAway);
@@ -73,7 +75,9 @@ export function PredictionEditor({ match: m }: { match: MatchView }) {
     );
   }
 
-  const result = pred && m.status === "finished" && m.score ? scorePrediction(pred, m.score) : null;
+  // Bei verborgenem Ergebnis keine Wertung – „Volltreffer“ würde es verraten.
+  const result =
+    pred && m.status === "finished" && m.score && !hidden ? scorePrediction(pred, m.score) : null;
   const set = (home: number, away: number) => {
     haptics.tap();
     if (!pred) toast.success("Tipp gespeichert");

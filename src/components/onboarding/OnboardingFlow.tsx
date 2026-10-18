@@ -200,7 +200,7 @@ function TimeStep() {
         text="Wann kannst du in der Regel Fußball schauen? Gespielt wird um 15, 18 und 21 Uhr – genaue Zeiten folgen nach der Auslosung."
       />
       <WeekEditor value={availability} onChange={setAvailability} timeZone={tz} />
-      <p className="mt-3 text-[12px] text-muted-foreground">Zeitzone: {tz.replace("_", " ")}</p>
+      <p className="mt-3 text-[12px] text-muted-foreground">Zeitzone: {tz.replaceAll("_", " ")}</p>
     </>
   );
 }

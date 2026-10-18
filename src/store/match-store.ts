@@ -110,8 +110,10 @@ export const useMatchStore = create<MatchStore>((set, get) => {
     tick: () => update({ now: Date.now() }),
     setApiData: (results, patches) =>
       update({
-        apiResults: { ...get().apiResults, ...results },
-        apiPatches: { ...get().apiPatches, ...patches },
+        // Ersetzen statt anhängen: Die Quelle liefert immer die komplette
+        // Liste. So verschwinden auch verschobene oder korrigierte Einträge.
+        apiResults: results,
+        apiPatches: patches,
       }),
     setAdminResults: (adminResults) => update({ adminResults }),
     setLiveMeta: (m) => set({ live: { ...get().live, ...m } }),

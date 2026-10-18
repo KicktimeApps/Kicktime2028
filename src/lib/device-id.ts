@@ -12,16 +12,21 @@ function uuid(): string {
   });
 }
 
+// Ersatz, falls localStorage gesperrt ist – sonst gäbe es bei jedem Aufruf
+// eine neue ID und Abo und Erinnerungen passten nicht mehr zusammen.
+let memoryId: string | null = null;
+
 export function getDeviceId(): string {
   if (typeof window === "undefined") return "ssr";
   try {
     let id = localStorage.getItem(KEY);
     if (!id) {
-      id = uuid();
+      id = memoryId ?? uuid();
       localStorage.setItem(KEY, id);
     }
     return id;
   } catch {
-    return uuid();
+    memoryId ??= uuid();
+    return memoryId;
   }
 }

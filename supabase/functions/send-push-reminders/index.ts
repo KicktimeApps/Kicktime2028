@@ -52,12 +52,54 @@ type Row = {
 };
 type Sub = { endpoint: string; p256dh: string; auth: string };
 
+type Due = {
+  device_id: string;
+  match_id: string;
+  kickoff_utc: string;
+  title: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
+/** Fällige Erinnerungen holen – bevorzugt atomar über kt_claim_due_alarms. */
+// deno-lint-ignore no-explicit-any
+type Db = any;
+
+async function claimDue(db: Db, now: number): Promise<{ list: Due[]; atomic: boolean }> {
+  const { data, error } = await db.rpc("kt_claim_due_alarms");
+  if (!error) return { list: (data ?? []) as Due[], atomic: true };
+
+  // Rückfall ohne SQL-Update „Härtung“: lesen und danach markieren.
+  const { data: rows, error: selErr } = await db
+    .from("match_alarms")
+    .select(
+      "device_id, match_id, kickoff_utc, lead_minutes, title, notified_for, push_subscriptions ( endpoint, p256dh, auth )",
+    )
+    .gte("kickoff_utc", new Date(now).toISOString())
+    .lte("kickoff_utc", new Date(now + 61 * 60_000).toISOString());
+  if (selErr) throw selErr;
+  const list: Due[] = [];
+  for (const row of (rows ?? []) as unknown as Row[]) {
+    const kickoff = Date.parse(row.kickoff_utc);
+    if (kickoff - now > row.lead_minutes * 60_000) continue;
+    if (row.notified_for && Date.parse(row.notified_for) === kickoff) continue;
+    const sub = Array.isArray(row.push_subscriptions)
+      ? row.push_subscriptions[0]
+      : row.push_subscriptions;
+    if (!sub) continue;
+    list.push({ ...row, ...sub });
+  }
+  return { list, atomic: false };
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
   try {
+    // Ohne gesetztes Secret niemals offen – sonst könnte jeder Push auslösen.
     const secret = Deno.env.get("CRON_SECRET");
-    if (secret && req.headers.get("x-cron-secret") !== secret)
+    if (!secret || req.headers.get("x-cron-secret") !== secret)
       return json({ error: "Nicht erlaubt" }, 401);
 
     webpush.setVapidDetails(
@@ -67,51 +109,58 @@ Deno.serve(async (req) => {
     );
     const db = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
     const now = Date.now();
-    const { data, error } = await db
-      .from("match_alarms")
-      .select(
-        "device_id, match_id, kickoff_utc, lead_minutes, title, notified_for, push_subscriptions ( endpoint, p256dh, auth )",
-      )
-      .gte("kickoff_utc", new Date(now).toISOString())
-      .lte("kickoff_utc", new Date(now + 31 * 60_000).toISOString());
-    if (error) throw error;
+    const { list, atomic } = await claimDue(db, now);
 
     let sent = 0;
-    const expired: string[] = [];
-    for (const row of (data ?? []) as unknown as Row[]) {
+    const expired = new Set<string>();
+    const sendOne = async (row: Due) => {
       const kickoff = Date.parse(row.kickoff_utc);
-      if (kickoff - now > row.lead_minutes * 60_000) continue;
-      if (row.notified_for && Date.parse(row.notified_for) === kickoff) continue;
-      const sub = Array.isArray(row.push_subscriptions)
-        ? row.push_subscriptions[0]
-        : row.push_subscriptions;
-      if (!sub) continue;
       const minutes = Math.max(1, Math.round((kickoff - now) / 60_000));
       try {
         await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
           JSON.stringify({
             title: "Gleich geht's los ⚽",
             body: `${row.title} – Anpfiff in ${minutes} Minuten.`,
             url: "/",
             tag: `match-${row.match_id}`,
           }),
-          { TTL: 30 * 60 },
+          // Nur bis zum Anpfiff zustellen – danach wäre die Nachricht falsch.
+          { TTL: Math.max(60, Math.round((kickoff - now) / 1000)), urgency: "high" },
         );
         sent++;
-        await db
-          .from("match_alarms")
-          .update({ notified_for: row.kickoff_utc })
-          .eq("device_id", row.device_id)
-          .eq("match_id", row.match_id);
+        if (!atomic) {
+          await db
+            .from("match_alarms")
+            .update({ notified_for: row.kickoff_utc })
+            .eq("device_id", row.device_id)
+            .eq("match_id", row.match_id);
+        }
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) expired.push(row.device_id);
-        else console.warn("[push] Versand fehlgeschlagen", status);
+        if (status === 404 || status === 410) expired.add(row.device_id);
+        else {
+          console.warn("[push] Versand fehlgeschlagen", status);
+          // Vorübergehender Fehler → beim nächsten Lauf noch einmal versuchen.
+          if (atomic && (!status || status === 429 || status >= 500))
+            await db.rpc("kt_release_alarm", { p_device: row.device_id, p_match: row.match_id });
+        }
       }
-    }
-    if (expired.length > 0) await db.from("push_subscriptions").delete().in("device_id", expired);
-    return json({ ok: true, sent, cleaned: expired.length });
+    };
+
+    // Parallel, aber begrenzt (10 gleichzeitig) und mit Zeitlimit pro Durchlauf.
+    const queue = [...list];
+    await Promise.all(
+      Array.from({ length: Math.min(10, queue.length) }, async () => {
+        for (let row = queue.shift(); row; row = queue.shift()) await sendOne(row);
+      }),
+    );
+    if (expired.size > 0)
+      await db
+        .from("push_subscriptions")
+        .delete()
+        .in("device_id", [...expired]);
+    return json({ ok: true, sent, due: list.length, cleaned: expired.size });
   } catch (err) {
     console.error("[push]", err);
     return json({ error: "Interner Fehler" }, 500);

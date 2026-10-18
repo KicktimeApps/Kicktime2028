@@ -113,6 +113,15 @@ export function useEngine(): void {
     };
   }, [pushEnabled, demo.enabled]);
 
+  // Erinnerungen aus oder Vorschau-Modus: Server-Erinnerungen dieses Geräts
+  // löschen, sonst kämen weiter Push-Nachrichten.
+  // Nur auf Geräten mit erteilter Erlaubnis – ohne sie gibt es kein Abo.
+  useEffect(() => {
+    if (pushEnabled && !demo.enabled) return;
+    const granted = typeof Notification !== "undefined" && Notification.permission === "granted";
+    if (granted && hasPushBackend()) void syncServerAlarms([]);
+  }, [pushEnabled, demo.enabled]);
+
   useEffect(() => {
     if (!pushEnabled || demo.enabled || serverPush === null) return;
     const due = JSON.parse(dueKey) as Array<[string, string, string]>;

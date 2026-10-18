@@ -42,7 +42,7 @@ function TeamBody({ code }: { code: string }) {
   if (!nation) return null;
 
   return (
-    <div className="overflow-y-auto px-4 pb-8 pt-4">
+    <div className="overflow-y-auto px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4">
       <div className="flex items-center gap-4">
         <Flag flag={nation.flag} size="xl" />
         <div className="min-w-0">
@@ -51,7 +51,12 @@ function TeamBody({ code }: { code: string }) {
           </DrawerTitle>
           <DrawerDescription asChild>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {statusChip(status)}
+              {/* Bei Spoilerschutz kein „Ausgeschieden im …“ oder „Europameister“. */}
+              {statusChip(
+                spoiler && (status?.phase === "out" || status?.phase === "champion")
+                  ? { ...status, phase: "alive" }
+                  : status,
+              )}
               {nation.host && <Chip tone="outline">Co-Gastgeber</Chip>}
             </div>
           </DrawerDescription>
@@ -89,8 +94,8 @@ function TeamBody({ code }: { code: string }) {
                   ? "Favorit"
                   : "Als Favorit"
                 : active
-                  ? "Interessant"
-                  : "Interessant"}
+                  ? "Auch dabei"
+                  : "Auch verfolgen"}
             </button>
           );
         })}

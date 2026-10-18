@@ -26,6 +26,7 @@ import { downloadIcs } from "@/lib/calendar";
 import { shareMatch } from "@/lib/share-card";
 import { cn } from "@/lib/utils";
 import { useMatch, useNow, useTournament } from "@/store/match-store";
+import { useAppStore } from "@/store/app-store";
 import { useUi } from "@/store/ui-store";
 import { STAGE_LABEL } from "@/tournament/config";
 import { BROADCASTER_URLS, getTvInfo } from "@/tournament/tv";
@@ -80,6 +81,8 @@ function SheetBody({ matchId }: { matchId: string }) {
   const tournament = useTournament();
   const openTeam = useUi((s) => s.openTeam);
   const { hidden, reveal } = useSpoiler(m);
+  // Tabelle auch vor Anpfiff verbergen – sie verrät die Ergebnisse der Vorrunde.
+  const spoilerProtection = useAppStore((s) => s.spoilerProtection);
   const a = teamDisplay(m.home, m.slotHome);
   const b = teamDisplay(m.away, m.slotAway);
   const tv = getTvInfo(m);
@@ -115,7 +118,7 @@ function SheetBody({ matchId }: { matchId: string }) {
   );
 
   return (
-    <div className="overflow-y-auto px-4 pb-8">
+    <div className="overflow-y-auto px-4 pb-[calc(2rem+env(safe-area-inset-bottom))]">
       {/* Kopf */}
       <div className="pt-3 text-center">
         <DrawerTitle className="text-[12px] font-semibold uppercase tracking-[0.14em] text-primary">
@@ -242,7 +245,7 @@ function SheetBody({ matchId }: { matchId: string }) {
           <GroupTableCard
             table={table}
             highlight={[m.home, m.away].filter((c): c is string => !!c)}
-            hideScores={hidden}
+            hideScores={spoilerProtection}
             compact
           />
         )}

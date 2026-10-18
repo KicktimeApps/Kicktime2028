@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, Target, Trophy } from "lucide-react";
+import { CheckCircle2, Eye, Target, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Section } from "@/components/common/Section";
 import { Segmented } from "@/components/common/Segmented";
 import { PredictionEditor } from "@/components/match/PredictionEditor";
+import { useSpoiler } from "@/components/match/useSpoiler";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
 import {
@@ -60,6 +61,53 @@ function MatchHead({ m }: { m: MatchView }) {
   );
 }
 
+/** Ausgewertetes Spiel – bei Spoilerschutz erst nach „Zeigen“ mit Ergebnis und Punkten. */
+function RatedRow({ m }: { m: MatchView }) {
+  const p = useAppStore((s) => s.predictions[m.id]);
+  const { hidden, reveal } = useSpoiler(m);
+  const r = scorePrediction(p, m.score!);
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
+      <span
+        className={cn(
+          "h-8 w-1 shrink-0 rounded-full",
+          hidden ? "bg-muted-foreground/30" : RESULT_COLOR[r.result],
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        <MatchHead m={m} />
+        <div className="mt-0.5 text-[12px] text-muted-foreground">
+          Tipp {p.home}:{p.away}
+          {!hidden && (
+            <>
+              {" "}
+              · Ergebnis {m.score!.home}:{m.score!.away} · {RESULT_LABEL[r.result]}
+            </>
+          )}
+        </div>
+      </div>
+      {hidden ? (
+        <button
+          type="button"
+          onClick={reveal}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-elevated px-3 py-1.5 text-[13px] font-semibold ring-1 ring-border"
+        >
+          <Eye className="h-4 w-4" /> Zeigen
+        </button>
+      ) : (
+        <span
+          className={cn(
+            "shrink-0 font-display text-xl font-bold tabular",
+            r.points ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          +{r.points}
+        </span>
+      )}
+    </div>
+  );
+}
+
 type Filter = "open" | "mine";
 
 function TipsPage() {
@@ -67,8 +115,14 @@ function TipsPage() {
   const now = useNow();
   const prefs = usePrefs();
   const predictions = useAppStore((s) => s.predictions);
+  const spoiler = useAppStore((s) => s.spoilerProtection);
+  const revealed = useAppStore((s) => s.revealed);
   const [filter, setFilter] = useState<Filter>("open");
-  const summary = useMemo(() => summarize(predictions, matches), [predictions, matches]);
+  // Punkte und Quote nur aus aufgedeckten Spielen – sonst verraten sie Ergebnisse.
+  const summary = useMemo(() => {
+    const visible = spoiler ? matches.filter((m) => revealed[m.id]) : matches;
+    return { ...summarize(predictions, visible), total: summarize(predictions, matches).total };
+  }, [predictions, matches, spoiler, revealed]);
 
   const tippable = useMemo(() => {
     const list = matches.filter((m) => canPredict(m, now));
@@ -224,35 +278,9 @@ function TipsPage() {
               </p>
             ) : (
               <div className="space-y-2">
-                {rated.map((m) => {
-                  const p = predictions[m.id];
-                  const r = scorePrediction(p, m.score!);
-                  return (
-                    <div
-                      key={m.id}
-                      className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5"
-                    >
-                      <span
-                        className={cn("h-8 w-1 shrink-0 rounded-full", RESULT_COLOR[r.result])}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <MatchHead m={m} />
-                        <div className="mt-0.5 text-[12px] text-muted-foreground">
-                          Tipp {p.home}:{p.away} · Ergebnis {m.score!.home}:{m.score!.away} ·{" "}
-                          {RESULT_LABEL[r.result]}
-                        </div>
-                      </div>
-                      <span
-                        className={cn(
-                          "shrink-0 font-display text-xl font-bold tabular",
-                          r.points ? "text-primary" : "text-muted-foreground",
-                        )}
-                      >
-                        +{r.points}
-                      </span>
-                    </div>
-                  );
-                })}
+                {rated.map((m) => (
+                  <RatedRow key={m.id} m={m} />
+                ))}
               </div>
             )}
           </Section>

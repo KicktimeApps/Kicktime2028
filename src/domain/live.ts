@@ -70,8 +70,13 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
   const afterEt = toScore(byKind("AfterExtraTime", 3));
   const after90 = toScore(byKind("After90Minutes", 2));
   const half = toScore(byKind("HalfTime", 1));
-  const goals = [...(m.goals ?? [])].sort((a, b) => (a.matchMinute ?? 0) - (b.matchMinute ?? 0));
-  const lastGoal = goals[goals.length - 1];
+  // Zwischenstand = Tor mit dem höchsten Gesamtstand (bei Gleichstand das
+  // zuletzt gelieferte). Unabhängig von Reihenfolge oder fehlender Minute.
+  let lastGoal: OlGoal | undefined;
+  for (const g of m.goals ?? []) {
+    if (!lastGoal || g.scoreTeam1 + g.scoreTeam2 >= lastGoal.scoreTeam1 + lastGoal.scoreTeam2)
+      lastGoal = g;
+  }
   const fromGoals = lastGoal ? { home: lastGoal.scoreTeam1, away: lastGoal.scoreTeam2 } : undefined;
 
   let status: MatchStatus = "scheduled";
@@ -158,9 +163,20 @@ export function matchFixture(
   const home = nationFromName(f.homeName);
   const away = nationFromName(f.awayName);
   if (home && away) {
-    for (const [num, t] of resolvedTeams) {
-      if ((t.home === home && t.away === away) || (t.home === away && t.away === home)) return num;
+    // Gruppengegner können sich ab dem Viertelfinale wiedersehen – bei
+    // mehreren Treffern gewinnt das Spiel mit der nächstgelegenen Anstoßzeit.
+    const t = f.kickoffUtc ? Date.parse(f.kickoffUtc) : NaN;
+    let best: { num: number; diff: number } | null = null;
+    for (const [num, teams] of resolvedTeams) {
+      const same =
+        (teams.home === home && teams.away === away) ||
+        (teams.home === away && teams.away === home);
+      if (!same) continue;
+      const def = fixtures.find((x) => x.number === num);
+      const diff = def && !Number.isNaN(t) ? Math.abs(Date.parse(def.kickoffUtc) - t) : 0;
+      if (!best || diff < best.diff) best = { num, diff };
     }
+    if (best) return best.num;
   }
   if (!f.kickoffUtc) return null;
   const day = ukDay(f.kickoffUtc);
@@ -186,6 +202,9 @@ export function matchFixture(
   const close = sameDay.filter((x) => Math.abs(Date.parse(x.kickoffUtc) - t) < 20 * 60_000);
   return close.length === 1 ? close[0].number : null;
 }
+
+/** Spätestens so lange nach Anpfiff gilt ein „live“ gemeldetes Spiel als beendet. */
+const STALE_LIVE_MS = 4 * 60 * 60_000;
 
 export type LiveApplyResult = {
   results: Record<string, ResultRecord>;
@@ -226,22 +245,25 @@ export function applyLiveFixtures(
       if (home && !known?.home) patch.home = home;
       if (away && !known?.away) patch.away = away;
     }
-    // Offizielle Uhrzeit übernehmen, aber nur am selben Spieltag.
-    if (
-      f.kickoffUtc &&
-      ukDay(f.kickoffUtc) === ukDay(def.kickoffUtc) &&
-      f.kickoffUtc !== def.kickoffUtc
-    ) {
+    // Offizielle Uhrzeit übernehmen, aber nur am selben Spieltag – auch wenn
+    // sie der vorläufigen entspricht, damit das Spiel als bestätigt gilt.
+    if (f.kickoffUtc && ukDay(f.kickoffUtc) === ukDay(def.kickoffUtc)) {
       patch.kickoffUtc = f.kickoffUtc;
     }
     if (Object.keys(patch).length > 0) patches[id] = patch;
     if (f.status !== "scheduled") {
+      // Vergisst die Quelle das Spielende, gilt ein Spiel spätestens 4 Stunden
+      // nach Anpfiff als beendet (sonst bliebe es ewig „live“).
+      const kickoff = Date.parse(f.kickoffUtc ?? def.kickoffUtc);
+      const stale = f.status === "live" && now - kickoff > STALE_LIVE_MS;
+      // Verlängerung gibt es nur in der K.-o.-Phase.
+      const phase = f.phase === "extra" && def.stage === "group" ? "second" : f.phase;
       results[id] = {
-        status: f.status,
+        status: stale ? "finished" : f.status,
         score: flip(f.score),
         penalties: flip(f.penalties),
-        phase: f.phase,
-        minute: f.minute,
+        phase: stale ? undefined : phase,
+        minute: stale ? undefined : f.minute,
         source: "api",
         updatedAt: now,
       };

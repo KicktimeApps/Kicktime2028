@@ -43,6 +43,12 @@ function b64ToBytes(base64: string): Uint8Array {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
+function sameKey(a: ArrayBuffer | null, b: Uint8Array): boolean {
+  if (!a) return true; // Browser verrät den Schlüssel nicht – dann nicht eingreifen
+  const x = new Uint8Array(a);
+  return x.length === b.length && x.every((v, i) => v === b[i]);
+}
+
 /** Push-Abo anlegen und im Backend speichern. Gibt false zurück, wenn nicht möglich. */
 export async function subscribePush(): Promise<boolean> {
   const sb = await getSupabase();
@@ -51,6 +57,12 @@ export async function subscribePush(): Promise<boolean> {
   if (!reg) return false;
   try {
     let sub = await reg.pushManager.getSubscription();
+    // Abo mit einem alten Schlüssel (z. B. nach Schlüsselwechsel) würde vom
+    // Push-Dienst abgelehnt – dann neu abonnieren.
+    if (sub && !sameKey(sub.options.applicationServerKey, b64ToBytes(VAPID))) {
+      await sub.unsubscribe().catch(() => {});
+      sub = null;
+    }
     if (!sub) {
       const key = b64ToBytes(VAPID);
       sub = await reg.pushManager.subscribe({
@@ -82,16 +94,20 @@ export type AlarmPayload = {
   leadMinutes: number;
 };
 
-// Zuletzt an den Server übertragene Liste – für die Test-Benachrichtigung,
-// die sonst die echten Erinnerungen ersetzen würde.
+// Zuletzt gewünschte Liste und eine laufende Test-Erinnerung. Die
+// Test-Erinnerung wird bis zu ihrem Versand bei jedem Abgleich mitgeschickt,
+// damit ein zwischenzeitlicher Abgleich sie nicht wieder löscht.
 let lastWanted: AlarmPayload[] = [];
+let pendingTest: AlarmPayload | null = null;
 
 async function pushAlarms(list: AlarmPayload[]): Promise<boolean> {
   const sb = await getSupabase();
   if (!hasPushBackend() || !sb) return false;
+  if (pendingTest && Date.parse(pendingTest.kickoffUtc) < Date.now()) pendingTest = null;
+  const all = pendingTest ? [...list, pendingTest] : list;
   const { error } = await sb.rpc("kt_sync_alarms", {
     p_device: getDeviceId(),
-    p_alarms: list.map((w) => ({
+    p_alarms: all.map((w) => ({
       match_id: w.matchId,
       kickoff_utc: w.kickoffUtc,
       lead_minutes: w.leadMinutes,
@@ -105,9 +121,11 @@ async function pushAlarms(list: AlarmPayload[]): Promise<boolean> {
 /**
  * Ersetzt die serverseitigen Erinnerungen dieses Geräts durch die lokale
  * Liste (fehlende anlegen, überflüssige löschen, Anstoßzeiten aktualisieren).
+ * Eine leere Liste stoppt alle Server-Erinnerungen dieses Geräts.
  */
 export async function syncServerAlarms(wanted: AlarmPayload[]): Promise<void> {
   lastWanted = wanted;
+  if (wanted.length === 0) pendingTest = null;
   await pushAlarms(wanted);
 }
 
@@ -115,19 +133,14 @@ export async function syncServerAlarms(wanted: AlarmPayload[]): Promise<void> {
  * Echte Test-Benachrichtigung über den kompletten Weg (Server → Apple →
  * iPhone): legt eine Test-Erinnerung mit Anpfiff in 2 Minuten an. Der
  * Cron-Job verschickt sie beim nächsten Lauf (spätestens nach ca. 1 Minute).
- * Danach wird die Liste wieder auf die echten Erinnerungen zurückgesetzt.
  */
 export async function sendTestPush(): Promise<boolean> {
   if (!(await subscribePush())) return false;
-  const ok = await pushAlarms([
-    ...lastWanted,
-    {
-      matchId: `test-${Date.now()}`,
-      kickoffUtc: new Date(Date.now() + 2 * 60_000).toISOString(),
-      title: "Test: So kommt deine KickTime-Erinnerung an",
-      leadMinutes: 15,
-    },
-  ]);
-  window.setTimeout(() => void pushAlarms(lastWanted), 4 * 60_000);
-  return ok;
+  pendingTest = {
+    matchId: `test-${Date.now()}`,
+    kickoffUtc: new Date(Date.now() + 2 * 60_000).toISOString(),
+    title: "Test: So kommt deine KickTime-Erinnerung an",
+    leadMinutes: 15,
+  };
+  return pushAlarms(lastWanted);
 }

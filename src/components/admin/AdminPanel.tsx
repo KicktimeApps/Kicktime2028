@@ -260,7 +260,7 @@ function OverrideTab({ pin }: { pin: string }) {
       )}
       <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
         {list.map((m) => (
-          <OverrideRow key={m.id} pin={pin} matchId={m.id} />
+          <OverrideRowKeyed key={m.id} pin={pin} matchId={m.id} />
         ))}
       </ul>
     </div>
@@ -299,6 +299,18 @@ function Stepper({
       </button>
     </div>
   );
+}
+
+/**
+ * Meldet die Quelle einen neuen Stand, startet die Zeile mit den neuen Werten –
+ * sonst würde „live schalten“ einen veralteten Stand an alle verteilen.
+ */
+function OverrideRowKeyed({ pin, matchId }: { pin: string; matchId: string }) {
+  const sig = useMatchStore((s) => {
+    const m = s.tournament.matches.find((x) => x.id === matchId);
+    return m ? `${m.status}|${m.score?.home}:${m.score?.away}|${m.source}` : "";
+  });
+  return <OverrideRow key={sig} pin={pin} matchId={matchId} />;
 }
 
 function OverrideRow({ pin, matchId }: { pin: string; matchId: string }) {

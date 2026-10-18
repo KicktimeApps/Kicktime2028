@@ -111,7 +111,7 @@ export function MatchCard({
               </span>
               {finished ? (
                 <span className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {m.penalties ? "n. E." : "Ende"}
+                  {m.penalties && !hidden ? "n. E." : "Ende"}
                 </span>
               ) : !m.kickoffConfirmed ? (
                 <span
@@ -126,7 +126,7 @@ export function MatchCard({
         </div>
 
         {/* Teams + Ergebnis */}
-        <div className="min-w-0 flex-1">
+        <div className={cn("min-w-0 flex-1", hidden && "pr-24")}>
           {[
             { t: a, s: m.score?.home, p: m.penalties?.home, side: "home" as const },
             { t: b, s: m.score?.away, p: m.penalties?.away, side: "away" as const },
@@ -210,7 +210,7 @@ export function MatchCard({
           )}
           {fit === "partial" && (
             <Chip tone="outline" icon={<CalendarClock />}>
-              Teilweise schaubar
+              Teilweise in deiner Zeit
             </Chip>
           )}
           {fit === "none" && (

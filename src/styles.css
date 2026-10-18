@@ -302,3 +302,13 @@
 .splash-bar {
   animation: splash-bar 2.4s ease-out both;
 }
+
+/* iOS zoomt beim Antippen in Eingabefelder mit Schrift unter 16 px hinein und
+   bleibt gezoomt. Bewusst außerhalb der Layer, damit es die Utilities schlägt. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}

@@ -181,3 +181,16 @@ die Fehlermeldung aus dem Build-Log.
 
 Am einfachsten: die Infos (z. B. das Auslosungsergebnis) an Claude schicken. Claude trägt sie
 in `src/tournament/draw.ts` bzw. `tv.ts` ein. Details stehen in [PFLEGE.md](PFLEGE.md).
+
+## Updates am Backend
+
+Manche App-Updates brauchen eine kleine Änderung in Supabase. Die Edge Functions laufen auch
+ohne sie weiter (mit dem alten Verhalten), aber mit Update sind sie sicherer und zuverlässiger.
+
+| Update               | SQL-Datei (im SQL-Editor ausführen)                          | Edge Functions neu einfügen    |
+| -------------------- | ------------------------------------------------------------ | ------------------------------ |
+| Korrektur überbrückt | `supabase/migrations/20261018120000_override_source_sig.sql` | `admin`                        |
+| Härtung              | `supabase/migrations/20261018180000_haertung.sql`            | `admin`, `send-push-reminders` |
+
+Edge Function neu einfügen: **Edge Functions** → Funktion öffnen → **Code** → alles ersetzen
+→ **Deploy**. Danach prüfen, dass „Verify JWT“ aus ist.

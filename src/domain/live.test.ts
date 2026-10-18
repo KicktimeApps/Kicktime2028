@@ -153,3 +153,45 @@ describe("matchFixture", () => {
     expect(results[matchId(9)].score).toEqual({ home: 1, away: 2 }); // IRL (E1) ist Heimteam
   });
 });
+
+describe("Robustheit der Live-Daten", () => {
+  const live = (over: Partial<LiveFixture>): LiveFixture => ({
+    externalId: "x",
+    kickoffUtc: FIXTURES[0].kickoffUtc,
+    city: null,
+    stadium: null,
+    homeName: null,
+    awayName: null,
+    status: "live",
+    ...over,
+  });
+
+  it("Wiedersehen im K.-o.-Spiel landet nicht beim Gruppenspiel", () => {
+    const group = FIXTURES.find((f) => f.number === 1)!;
+    const ko = FIXTURES.find((f) => f.number === 45)!;
+    const teams = new Map([
+      [1, { home: "WAL", away: "POR" }],
+      [45, { home: "POR", away: "WAL" }],
+    ]);
+    const f = live({ homeName: "Portugal", awayName: "Wales", kickoffUtc: ko.kickoffUtc });
+    expect(matchFixture(f, FIXTURES, teams)).toBe(45);
+    const g = live({ homeName: "Wales", awayName: "Portugal", kickoffUtc: group.kickoffUtc });
+    expect(matchFixture(g, FIXTURES, teams)).toBe(1);
+  });
+
+  it("vergessenes Spielende: nach 4 Stunden gilt das Spiel als beendet", () => {
+    const def = FIXTURES[0];
+    const later = Date.parse(def.kickoffUtc) + 5 * 3_600_000;
+    const f = live({ city: "Cardiff", score: { home: 1, away: 0 }, phase: "extra", minute: 300 });
+    const { results } = applyLiveFixtures([f], FIXTURES, new Map(), later);
+    expect(results[matchId(def.number)]).toMatchObject({ status: "finished", phase: undefined });
+  });
+
+  it("keine Verlängerung in der Gruppenphase", () => {
+    const def = FIXTURES[0];
+    const now = Date.parse(def.kickoffUtc) + 115 * 60_000;
+    const f = live({ city: "Cardiff", score: { home: 0, away: 0 }, phase: "extra" });
+    const { results } = applyLiveFixtures([f], FIXTURES, new Map(), now);
+    expect(results[matchId(def.number)].phase).toBe("second");
+  });
+});
