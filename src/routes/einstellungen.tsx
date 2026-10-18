@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Bell,
   BellRing,
   CalendarPlus,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   ExternalLink,
@@ -15,11 +16,12 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Segmented } from "@/components/common/Segmented";
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { PRESETS, presetMatches } from "@/components/settings/presets";
 import { WeekEditor } from "@/components/settings/WeekEditor";
 import { Flag } from "@/components/team/Flag";
 import { TeamPicker } from "@/components/team/TeamPicker";
@@ -34,7 +36,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Switch } from "@/components/ui/switch";
 import { DEMO_SCENARIOS } from "@/demo/demo";
 import { recommend } from "@/domain/recommend";
@@ -55,229 +56,166 @@ import { useTournament } from "@/store/match-store";
 import { LEGAL_URL, TOURNAMENT } from "@/tournament/config";
 import { getNation } from "@/tournament/nations";
 
+/** Unterpunkte der Einstellungen – jeder hat eine eigene Seite (?s=…). */
+const SECTIONS = ["teams", "zeit", "erinnerungen", "darstellung", "vorschau", "feedback"] as const;
+type Section = (typeof SECTIONS)[number];
+
 export const Route = createFileRoute("/einstellungen")({
   head: () => ({
     meta: [{ title: "Einstellungen | KickTime" }, { name: "robots", content: "noindex" }],
   }),
+  validateSearch: (search: Record<string, unknown>): { s?: Section } => ({
+    s: SECTIONS.includes(search.s as Section) ? (search.s as Section) : undefined,
+  }),
   component: SettingsPage,
 });
 
-function Card({
-  icon,
-  title,
-  text,
-  children,
-  aside,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  text?: React.ReactNode;
-  children?: React.ReactNode;
-  aside?: React.ReactNode;
-}) {
+const THEME_LABEL: Record<ThemeMode, string> = {
+  system: "Wie System",
+  dark: "Dunkel",
+  light: "Hell",
+};
+
+function SettingsPage() {
+  const { s: section } = Route.useSearch();
+  if (section) return <SubPage section={section} />;
+  return <Overview />;
+}
+
+/* ---------------------------------------------------------------- Übersicht */
+
+function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="break-inside-avoid rounded-2xl border border-border bg-card p-4 md:mb-4">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary [&_svg]:h-4 [&_svg]:w-4">
-          {icon}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
-          {text && (
-            <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{text}</p>
-          )}
-        </div>
-        {aside}
+    <section className="mb-7">
+      <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        {title}
+      </h2>
+      <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+        {children}
       </div>
-      {children && <div className="mt-4">{children}</div>}
     </section>
   );
 }
 
-function SettingsPage() {
+function RowIcon({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary [&_svg]:h-[18px] [&_svg]:w-[18px]">
+      {children}
+    </span>
+  );
+}
+
+/** Zeile, die zu einem Unterpunkt führt – links Symbol und Name, rechts der aktuelle Wert. */
+function NavRow({
+  to,
+  icon,
+  title,
+  value,
+}: {
+  to: Section;
+  icon: ReactNode;
+  title: string;
+  value?: ReactNode;
+}) {
+  return (
+    <Link
+      to="/einstellungen"
+      search={{ s: to }}
+      className="flex min-h-[60px] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+    >
+      <RowIcon>{icon}</RowIcon>
+      <span className="flex-1 text-[16px] font-medium">{title}</span>
+      {value && (
+        <span className="max-w-[45%] truncate text-right text-[14px] text-muted-foreground">
+          {value}
+        </span>
+      )}
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/60" />
+    </Link>
+  );
+}
+
+function Overview() {
   const s = useAppStore();
-  const prefs = usePrefs();
-  const { matches } = useTournament();
-  const [teamsOpen, setTeamsOpen] = useState(false);
-  const support = typeof window !== "undefined" ? detectPushSupport() : "unsupported";
   const myTeams = [...s.favorites, ...s.interesting];
-  const myUpcoming = matches.filter((m) => m.status === "scheduled" && recommend(m, prefs).mine);
+  const preset = PRESETS.find((p) => p.id === presetMatches(s.availability));
+  const firstTeam = getNation(myTeams[0]);
 
   return (
-    <div>
+    <div className="mx-auto max-w-2xl">
       <PageHeader
         eyebrow="Profil"
         title="Einstellungen"
         subtitle="Alles wird nur auf diesem Gerät gespeichert."
       />
 
-      <div className="space-y-4 md:columns-2 md:gap-4 md:space-y-0">
-        <Card
+      <Group title="Für dich">
+        <NavRow
+          to="teams"
           icon={<Star />}
           title="Deine Teams"
-          text="Favoriten stehen ganz oben und bekommen automatisch Erinnerungen."
-          aside={
-            <button
-              type="button"
-              onClick={() => setTeamsOpen(true)}
-              className="text-[13px] font-semibold text-primary"
-            >
-              Bearbeiten
-            </button>
-          }
-        >
-          {myTeams.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground">Noch keine Teams gewählt.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {myTeams.map((c) => {
-                const n = getNation(c);
-                if (!n) return null;
-                return (
-                  <span
-                    key={c}
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-subtle py-1 pl-1.5 pr-3 text-[13px] font-medium"
-                  >
-                    <Flag flag={n.flag} size="sm" className="rounded-full" />
-                    {n.name}
-                    {s.favorites.includes(c) && <Star className="h-3 w-3 fill-gold text-gold" />}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
-        <Card
-          icon={<Clock3 />}
-          title="Deine Zeit"
-          text="Wann kannst du in der Regel Fußball schauen?"
-        >
-          <WeekEditor
-            value={s.availability}
-            onChange={s.setAvailability}
-            timeZone={prefs.timeZone}
-          />
-          <label className="mt-4 block border-t border-border/70 pt-3">
-            <span className="text-[13px] text-muted-foreground">Zeitzone für alle Uhrzeiten</span>
-            <select
-              value={s.timeZoneOverride ?? ""}
-              onChange={(e) => s.setTimeZoneOverride(e.target.value || null)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
-              aria-label="Zeitzone"
-            >
-              <option value="">Automatisch ({detectTimeZone().replace("_", " ")})</option>
-              {COMMON_TIME_ZONES.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </Card>
-
-        <Card
-          icon={<EyeOff />}
-          title="Spoilerschutz"
-          text="Spielstände und Tabellen bleiben verborgen, bis du sie aufdeckst."
-          aside={
-            <Switch
-              checked={s.spoilerProtection}
-              onCheckedChange={s.setSpoiler}
-              aria-label="Spoilerschutz"
-            />
+          value={
+            firstTeam ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Flag flag={firstTeam.flag} size="sm" />
+                {firstTeam.name}
+                {myTeams.length > 1 && ` +${myTeams.length - 1}`}
+              </span>
+            ) : (
+              "Keine"
+            )
           }
         />
-
-        <Card
+        <NavRow
+          to="zeit"
+          icon={<Clock3 />}
+          title="Deine Zeit"
+          value={preset?.label ?? "Eigene Zeiten"}
+        />
+        <NavRow
+          to="erinnerungen"
           icon={<Bell />}
           title="Erinnerungen"
-          text={
-            support === "ios-needs-pwa"
-              ? "Auf dem iPhone: erst über Teilen → „Zum Home-Bildschirm“ installieren, dann hier aktivieren."
-              : hasPushBackend()
-                ? "Push-Nachricht 15 Minuten vor Anpfiff – auch wenn die App geschlossen ist."
-                : "Benachrichtigung 15 Minuten vor Anpfiff, solange KickTime geöffnet ist. Für zuverlässige Erinnerungen den Kalender-Export nutzen."
-          }
-          aside={
-            <Switch
-              checked={s.pushEnabled}
-              onCheckedChange={async (v) => {
-                if (!v) {
-                  s.setPushEnabled(false);
-                  toast("Erinnerungen deaktiviert");
-                } else {
-                  await enableReminders();
-                }
-              }}
-              aria-label="Erinnerungen"
-            />
-          }
-        >
-          <label
-            className={cn(
-              "flex items-center justify-between gap-3 border-t border-border/70 pt-3",
-              !s.pushEnabled && "opacity-50",
-            )}
-          >
-            <span className="text-[13.5px]">Automatisch für alle Spiele meiner Favoriten</span>
-            <Switch
-              disabled={!s.pushEnabled}
-              checked={s.autoAlarmFavorites}
-              onCheckedChange={s.setAutoAlarmFavorites}
-              aria-label="Automatisch für Favoriten"
-            />
-          </label>
-          {s.pushEnabled && hasPushBackend() && <TestPushButton />}
-          <button
-            type="button"
-            disabled={myUpcoming.length === 0}
-            onClick={() => {
-              downloadIcs(myUpcoming, "kicktime-meine-spiele.ics");
-              toast.success(`${myUpcoming.length} Spiele exportiert`);
-            }}
-            className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border text-[13.5px] font-medium disabled:opacity-40"
-          >
-            <CalendarPlus className="h-4 w-4" />
-            {myUpcoming.length > 0
-              ? `Meine ${myUpcoming.length} Spiele in den Kalender`
-              : "Kalender-Export nach der Auslosung"}
-          </button>
-        </Card>
+          value={s.pushEnabled ? "An" : "Aus"}
+        />
+      </Group>
 
-        <Card icon={<Palette />} title="Darstellung">
-          <Segmented<ThemeMode>
-            value={s.theme}
-            onChange={s.setTheme}
-            options={[
-              { value: "system", label: "System" },
-              { value: "dark", label: "Dunkel" },
-              { value: "light", label: "Hell" },
-            ]}
+      <Group title="Anzeige">
+        <label className="flex min-h-[60px] items-center gap-3 px-4 py-3">
+          <RowIcon>
+            <EyeOff />
+          </RowIcon>
+          <span className="flex-1">
+            <span className="block text-[16px] font-medium">Spoilerschutz</span>
+            <span className="block text-[13px] text-muted-foreground">
+              Ergebnisse erst auf Tippen zeigen
+            </span>
+          </span>
+          <Switch
+            checked={s.spoilerProtection}
+            onCheckedChange={s.setSpoiler}
+            aria-label="Spoilerschutz"
           />
-          <div className="mt-4 text-[13px] text-muted-foreground">Akzentfarbe</div>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {ACCENTS.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => s.setAccent(a.id)}
-                aria-label={a.label}
-                aria-pressed={s.accent === a.id}
-                title={a.label}
-                className={cn(
-                  "h-10 w-10 rounded-full ring-offset-2 ring-offset-card transition-transform active:scale-90",
-                  s.accent === a.id && "ring-2 ring-foreground",
-                )}
-                style={{ background: a.swatch }}
-              />
-            ))}
-          </div>
-        </Card>
+        </label>
+        <NavRow
+          to="darstellung"
+          icon={<Palette />}
+          title="Darstellung"
+          value={THEME_LABEL[s.theme]}
+        />
+        <NavRow
+          to="vorschau"
+          icon={<FlaskConical />}
+          title="Vorschau-Modus"
+          value={s.demo.enabled ? "An" : "Aus"}
+        />
+      </Group>
 
-        <DemoCard />
-        <FeedbackCard />
-      </div>
+      {isBackendConfigured() && (
+        <Group title="Mithelfen">
+          <NavRow to="feedback" icon={<MessageSquareHeart />} title="Feedback geben" />
+        </Group>
+      )}
 
       <MoreList
         onRestart={() => {
@@ -285,29 +223,250 @@ function SettingsPage() {
           window.scrollTo({ top: 0 });
         }}
       />
+    </div>
+  );
+}
 
-      <Drawer open={teamsOpen} onOpenChange={setTeamsOpen} shouldScaleBackground={false}>
-        <DrawerContent className="mx-auto h-[92dvh] max-w-2xl border-border bg-background">
-          <div className="flex items-center justify-between px-4 pt-3">
-            <DrawerTitle className="font-display text-2xl font-bold uppercase">
-              Deine Teams
-            </DrawerTitle>
+/* ------------------------------------------------------------- Unterseiten */
+
+const SECTION_META: Record<Section, { title: string; intro?: string }> = {
+  teams: {
+    title: "Deine Teams",
+    intro:
+      "„Favorit“: dein Herzensteam – steht ganz oben und bekommt automatisch Erinnerungen. „Auch“: interessiert dich ebenfalls.",
+  },
+  zeit: { title: "Deine Zeit", intro: "Wann kannst du in der Regel Fußball schauen?" },
+  erinnerungen: { title: "Erinnerungen" },
+  darstellung: { title: "Darstellung" },
+  vorschau: {
+    title: "Vorschau-Modus",
+    intro:
+      "Spielt die EM mit einer erfundenen Auslosung und erfundenen Ergebnissen durch – zum Ausprobieren vor dem Turnier.",
+  },
+  feedback: {
+    title: "Feedback geben",
+    intro: "Wie gefällt dir KickTime? Anonym – hilft, die App besser zu machen.",
+  },
+};
+
+function SubPage({ section }: { section: Section }) {
+  const meta = SECTION_META[section];
+  return (
+    <div className="mx-auto max-w-2xl">
+      <Link
+        to="/einstellungen"
+        search={{}}
+        className="-ml-2 mb-3 inline-flex h-10 items-center gap-1 rounded-full pl-1 pr-3 text-[15px] font-medium text-primary hover:bg-primary/10"
+      >
+        <ChevronLeft className="h-5 w-5" /> Einstellungen
+      </Link>
+      <h1 className="font-display text-[2rem] font-bold uppercase leading-none tracking-tight md:text-4xl">
+        {meta.title}
+      </h1>
+      {meta.intro && <p className="mt-2 text-[15px] text-muted-foreground">{meta.intro}</p>}
+      <div className="mt-5">
+        {section === "teams" && <TeamPicker />}
+        {section === "zeit" && <TimeContent />}
+        {section === "erinnerungen" && <RemindersContent />}
+        {section === "darstellung" && <AppearanceContent />}
+        {section === "vorschau" && <DemoContent />}
+        {section === "feedback" && <FeedbackContent />}
+      </div>
+    </div>
+  );
+}
+
+function Panel({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <section className={cn("rounded-2xl border border-border bg-card p-4", className)}>
+      {children}
+    </section>
+  );
+}
+
+function TimeContent() {
+  const s = useAppStore();
+  const prefs = usePrefs();
+  return (
+    <div className="space-y-4">
+      <WeekEditor value={s.availability} onChange={s.setAvailability} timeZone={prefs.timeZone} />
+      <Panel>
+        <label className="block">
+          <span className="text-[15px] font-medium">Zeitzone</span>
+          <span className="mt-0.5 block text-[13px] text-muted-foreground">
+            Alle Uhrzeiten in der App werden so angezeigt.
+          </span>
+          <select
+            value={s.timeZoneOverride ?? ""}
+            onChange={(e) => s.setTimeZoneOverride(e.target.value || null)}
+            className="mt-3 h-12 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] outline-none focus:border-primary"
+            aria-label="Zeitzone"
+          >
+            <option value="">Automatisch ({detectTimeZone().replace("_", " ")})</option>
+            {COMMON_TIME_ZONES.map((z) => (
+              <option key={z.id} value={z.id}>
+                {z.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </Panel>
+    </div>
+  );
+}
+
+function RemindersContent() {
+  const s = useAppStore();
+  const prefs = usePrefs();
+  const { matches } = useTournament();
+  const support = typeof window !== "undefined" ? detectPushSupport() : "unsupported";
+  const myUpcoming = matches.filter((m) => m.status === "scheduled" && recommend(m, prefs).mine);
+  return (
+    <div className="space-y-4">
+      <Panel>
+        <label className="flex items-center gap-3">
+          <span className="flex-1">
+            <span className="block text-[16px] font-medium">Erinnerungen</span>
+            <span className="mt-0.5 block text-[13.5px] text-muted-foreground">
+              {support === "ios-needs-pwa"
+                ? "Auf dem iPhone: erst über Teilen → „Zum Home-Bildschirm“ installieren, dann hier einschalten."
+                : hasPushBackend()
+                  ? "Mitteilung 15 Minuten vor Anpfiff – auch wenn die App geschlossen ist."
+                  : "Mitteilung 15 Minuten vor Anpfiff, solange KickTime geöffnet ist."}
+            </span>
+          </span>
+          <Switch
+            checked={s.pushEnabled}
+            onCheckedChange={async (v) => {
+              if (!v) {
+                s.setPushEnabled(false);
+                toast("Erinnerungen ausgeschaltet");
+              } else {
+                await enableReminders();
+              }
+            }}
+            aria-label="Erinnerungen"
+          />
+        </label>
+        <label
+          className={cn(
+            "mt-4 flex items-center gap-3 border-t border-border/70 pt-4",
+            !s.pushEnabled && "opacity-50",
+          )}
+        >
+          <span className="flex-1 text-[15px]">Automatisch für alle Spiele meiner Favoriten</span>
+          <Switch
+            disabled={!s.pushEnabled}
+            checked={s.autoAlarmFavorites}
+            onCheckedChange={s.setAutoAlarmFavorites}
+            aria-label="Automatisch für Favoriten"
+          />
+        </label>
+        <p className="mt-3 text-[13px] text-muted-foreground">
+          Für einzelne Spiele tippst du auf die Glocke am Spiel.
+        </p>
+        {s.pushEnabled && hasPushBackend() && <TestPushButton />}
+      </Panel>
+      <Panel>
+        <div className="text-[15px] font-medium">Kalender</div>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">
+          Trägt alle Spiele deiner Teams in den Kalender deines Handys ein – inklusive Erinnerung.
+        </p>
+        <button
+          type="button"
+          disabled={myUpcoming.length === 0}
+          onClick={() => {
+            downloadIcs(myUpcoming, "kicktime-meine-spiele.ics");
+            toast.success(`${myUpcoming.length} Spiele exportiert`);
+          }}
+          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-[14px] font-medium disabled:opacity-40"
+        >
+          <CalendarPlus className="h-4 w-4" />
+          {myUpcoming.length > 0
+            ? `Meine ${myUpcoming.length} Spiele in den Kalender`
+            : "Möglich nach der Auslosung"}
+        </button>
+      </Panel>
+    </div>
+  );
+}
+
+function AppearanceContent() {
+  const s = useAppStore();
+  return (
+    <div className="space-y-4">
+      <Panel>
+        <div className="mb-3 text-[15px] font-medium">Hell oder dunkel</div>
+        <Segmented<ThemeMode>
+          size="lg"
+          value={s.theme}
+          onChange={s.setTheme}
+          options={[
+            { value: "system", label: "Wie System" },
+            { value: "dark", label: "Dunkel" },
+            { value: "light", label: "Hell" },
+          ]}
+        />
+      </Panel>
+      <Panel>
+        <div className="mb-3 text-[15px] font-medium">Akzentfarbe</div>
+        <div className="flex flex-wrap gap-3">
+          {ACCENTS.map((a) => (
             <button
+              key={a.id}
               type="button"
-              onClick={() => setTeamsOpen(false)}
-              className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-semibold text-primary-foreground"
+              onClick={() => s.setAccent(a.id)}
+              aria-label={a.label}
+              aria-pressed={s.accent === a.id}
+              title={a.label}
+              className={cn(
+                "h-11 w-11 rounded-full ring-offset-2 ring-offset-card transition-transform active:scale-90",
+                s.accent === a.id && "ring-2 ring-foreground",
+              )}
+              style={{ background: a.swatch }}
+            />
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function DemoContent() {
+  const demo = useAppStore((s) => s.demo);
+  const setDemo = useAppStore((s) => s.setDemo);
+  return (
+    <div className="space-y-4">
+      <Panel>
+        <label className="flex items-center gap-3">
+          <span className="flex-1 text-[16px] font-medium">Vorschau-Modus</span>
+          <Switch
+            checked={demo.enabled}
+            onCheckedChange={(v) => setDemo(v)}
+            aria-label="Vorschau-Modus"
+          />
+        </label>
+      </Panel>
+      {demo.enabled && (
+        <div className="grid gap-2">
+          {DEMO_SCENARIOS.map((sc) => (
+            <button
+              key={sc.id}
+              type="button"
+              onClick={() => setDemo(true, sc.id)}
+              className={cn(
+                "rounded-2xl border px-4 py-3 text-left transition-colors",
+                demo.scenario === sc.id
+                  ? "border-gold/60 bg-gold/10"
+                  : "border-border bg-card hover:border-muted-foreground/40",
+              )}
             >
-              Fertig
+              <div className="text-[15px] font-semibold">{sc.label}</div>
+              <div className="text-[13px] text-muted-foreground">{sc.hint}</div>
             </button>
-          </div>
-          <DrawerDescription className="sr-only">
-            Lieblings- und interessante Teams auswählen
-          </DrawerDescription>
-          <div className="overflow-y-auto px-4 pb-8 pt-3">
-            <TeamPicker />
-          </div>
-        </DrawerContent>
-      </Drawer>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -342,47 +501,7 @@ function TestPushButton() {
   );
 }
 
-function DemoCard() {
-  const demo = useAppStore((s) => s.demo);
-  const setDemo = useAppStore((s) => s.setDemo);
-  return (
-    <Card
-      icon={<FlaskConical />}
-      title="Vorschau-Modus"
-      text="Spielt die EM mit einer erfundenen Auslosung und erfundenen Ergebnissen durch – zum Ausprobieren vor dem Turnier."
-      aside={
-        <Switch
-          checked={demo.enabled}
-          onCheckedChange={(v) => setDemo(v)}
-          aria-label="Vorschau-Modus"
-        />
-      }
-    >
-      {demo.enabled && (
-        <div className="grid gap-2">
-          {DEMO_SCENARIOS.map((sc) => (
-            <button
-              key={sc.id}
-              type="button"
-              onClick={() => setDemo(true, sc.id)}
-              className={cn(
-                "rounded-xl border px-3 py-2 text-left transition-colors",
-                demo.scenario === sc.id
-                  ? "border-gold/60 bg-gold/10"
-                  : "border-border hover:border-muted-foreground/40",
-              )}
-            >
-              <div className="text-[14px] font-semibold">{sc.label}</div>
-              <div className="text-[12px] text-muted-foreground">{sc.hint}</div>
-            </button>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function FeedbackCard() {
+function FeedbackContent() {
   const [sent, setSent] = useState(false);
   const [text, setText] = useState("");
   if (!isBackendConfigured()) return null;
@@ -395,11 +514,7 @@ function FeedbackCard() {
     } else toast.error("Konnte nicht gesendet werden");
   };
   return (
-    <Card
-      icon={<MessageSquareHeart />}
-      title="Wie gefällt dir KickTime?"
-      text="Anonym – hilft, die App besser zu machen."
-    >
+    <Panel>
       {sent ? (
         <p className="text-[13.5px] text-primary">Danke! 💚</p>
       ) : (
@@ -408,7 +523,7 @@ function FeedbackCard() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={1000}
-            rows={2}
+            rows={4}
             placeholder="Optional: Was fehlt dir, was stört?"
             className="w-full resize-none rounded-xl border border-border bg-subtle px-3 py-2 text-[14px] outline-none focus:border-primary"
           />
@@ -424,7 +539,7 @@ function FeedbackCard() {
                 key={r}
                 type="button"
                 onClick={() => send(r)}
-                className="flex h-14 flex-col items-center justify-center rounded-xl border border-border text-[12px] text-muted-foreground hover:border-primary/50"
+                className="flex h-16 flex-col items-center justify-center rounded-xl border border-border text-[13px] text-muted-foreground hover:border-primary/50"
               >
                 <span className="text-xl">{e}</span>
                 {l}
@@ -433,18 +548,18 @@ function FeedbackCard() {
           </div>
         </>
       )}
-    </Card>
+    </Panel>
   );
 }
 
-/** Abschluss der Seite: eine schlichte Liste statt verstreuter Knöpfe und Textzeilen. */
+/** Abschluss der Übersicht: Rechtliches, Neustart, Löschen und Versionszeile. */
 function MoreList({ onRestart }: { onRestart: () => void }) {
   const [adminOpen, setAdminOpen] = useState(false);
   const taps = useRef({ n: 0, t: 0 });
   const row =
     "flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px] transition-colors hover:bg-muted/40";
   return (
-    <div className="mx-auto mt-8 max-w-xl">
+    <div>
       <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
         <a href={LEGAL_URL} target="_blank" rel="noopener noreferrer" className={row}>
           <Info className="h-[18px] w-[18px] text-muted-foreground" />

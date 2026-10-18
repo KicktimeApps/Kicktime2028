@@ -38,7 +38,7 @@ function MarkButton({
       ) : (
         <Check className="h-3.5 w-3.5" />
       )}
-      <span className="hidden sm:inline">{kind === "favorite" ? "Favorit" : "Interessant"}</span>
+      <span>{kind === "favorite" ? "Favorit" : "Auch"}</span>
     </button>
   );
 }
@@ -98,7 +98,7 @@ export function TeamPicker() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-3 pt-1 backdrop-blur">
+      <div className="sticky top-[var(--top-offset,0px)] z-10 -mx-1 bg-background px-1 pb-3 pt-1">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -114,7 +114,7 @@ export function TeamPicker() {
             {favorites.length === 1 ? "Favorit" : "Favoriten"}
           </span>
           <span className="flex items-center gap-1">
-            <Check className="h-3 w-3 text-primary" /> {interesting.length} interessant
+            <Check className="h-3 w-3 text-primary" /> {interesting.length} weitere
           </span>
         </div>
       </div>

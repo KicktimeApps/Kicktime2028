@@ -14,8 +14,10 @@ Ergebnisse geheim, bis du sie sehen willst.
 
 - **Für dich**: Startseite, die sich der Turnierphase anpasst – vor der Auslosung Countdown,
   deine Teams und die nächsten Termine; im Turnier _Jetzt live_, _Dein nächstes Spiel_ und
-  darunter drei Reiter: _Meine Spiele_ (mit Hinweis, ob es in deine Zeit passt) · _Alle Spiele_
-  der laufenden Runde · _Ergebnisse_.
+  darunter wie bei KickTime 2026 drei Pillen für die Spiele deiner Teams: _Perfekt_ (passt in
+  deine Zeit) · _Außerhalb_ (nicht in deiner Zeit) · _Ergebnisse_.
+- **Einstellungen** als Übersicht mit Unterseiten: Teams, Zeit, Erinnerungen (inkl.
+  Test-Benachrichtigung), Darstellung, Vorschau-Modus, Feedback.
 - **Öffnungsanimation** beim ersten Start pro Sitzung (reines CSS, läuft schon vor dem Laden).
 - **Zeitfenster pro Wochentag**, auch über Mitternacht. Zusätzlich gibt es die Einstufung „teilweise schaubar“,
   wenn z. B. nur die 2. Halbzeit in deine Zeit fällt.
