@@ -1,4 +1,4 @@
-import { CalendarClock, Clock3, Star, Tv } from "lucide-react";
+import { CalendarClock, Clock3, Eye, Star, Tv } from "lucide-react";
 import type { ReactNode } from "react";
 import { Chip } from "@/components/common/Chip";
 import { LiveDot } from "@/components/common/LiveDot";
@@ -154,17 +154,16 @@ export function MatchCard({
                     aria-label="Dein Team"
                   />
                 )}
-                {s !== undefined && m.status !== "scheduled" && (
+                {s !== undefined && m.status !== "scheduled" && !hidden && (
                   <span
                     className={cn(
                       "w-6 text-right font-display text-[22px] font-semibold leading-none tabular",
                       live && "text-live",
                       lost && "text-muted-foreground",
-                      hidden && "select-none blur-[6px]",
                     )}
                   >
-                    {hidden ? "0" : s}
-                    {p !== undefined && !hidden && (
+                    {s}
+                    {p !== undefined && (
                       <sup className="ml-0.5 text-[10px] font-medium text-muted-foreground">
                         {p}
                       </sup>
@@ -181,21 +180,22 @@ export function MatchCard({
         <button
           type="button"
           onClick={reveal}
-          className="absolute right-2.5 top-3 rounded-full bg-elevated px-2.5 py-1 text-[11px] font-semibold text-foreground shadow ring-1 ring-border"
+          aria-label="Ergebnis zeigen"
+          className="absolute right-3 top-[1.4rem] inline-flex items-center gap-1.5 rounded-full bg-elevated px-3 py-1.5 text-[13px] font-semibold text-foreground ring-1 ring-border"
         >
-          Ergebnis zeigen
+          <Eye className="h-4 w-4" /> Zeigen
         </button>
       )}
 
       {/* Meta-Zeile */}
       <div className="flex items-center gap-2 border-t border-border/60 px-3.5 py-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-muted-foreground">
-          <span className="font-medium text-foreground/80">
+        <div className="flex min-w-0 flex-1 items-center gap-x-2.5 text-[12.5px] text-muted-foreground">
+          <span className="shrink-0 font-medium text-foreground/80">
             {m.stage === "group" ? `Gruppe ${m.group}` : STAGE_LABEL[m.stage]}
           </span>
-          <span className="truncate">{m.venue.city}</span>
-          <span className="flex items-center gap-1 truncate">
-            <Tv className="h-3 w-3" /> {tv.label}
+          <span className="shrink-0">{m.venue.city}</span>
+          <span className="flex min-w-0 items-center gap-1">
+            <Tv className="h-3 w-3 shrink-0" /> <span className="truncate">{tv.label}</span>
           </span>
         </div>
         {actions && <MatchActions match={m} />}

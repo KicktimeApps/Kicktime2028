@@ -175,6 +175,24 @@
     display: none;
   }
 
+  /* Höhe des festen Kopfbereichs – für weitere klebende Leisten (Spielplan).
+     Am Shell-Element definiert, damit die Banner-Höhe mit einfließt. */
+  .app-shell {
+    --demo-banner-h: 0px;
+    --top-offset: calc(env(safe-area-inset-top) + 3.5rem + var(--demo-banner-h));
+  }
+  .app-shell.has-demo-banner {
+    --demo-banner-h: 2.75rem;
+  }
+  @media (min-width: 768px) {
+    .app-shell {
+      --top-offset: var(--demo-banner-h);
+    }
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
   }

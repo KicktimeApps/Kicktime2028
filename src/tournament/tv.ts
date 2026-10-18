@@ -56,7 +56,7 @@ export function getTvInfo(match: {
     freeTv: null,
     freeTvLikely: false,
     magentaExclusive: false,
-    label: "MagentaTV · Free-TV offen",
+    label: "MagentaTV",
   };
 }
 

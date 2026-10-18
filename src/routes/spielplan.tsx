@@ -106,7 +106,7 @@ function Schedule() {
         subtitle={`${matches.length} Spiele · Zeiten in deiner Zeitzone`}
       />
 
-      <div className="sticky top-14 z-20 -mx-4 mb-4 border-b border-border/60 bg-background/95 px-4 pb-3 pt-1 backdrop-blur-md md:top-0 md:mx-0 md:rounded-b-2xl md:px-0">
+      <div className="sticky top-[var(--top-offset)] z-20 -mx-4 mb-4 border-b border-border/60 bg-background px-4 pb-3 pt-2 md:mx-0 md:rounded-b-2xl md:px-0">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input

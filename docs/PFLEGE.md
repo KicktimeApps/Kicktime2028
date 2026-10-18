@@ -5,15 +5,15 @@ Stand der Daten (Oktober 2026): **Spielplan, Spielorte und K.-o.-Baum stehen fes
 fest.** Die App zeigt dafür Platzhalter und kennzeichnet vorläufige Uhrzeiten. Alles Weitere
 trägst du an diesen Stellen ein:
 
-| Was                            | Datei                                   | Wann                                  |
-| ------------------------------ | --------------------------------------- | ------------------------------------- |
-| Qualifizierte Teams            | `src/tournament/draw.ts` → `QUALIFIED`  | laufend bis Nov. 2027 / März 2028      |
-| In der Quali ausgeschieden     | `draw.ts` → `ELIMINATED_IN_QUALIFYING`  | laufend                               |
-| Endrunden-Auslosung            | `draw.ts` → `DRAW`                      | nach der Auslosung (ca. Dez. 2027)     |
-| Offizielle Anstoßzeiten        | `draw.ts` → `CONFIRMED_KICKOFFS`        | kurz nach der Auslosung               |
-| Free-TV-Sender pro Spiel       | `src/tournament/tv.ts` → `FREE_TV`      | sobald ARD/ZDF die Verteilung melden   |
-| Nur bei MagentaTV              | `tv.ts` → `MAGENTA_EXCLUSIVE`           | ebenso                                |
-| Live-Datenquelle               | `.env` → `VITE_OPENLIGA_LEAGUE/SEASON`  | prüfen, sobald OpenLigaDB die EM anlegt |
+| Was                        | Datei                                  | Wann                                    |
+| -------------------------- | -------------------------------------- | --------------------------------------- |
+| Qualifizierte Teams        | `src/tournament/draw.ts` → `QUALIFIED` | laufend bis Nov. 2027 / März 2028       |
+| In der Quali ausgeschieden | `draw.ts` → `ELIMINATED_IN_QUALIFYING` | laufend                                 |
+| Endrunden-Auslosung        | `draw.ts` → `DRAW`                     | nach der Auslosung (ca. Dez. 2027)      |
+| Offizielle Anstoßzeiten    | `draw.ts` → `CONFIRMED_KICKOFFS`       | kurz nach der Auslosung                 |
+| Free-TV-Sender pro Spiel   | `src/tournament/tv.ts` → `FREE_TV`     | sobald ARD/ZDF die Verteilung melden    |
+| Nur bei MagentaTV          | `tv.ts` → `MAGENTA_EXCLUSIVE`          | ebenso                                  |
+| Live-Datenquelle           | `.env` → `VITE_OPENLIGA_LEAGUE/SEASON` | prüfen, sobald OpenLigaDB die EM anlegt |
 
 Nach jeder Änderung: `bun run check`, danach deployen.
 
@@ -82,7 +82,7 @@ export const MAGENTA_EXCLUSIVE = [6, 12];
 ```
 
 Ohne Eintrag zeigt die App ehrliche Hinweise wie „ARD/ZDF · MagentaTV“ (Deutschland-Spiel,
-Halbfinale, Finale) oder „MagentaTV · Free-TV offen“.
+Halbfinale, Finale) oder „MagentaTV“ (Free-TV noch offen).
 
 ## 5. Live-Daten prüfen (ab Frühjahr 2028)
 

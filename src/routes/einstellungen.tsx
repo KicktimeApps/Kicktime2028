@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Bell,
   CalendarPlus,
+  ChevronRight,
   Clock3,
   ExternalLink,
   EyeOff,
   FlaskConical,
-  Globe,
+  Info,
   MessageSquareHeart,
   Palette,
   RotateCcw,
@@ -156,26 +157,22 @@ function SettingsPage() {
             onChange={s.setAvailability}
             timeZone={prefs.timeZone}
           />
-        </Card>
-
-        <Card
-          icon={<Globe />}
-          title="Zeitzone"
-          text="Alle Anstoßzeiten werden in dieser Zeitzone angezeigt."
-        >
-          <select
-            value={s.timeZoneOverride ?? ""}
-            onChange={(e) => s.setTimeZoneOverride(e.target.value || null)}
-            className="h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
-            aria-label="Zeitzone"
-          >
-            <option value="">Automatisch ({detectTimeZone().replace("_", " ")})</option>
-            {COMMON_TIME_ZONES.map((z) => (
-              <option key={z.id} value={z.id}>
-                {z.label}
-              </option>
-            ))}
-          </select>
+          <label className="mt-4 block border-t border-border/70 pt-3">
+            <span className="text-[13px] text-muted-foreground">Zeitzone für alle Uhrzeiten</span>
+            <select
+              value={s.timeZoneOverride ?? ""}
+              onChange={(e) => s.setTimeZoneOverride(e.target.value || null)}
+              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
+              aria-label="Zeitzone"
+            >
+              <option value="">Automatisch ({detectTimeZone().replace("_", " ")})</option>
+              {COMMON_TIME_ZONES.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </Card>
 
         <Card
@@ -278,61 +275,14 @@ function SettingsPage() {
 
         <DemoCard />
         <FeedbackCard />
-
-        <Card icon={<RotateCcw />} title="Daten">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                s.restartOnboarding();
-                window.scrollTo({ top: 0 });
-              }}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border text-[13.5px] font-medium"
-            >
-              <RotateCcw className="h-4 w-4" /> Einrichtung wiederholen
-            </button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-destructive/40 text-[13.5px] font-medium text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" /> Alles löschen
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Wirklich alles löschen?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Teams, Zeitfenster, Tipps und Erinnerungen werden von diesem Gerät entfernt. Das
-                    lässt sich nicht rückgängig machen.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={() => {
-                      try {
-                        Object.keys(localStorage)
-                          .filter((k) => k.startsWith(TOURNAMENT.storagePrefix))
-                          .forEach((k) => localStorage.removeItem(k));
-                      } catch {
-                        /* noop */
-                      }
-                      window.location.assign("/");
-                    }}
-                  >
-                    Ja, löschen
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </Card>
       </div>
 
-      <Footer />
+      <MoreList
+        onRestart={() => {
+          s.restartOnboarding();
+          window.scrollTo({ top: 0 });
+        }}
+      />
 
       <Drawer open={teamsOpen} onOpenChange={setTeamsOpen} shouldScaleBackground={false}>
         <DrawerContent className="mx-auto h-[92dvh] max-w-2xl border-border bg-background">
@@ -455,25 +405,66 @@ function FeedbackCard() {
   );
 }
 
-function Footer() {
+/** Abschluss der Seite: eine schlichte Liste statt verstreuter Knöpfe und Textzeilen. */
+function MoreList({ onRestart }: { onRestart: () => void }) {
   const [adminOpen, setAdminOpen] = useState(false);
   const taps = useRef({ n: 0, t: 0 });
+  const row =
+    "flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px] transition-colors hover:bg-muted/40";
   return (
-    <footer className="mt-8 text-center text-[12px] text-muted-foreground">
-      <a
-        href={LEGAL_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 hover:text-foreground"
-      >
-        Datenschutz & Impressum <ExternalLink className="h-3 w-3" />
-      </a>
-      <p className="mt-2">
-        KickTime ist ein privates Fan-Projekt und steht in keiner Verbindung zur UEFA.
-      </p>
+    <div className="mx-auto mt-8 max-w-xl">
+      <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+        <a href={LEGAL_URL} target="_blank" rel="noopener noreferrer" className={row}>
+          <Info className="h-[18px] w-[18px] text-muted-foreground" />
+          <span className="flex-1">Datenschutz & Impressum</span>
+          <ExternalLink className="h-4 w-4 text-muted-foreground/60" />
+        </a>
+        <button type="button" onClick={onRestart} className={row}>
+          <RotateCcw className="h-[18px] w-[18px] text-muted-foreground" />
+          <span className="flex-1">Einrichtung neu starten</span>
+          <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
+        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button type="button" className={cn(row, "text-destructive")}>
+              <Trash2 className="h-[18px] w-[18px]" />
+              <span className="flex-1">Alle Daten löschen</span>
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Wirklich alles löschen?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Teams, Zeitfenster, Tipps und Erinnerungen werden von diesem Gerät entfernt. Das
+                lässt sich nicht rückgängig machen.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  try {
+                    Object.keys(localStorage)
+                      .filter((k) => k.startsWith(TOURNAMENT.storagePrefix))
+                      .forEach((k) => localStorage.removeItem(k));
+                  } catch {
+                    /* noop */
+                  }
+                  window.location.assign("/");
+                }}
+              >
+                Ja, löschen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      {/* 5× tippen öffnet den Admin-Bereich */}
       <button
         type="button"
-        className="mt-2"
+        className="mx-auto mt-5 block px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
         onClick={() => {
           const now = Date.now();
           if (now - taps.current.t > 1500) taps.current.n = 0;
@@ -486,9 +477,11 @@ function Footer() {
           }
         }}
       >
-        KickTime {TOURNAMENT.year} · Version {APP_VERSION} · Made by Phantom Studios
+        KickTime {TOURNAMENT.year} · Version {APP_VERSION} · Phantom Studios
+        <br />
+        Privates Fan-Projekt ohne Verbindung zur UEFA
       </button>
       <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
-    </footer>
+    </div>
   );
 }

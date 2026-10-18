@@ -131,7 +131,7 @@ export function buildFeed(
 
 /**
  * Nächstes noch nicht begonnenes Spiel mit eigenem Team (oder vorgemerkt),
- * unabhängig vom Zeitfenster. Laufende Spiele zeigt die Live-Leiste.
+ * unabhängig vom Zeitfenster. Laufende Spiele zeigt „Jetzt live“.
  */
 export function nextOwnMatch(matches: MatchView[], p: Prefs): MatchView | null {
   return matches.find((m) => m.status === "scheduled" && recommend(m, p).mine) ?? null;

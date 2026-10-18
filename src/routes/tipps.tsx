@@ -44,18 +44,17 @@ function MatchHead({ m }: { m: MatchView }) {
   const a = teamDisplay(m.home, m.slotHome);
   const b = teamDisplay(m.away, m.slotAway);
   return (
-    <button
-      type="button"
-      onClick={() => openMatch(m.id)}
-      className="flex w-full items-center gap-2 text-left"
-    >
-      <Flag flag={a.flag} size="sm" />
-      <span className="truncate text-[14px] font-semibold">{a.short}</span>
-      <span className="text-muted-foreground">–</span>
-      <span className="truncate text-[14px] font-semibold">{b.short}</span>
-      <Flag flag={b.flag} size="sm" />
-      <span className="ml-auto shrink-0 text-[12px] text-muted-foreground tabular">
-        {formatDayShort(m.kickoffUtc, prefs.timeZone)} · {formatTime(m.kickoffUtc, prefs.timeZone)}
+    <button type="button" onClick={() => openMatch(m.id)} className="block w-full text-left">
+      <span className="block text-[13px] text-muted-foreground tabular">
+        {formatDayShort(m.kickoffUtc, prefs.timeZone)} · {formatTime(m.kickoffUtc, prefs.timeZone)}{" "}
+        Uhr
+      </span>
+      <span className="mt-1 flex items-center gap-2">
+        <Flag flag={a.flag} size="sm" />
+        <span className="truncate text-[15px] font-semibold">{a.name}</span>
+        <span className="text-muted-foreground">–</span>
+        <span className="truncate text-[15px] font-semibold">{b.name}</span>
+        <Flag flag={b.flag} size="sm" />
       </span>
     </button>
   );
