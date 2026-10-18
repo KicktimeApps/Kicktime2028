@@ -185,7 +185,7 @@ function Drawn({ started }: { started: boolean }) {
         </div>
       )}
 
-      <div role="tablist" aria-label="Deine Spiele" className="grid grid-cols-3 gap-2">
+      <div role="tablist" aria-label="Deine Spiele" className="flex gap-1 min-[380px]:gap-1.5">
         {PILLS.map((p) => {
           const active = p.id === pill;
           return (
@@ -196,29 +196,34 @@ function Drawn({ started }: { started: boolean }) {
               aria-selected={active}
               onClick={() => setPill(p.id)}
               className={cn(
-                "flex min-w-0 flex-col items-center justify-center rounded-2xl border px-1 py-1.5 transition-colors",
+                "flex h-10 flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2 text-[13px] font-semibold transition-colors min-[380px]:gap-1.5 min-[380px]:px-3 min-[380px]:text-[14px]",
                 active
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-foreground hover:border-muted-foreground/40",
               )}
             >
-              <span className="flex max-w-full items-center gap-1.5 text-[15px] font-semibold">
-                {!active && <span className={cn("h-2 w-2 shrink-0 rounded-full", p.dot)} />}
-                <span className="truncate">{p.label}</span>
-              </span>
+              {!active && (
+                <span
+                  className={cn(
+                    "hidden h-1.5 w-1.5 shrink-0 rounded-full min-[380px]:block",
+                    p.dot,
+                  )}
+                />
+              )}
+              <span>{p.label}</span>
               <span
                 className={cn(
-                  "text-[12.5px] tabular",
+                  "shrink-0 text-[12px] tabular",
                   active ? "opacity-80" : "text-muted-foreground",
                 )}
               >
-                {pills[p.id].length === 1 ? "1 Spiel" : `${pills[p.id].length} Spiele`}
+                {pills[p.id].length}
               </span>
             </button>
           );
         })}
       </div>
-      <p className="mb-4 mt-3 text-[14px] text-muted-foreground">{meta.hint}</p>
+      <p className="mb-4 mt-2.5 text-[14px] text-muted-foreground">{meta.hint}</p>
 
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-[15px] text-muted-foreground">
