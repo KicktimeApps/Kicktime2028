@@ -17,7 +17,6 @@ import { TeamSheet } from "@/components/team/TeamSheet";
 import { ChampionCelebration } from "@/components/tournament/ChampionCelebration";
 import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
-import { useTipSync } from "@/hooks/useTipSync";
 import { logError } from "@/lib/error-log";
 import { sendPing } from "@/lib/telemetry";
 import { useAppStore } from "@/store/app-store";
@@ -193,7 +192,6 @@ function RootComponent() {
 function App() {
   const onboarded = useAppStore((s) => s.onboarded);
   useEngine();
-  useTipSync();
   useGlobalErrorLogging();
   useEffect(() => {
     sendPing();

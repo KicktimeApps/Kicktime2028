@@ -1,4 +1,5 @@
-import { Minus, Plus, Target, Trash2 } from "lucide-react";
+import { Check, Loader2, Minus, Plus, Save, Target, Trash2, User, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { canPredict, RESULT_LABEL, scorePrediction } from "@/domain/predictions";
 import type { MatchView } from "@/domain/types";
@@ -6,7 +7,9 @@ import { teamDisplay } from "@/domain/labels";
 import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { useSpoiler } from "./useSpoiler";
-import { selectPredictions, useAppStore } from "@/store/app-store";
+import { saveTip, useContextTips, useTipContext, useTipContexts } from "@/lib/tips";
+import { TipError } from "@/services/tipgroups";
+import { useAppStore } from "@/store/app-store";
 import { useNow } from "@/store/match-store";
 
 function Stepper({
@@ -53,19 +56,83 @@ function Stepper({
   );
 }
 
+/** Zeigt, wofür getippt wird – bei mehreren Runden zum Umschalten. */
+export function TipContextBar({ className }: { className?: string }) {
+  const contexts = useTipContexts();
+  const ctx = useTipContext();
+  const setTipContext = useAppStore((s) => s.setTipContext);
+  if (contexts.length <= 1) {
+    return (
+      <div className={cn("text-[13px] text-muted-foreground", className)}>
+        {ctx.kind === "solo" ? (
+          <>
+            <User className="mr-1 inline h-3.5 w-3.5" />
+            Du tippst <strong className="text-foreground">allein</strong>
+          </>
+        ) : (
+          <>
+            <Users className="mr-1 inline h-3.5 w-3.5" />
+            Tipp für <strong className="text-foreground">{ctx.label}</strong>
+          </>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className={className}>
+      <div className="mb-1.5 text-[13px] text-muted-foreground">
+        <Users className="mr-1 inline h-3.5 w-3.5" /> Du tippst für:
+      </div>
+      <div role="tablist" aria-label="Tipprunde wählen" className="flex flex-wrap gap-1.5">
+        {contexts.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            role="tab"
+            aria-selected={c.id === ctx.id}
+            onClick={() => setTipContext(c.id)}
+            className={cn(
+              "h-10 rounded-full border px-3.5 text-[14px] font-semibold",
+              c.id === ctx.id
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card",
+            )}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
- * Tipp direkt bearbeiten – jede Änderung wird sofort gespeichert (kein
- * separater Speichern-Knopf mehr wie in 2026). Ab Anpfiff gesperrt.
+ * Tipp bearbeiten: Die Knöpfe ändern einen Entwurf, erst „Tipp speichern“
+ * speichert – allein auf dem Gerät, in einer Runde auf dem Server. Ab
+ * Anpfiff gesperrt.
  */
-export function PredictionEditor({ match: m }: { match: MatchView }) {
+export function PredictionEditor({
+  match: m,
+  showContext = true,
+}: {
+  match: MatchView;
+  showContext?: boolean;
+}) {
   const now = useNow();
-  const pred = useAppStore((s) => selectPredictions(s)[m.id]);
-  const setPrediction = useAppStore((s) => s.setPrediction);
-  const clearPrediction = useAppStore((s) => s.clearPrediction);
+  const ctx = useTipContext();
+  const saved = useContextTips(ctx)[m.id];
   const { hidden } = useSpoiler(m);
   const open = canPredict(m, now);
   const a = teamDisplay(m.home, m.slotHome);
   const b = teamDisplay(m.away, m.slotAway);
+  const [draft, setDraft] = useState<{ home: number; away: number } | null>(
+    saved ? { home: saved.home, away: saved.away } : null,
+  );
+  const [busy, setBusy] = useState(false);
+  // Gespeicherten Stand übernehmen, wenn er sich ändert (z. B. andere Runde gewählt).
+  useEffect(() => {
+    setDraft(saved ? { home: saved.home, away: saved.away } : null);
+  }, [saved?.home, saved?.away, ctx.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!m.home || !m.away) {
     return (
@@ -75,52 +142,96 @@ export function PredictionEditor({ match: m }: { match: MatchView }) {
     );
   }
 
+  const dirty = !!draft && (!saved || saved.home !== draft.home || saved.away !== draft.away);
   // Bei verborgenem Ergebnis keine Wertung – „Volltreffer“ würde es verraten.
   const result =
-    pred && m.status === "finished" && m.score && !hidden
-      ? scorePrediction(pred, m.score, m.stage)
+    saved && m.status === "finished" && m.score && !hidden
+      ? scorePrediction(saved, m.score, m.stage)
       : null;
-  const set = (home: number, away: number) => {
-    haptics.tap();
-    if (!pred) toast.success("Tipp gespeichert");
-    setPrediction(m.id, Math.max(0, home), Math.max(0, away));
+  const where = ctx.kind === "solo" ? "" : ` für „${ctx.label}“`;
+
+  const persist = async (tip: { home: number; away: number } | null) => {
+    setBusy(true);
+    try {
+      await saveTip(ctx, m.id, tip);
+      haptics.success();
+      return true;
+    } catch (err) {
+      toast.error(err instanceof TipError ? err.message : "Tipp konnte nicht gespeichert werden.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
   };
 
-  if (!open && !pred) {
+  if (!open && !saved) {
     return (
-      <p className="text-[13px] text-muted-foreground">
-        Kein Tipp abgegeben – Tippen nur bis Anpfiff.
-      </p>
+      <div>
+        {showContext && <TipContextBar className="mb-2" />}
+        <p className="text-[13px] text-muted-foreground">
+          Kein Tipp abgegeben – Tippen nur bis Anpfiff.
+        </p>
+      </div>
     );
   }
 
   return (
     <div>
+      {showContext && <TipContextBar className="mb-3" />}
       {open ? (
         <div className="flex items-center justify-center gap-4">
           <Stepper
             label={a.name}
-            value={pred?.home ?? null}
-            disabled={false}
-            onChange={(v) => set(v, pred?.away ?? 0)}
+            value={draft?.home ?? null}
+            disabled={busy}
+            onChange={(v) => setDraft({ home: Math.max(0, v), away: draft?.away ?? 0 })}
           />
           <span className="font-display text-2xl text-muted-foreground">:</span>
           <Stepper
             label={b.name}
-            value={pred?.away ?? null}
-            disabled={false}
-            onChange={(v) => set(pred?.home ?? 0, v)}
+            value={draft?.away ?? null}
+            disabled={busy}
+            onChange={(v) => setDraft({ home: draft?.home ?? 0, away: Math.max(0, v) })}
           />
         </div>
       ) : (
         <div className="flex items-baseline justify-center gap-2">
           <span className="text-[12px] text-muted-foreground">Dein Tipp</span>
           <span className="font-display text-3xl font-bold tabular">
-            {pred!.home}:{pred!.away}
+            {saved!.home}:{saved!.away}
           </span>
         </div>
       )}
-      <div className="mt-2 flex min-h-6 items-center justify-between text-[12px] text-muted-foreground">
+
+      {open && (
+        <button
+          type="button"
+          disabled={!dirty || busy}
+          onClick={async () => {
+            if (draft && (await persist(draft)))
+              toast.success(`Tipp gespeichert${where}`, {
+                description: `${a.name} ${draft.home}:${draft.away} ${b.name}`,
+              });
+          }}
+          className={cn(
+            "mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-[16px] font-semibold transition-colors",
+            dirty
+              ? "bg-primary text-primary-foreground"
+              : "border border-border bg-card text-muted-foreground",
+          )}
+        >
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : dirty ? (
+            <Save className="h-4 w-4" />
+          ) : saved ? (
+            <Check className="h-4 w-4" />
+          ) : null}
+          {dirty ? "Tipp speichern" : saved ? "Gespeichert" : "Erst tippen, dann speichern"}
+        </button>
+      )}
+
+      <div className="mt-2 flex min-h-6 items-center justify-between text-[12.5px] text-muted-foreground">
         {result ? (
           <span
             className={cn(
@@ -132,27 +243,23 @@ export function PredictionEditor({ match: m }: { match: MatchView }) {
             {RESULT_LABEL[result.result]} · +{result.points} Punkte
           </span>
         ) : open ? (
-          <span>{pred ? "Gespeichert – änderbar bis Anpfiff" : "Noch kein Tipp"}</span>
-        ) : pred ? (
+          <span className={cn(dirty && "font-semibold text-gold")}>
+            {dirty ? "Noch nicht gespeichert" : saved ? "Änderbar bis Anpfiff" : "Noch kein Tipp"}
+          </span>
+        ) : saved ? (
           <span>Tipp abgegeben · wird nach Spielende gewertet</span>
         ) : null}
-        {pred && open && (
+        {saved && open && !dirty && (
           <button
             type="button"
-            onClick={() => {
-              const before = pred;
-              clearPrediction(m.id);
+            disabled={busy}
+            onClick={async () => {
+              const before = { home: saved.home, away: saved.away };
+              if (!(await persist(null))) return;
               toast("Tipp gelöscht", {
                 duration: 6000,
-                description: before
-                  ? `${a.name} ${before.home}:${before.away} ${b.name}`
-                  : undefined,
-                action: before
-                  ? {
-                      label: "Rückgängig",
-                      onClick: () => setPrediction(m.id, before.home, before.away),
-                    }
-                  : undefined,
+                description: `${a.name} ${before.home}:${before.away} ${b.name}`,
+                action: { label: "Rückgängig", onClick: () => void persist(before) },
               });
             }}
             className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:text-foreground"

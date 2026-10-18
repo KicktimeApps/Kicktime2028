@@ -44,6 +44,9 @@ const MESSAGES: [string, string][] = [
   ["too many memberships", "Du bist schon in 10 Runden."],
   ["not owner", "Das darf nur, wer die Runde erstellt hat."],
   ["not a member", "Du bist (nicht mehr) in dieser Runde."],
+  ["match started", "Das Spiel hat schon begonnen – Tippen ist nicht mehr möglich."],
+  ["champion locked", "Das Eröffnungsspiel hat begonnen – der Europameister-Tipp ist fest."],
+  ["unknown match", "Dieses Spiel kennt der Server noch nicht."],
 ];
 
 export class TipError extends Error {
@@ -93,11 +96,21 @@ export const renameMe = (groupId: string, player: string) =>
 export const myGroups = () => rpc<TipGroup[]>("kt_tip_my_groups", {});
 export const loadBoard = (groupId: string) => rpc<TipBoard>("kt_tip_board", { p_group: groupId });
 
-/** Offene Tipps (vor Anpfiff) und Europameister-Tipp an den Server geben. */
-export const saveTips = (
+/** Einen Tipp in einer Runde speichern (der Server prüft den Anpfiff). */
+export const setTip = (groupId: string, matchId: string, home: number, away: number) =>
+  rpc<null>("kt_tip_set", { p_group: groupId, p_match: matchId, p_home: home, p_away: away });
+
+export const clearTip = (groupId: string, matchId: string) =>
+  rpc<null>("kt_tip_clear", { p_group: groupId, p_match: matchId });
+
+/** Bisherige Einzel-Tipps (offene Spiele) in eine Runde übernehmen. */
+export const importTips = (
+  groupId: string,
   tips: { match_id: string; home: number; away: number }[],
-  champion: string | null,
-) => rpc<null>("kt_tip_save", { p_tips: tips, p_champion: champion });
+) => rpc<number>("kt_tip_import", { p_group: groupId, p_tips: tips });
+
+export const setGroupChampion = (groupId: string, champion: string | null) =>
+  rpc<null>("kt_tip_set_champion", { p_group: groupId, p_champion: champion });
 
 /** Code normalisieren: Großbuchstaben, nur erlaubte Zeichen, 6 Stellen. */
 export function normalizeCode(input: string): string {

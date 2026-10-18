@@ -47,6 +47,14 @@ type State = {
   tipName: string;
   /** Ist das Gerät in mindestens einer Tipprunde? (dann werden Tipps geteilt) */
   inTipGroups: boolean;
+  /** Zuletzt bekannte eigene Tipprunden (für Auswahl und offline). */
+  tipGroups: { id: string; code: string; name: string }[];
+  /** Für welche Runde gerade getippt wird (Runden-ID). */
+  tipContext: string | null;
+  /** Eigene Tipps je Runde (Zwischenspeicher der Server-Daten). */
+  groupTips: Record<string, Record<string, Prediction>>;
+  /** Eigener Europameister-Tipp je Runde. */
+  groupChampion: Record<string, string | null>;
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -71,6 +79,15 @@ type Actions = {
   setChampionTip: (code: string | null) => void;
   setTipName: (name: string) => void;
   setInTipGroups: (v: boolean) => void;
+  setTipGroups: (groups: { id: string; code: string; name: string }[]) => void;
+  setTipContext: (id: string | null) => void;
+  setGroupTip: (
+    groupId: string,
+    matchId: string,
+    tip: { home: number; away: number } | null,
+  ) => void;
+  setGroupTips: (groupId: string, tips: Record<string, { home: number; away: number }>) => void;
+  setGroupChampion: (groupId: string, code: string | null) => void;
   setPushEnabled: (v: boolean) => void;
   setAutoAlarmFavorites: (v: boolean) => void;
   setAlarm: (matchId: string, v: boolean | null) => void;
@@ -99,6 +116,10 @@ export const useAppStore = create<State & Actions>()(
       demoChampionTip: null,
       tipName: "",
       inTipGroups: false,
+      tipGroups: [],
+      tipContext: null,
+      groupTips: {},
+      groupChampion: {},
       pushEnabled: false,
       autoAlarmFavorites: true,
       alarms: {},
@@ -159,6 +180,42 @@ export const useAppStore = create<State & Actions>()(
         set((s) => (s.demo.enabled ? { demoChampionTip: code } : { championTip: code })),
       setTipName: (tipName) => set({ tipName }),
       setInTipGroups: (inTipGroups) => set({ inTipGroups }),
+      setTipGroups: (tipGroups) =>
+        set((s) => {
+          // Zwischenspeicher verlassener Runden aufräumen.
+          const ids = new Set(tipGroups.map((g) => g.id));
+          const keep = <T>(r: Record<string, T>) =>
+            Object.fromEntries(Object.entries(r).filter(([id]) => ids.has(id)));
+          return {
+            tipGroups,
+            inTipGroups: tipGroups.length > 0,
+            groupTips: keep(s.groupTips),
+            groupChampion: keep(s.groupChampion),
+            tipContext: s.tipContext && ids.has(s.tipContext) ? s.tipContext : null,
+          };
+        }),
+      setTipContext: (tipContext) => set({ tipContext }),
+      setGroupTip: (groupId, matchId, tip) =>
+        set((s) => {
+          const cur = { ...(s.groupTips[groupId] ?? {}) };
+          if (tip) cur[matchId] = { ...tip, createdAt: cur[matchId]?.createdAt ?? Date.now() };
+          else delete cur[matchId];
+          return { groupTips: { ...s.groupTips, [groupId]: cur } };
+        }),
+      setGroupTips: (groupId, tips) =>
+        set((s) => ({
+          groupTips: {
+            ...s.groupTips,
+            [groupId]: Object.fromEntries(
+              Object.entries(tips).map(([id, t]) => [
+                id,
+                { ...t, createdAt: s.groupTips[groupId]?.[id]?.createdAt ?? Date.now() },
+              ]),
+            ),
+          },
+        })),
+      setGroupChampion: (groupId, code) =>
+        set((s) => ({ groupChampion: { ...s.groupChampion, [groupId]: code } })),
       setPushEnabled: (v) => set(v ? { pushEnabled: true } : { pushEnabled: false }),
       setAutoAlarmFavorites: (v) => set({ autoAlarmFavorites: v }),
       setAlarm: (id, v) =>

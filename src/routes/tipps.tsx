@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Section } from "@/components/common/Section";
 import { Segmented } from "@/components/common/Segmented";
-import { PredictionEditor } from "@/components/match/PredictionEditor";
+import { PredictionEditor, TipContextBar } from "@/components/match/PredictionEditor";
 import { ChampionTipCard, RulesButton, TipGroupsSection } from "@/components/tipgroups/TipGroups";
 import { useSpoiler } from "@/components/match/useSpoiler";
 import { Flag } from "@/components/team/Flag";
@@ -22,7 +22,8 @@ import { formatDayShort, formatTime } from "@/domain/time";
 import type { MatchView } from "@/domain/types";
 import { usePrefs } from "@/hooks/usePrefs";
 import { cn } from "@/lib/utils";
-import { selectPredictions, useAppStore } from "@/store/app-store";
+import { useContextTips, useTipContext } from "@/lib/tips";
+import { useAppStore } from "@/store/app-store";
 import { useNow, useTournament } from "@/store/match-store";
 import { useUi } from "@/store/ui-store";
 import { TOURNAMENT } from "@/tournament/config";
@@ -63,7 +64,7 @@ function MatchHead({ m }: { m: MatchView }) {
 
 /** Ausgewertetes Spiel – bei Spoilerschutz erst nach „Zeigen“ mit Ergebnis und Punkten. */
 function RatedRow({ m }: { m: MatchView }) {
-  const p = useAppStore((s) => selectPredictions(s)[m.id]);
+  const p = useContextTips(useTipContext())[m.id];
   const { hidden, reveal } = useSpoiler(m);
   const r = scorePrediction(p, m.score!, m.stage);
   return (
@@ -114,7 +115,8 @@ function TipsPage() {
   const { matches } = useTournament();
   const now = useNow();
   const prefs = usePrefs();
-  const predictions = useAppStore(selectPredictions);
+  const ctx = useTipContext();
+  const predictions = useContextTips(ctx);
   const spoiler = useAppStore((s) => s.spoilerProtection);
   const revealed = useAppStore((s) => s.revealed);
   const [filter, setFilter] = useState<Filter>("open");
@@ -152,6 +154,7 @@ function TipsPage() {
         subtitle="Tippen ist bis zum Anpfiff möglich."
         action={<RulesButton />}
       />
+      <TipContextBar className="-mt-2 mb-5 rounded-2xl border border-border bg-card px-4 py-3" />
 
       <div className="mb-7 grid grid-cols-3 gap-2.5">
         {[
@@ -247,7 +250,7 @@ function TipsPage() {
                   >
                     <MatchHead m={m} />
                     <div className="mt-2.5">
-                      <PredictionEditor match={m} />
+                      <PredictionEditor match={m} showContext={false} />
                     </div>
                   </div>
                 ))}

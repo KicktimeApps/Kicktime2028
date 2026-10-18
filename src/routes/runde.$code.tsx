@@ -9,6 +9,7 @@ import {
   LogOut,
   Pencil,
   Share2,
+  Target,
   Trash2,
   UserMinus,
 } from "lucide-react";
@@ -50,7 +51,7 @@ import {
   type TipBoard,
   type TipMember,
 } from "@/services/tipgroups";
-import { selectChampionTip, selectPredictions, useAppStore, useTimeZone } from "@/store/app-store";
+import { useAppStore, useTimeZone } from "@/store/app-store";
 import { useTournament } from "@/store/match-store";
 import { getNation } from "@/tournament/nations";
 
@@ -158,6 +159,16 @@ function ServerBoard({ groupId }: { groupId: string }) {
     queryFn: () => loadBoard(groupId),
     refetchInterval: 60_000,
   });
+  const cachedTips = useAppStore((s) => s.groupTips[groupId]);
+  const cachedChampion = useAppStore((s) => s.groupChampion[groupId]);
+  // Eigene Tipps dieser Runde vom Server in den Zwischenspeicher übernehmen.
+  useEffect(() => {
+    const me = data?.members.find((m) => m.isMe);
+    if (!me) return;
+    const store = useAppStore.getState();
+    store.setGroupTips(groupId, me.tips);
+    store.setGroupChampion(groupId, me.champion);
+  }, [data, groupId]);
 
   if (isLoading) {
     return (
@@ -183,6 +194,13 @@ function ServerBoard({ groupId }: { groupId: string }) {
   return (
     <BoardView
       data={data}
+      myTips={cachedTips ?? data.members.find((m) => m.isMe)?.tips ?? {}}
+      myChampion={
+        cachedChampion !== undefined
+          ? cachedChampion
+          : (data.members.find((m) => m.isMe)?.champion ?? null)
+      }
+      contextId={groupId}
       actions={{
         kick: async (m) => {
           await kickMember(groupId, m.id);
@@ -211,6 +229,8 @@ function DemoBoard() {
   const { matches } = useTournament();
   const tipName = useAppStore((s) => s.tipName);
   const [kicked, setKicked] = useState<string[]>([]);
+  const demoTips = useAppStore((s) => s.demoPredictions);
+  const demoChampion = useAppStore((s) => s.demoChampionTip);
   const [myName, setMyName] = useState(tipName || "Du");
   const data = useMemo(() => demoBoard(matches, kicked, myName), [matches, kicked, myName]);
   return (
@@ -221,6 +241,9 @@ function DemoBoard() {
       </p>
       <BoardView
         data={data}
+        myTips={demoTips}
+        myChampion={demoChampion}
+        contextId="demo"
         actions={{
           demo: true,
           kick: async (m) => setKicked((k) => [...k, m.id]),
@@ -237,10 +260,23 @@ function DemoBoard() {
   );
 }
 
-function BoardView({ data, actions }: { data: TipBoard; actions: BoardActions }) {
+function BoardView({
+  data,
+  actions,
+  myTips,
+  myChampion,
+  contextId,
+}: {
+  data: TipBoard;
+  actions: BoardActions;
+  /** Eigene Tipps in dieser Runde (frisch vom Gerät). */
+  myTips: Record<string, { home: number; away: number }>;
+  myChampion: string | null;
+  contextId: string;
+}) {
   const tournament = useTournament();
-  const predictions = useAppStore(selectPredictions);
-  const championTip = useAppStore(selectChampionTip);
+  const navigate = useNavigate();
+  const setTipContext = useAppStore((s) => s.setTipContext);
   const spoiler = useAppStore((s) => s.spoilerProtection);
   const revealed = useAppStore((s) => s.revealed);
   const revealMany = useAppStore((s) => s.revealMany);
@@ -254,14 +290,14 @@ function BoardView({ data, actions }: { data: TipBoard; actions: BoardActions })
         m.isMe
           ? {
               ...m,
-              champion: championTip,
+              champion: myChampion,
               tips: Object.fromEntries(
-                Object.entries(predictions).map(([id, p]) => [id, { home: p.home, away: p.away }]),
+                Object.entries(myTips).map(([id, p]) => [id, { home: p.home, away: p.away }]),
               ),
             }
           : m,
       ),
-    [data, predictions, championTip],
+    [data, myTips, myChampion],
   );
 
   const champion = tournamentWinner(tournament);
@@ -333,6 +369,17 @@ function BoardView({ data, actions }: { data: TipBoard; actions: BoardActions })
           <Share2 className="h-4 w-4" /> Freunde einladen
         </button>
       </section>
+
+      <button
+        type="button"
+        onClick={() => {
+          setTipContext(contextId);
+          navigate({ to: "/tipps" });
+        }}
+        className="mb-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary/10 text-[16px] font-semibold text-primary"
+      >
+        <Target className="h-4 w-4" /> In dieser Runde tippen
+      </button>
 
       {/* Tabelle */}
       <h2 className="mb-2.5 text-[19px] font-bold tracking-tight">Tabelle</h2>

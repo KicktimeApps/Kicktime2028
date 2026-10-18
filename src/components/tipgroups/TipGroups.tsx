@@ -1,27 +1,36 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  Check,
   ChevronRight,
   Crown,
   FlaskConical,
   Info,
   Loader2,
   Plus,
+  Save,
   Trophy,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Flag } from "@/components/team/Flag";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
-import { syncTipsNow } from "@/hooks/useTipSync";
+import { saveChampion, useContextChampion, useTipContext } from "@/lib/tips";
 import { DEMO_GROUP } from "@/demo/demoGroup";
 import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
-import { createGroup, joinGroup, normalizeCode, TipError } from "@/services/tipgroups";
-import { selectChampionTip, useAppStore } from "@/store/app-store";
+import {
+  createGroup,
+  importTips,
+  joinGroup,
+  normalizeCode,
+  setGroupChampion,
+  TipError,
+} from "@/services/tipgroups";
+import { useAppStore } from "@/store/app-store";
 import { useNow, useTournament } from "@/store/match-store";
 import { NATIONS, getNation } from "@/tournament/nations";
 
@@ -106,8 +115,11 @@ export function RulesButton() {
 /* ------------------------------------------------------------------ */
 
 export function ChampionTipCard() {
-  const champion = useAppStore(selectChampionTip);
-  const setChampion = useAppStore((s) => s.setChampionTip);
+  const ctx = useTipContext();
+  const saved = useContextChampion(ctx);
+  const [draft, setDraft] = useState<string | null>(saved);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setDraft(saved), [saved, ctx.id]);
   const { matches } = useTournament();
   const now = useNow();
   const opener = matches.find((m) => m.number === 1);
@@ -121,7 +133,9 @@ export function ChampionTipCard() {
     .map((c) => getNation(c)!)
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
-  const pick = getNation(champion);
+  const pick = getNation(saved);
+  const dirty = draft !== saved;
+  const where = ctx.kind === "solo" ? "" : ` für „${ctx.label}“`;
   return (
     <section className="mb-7 rounded-2xl border border-gold/30 bg-gold/8 p-4">
       <div className="flex items-center gap-2 text-[16px] font-bold">
@@ -129,8 +143,8 @@ export function ChampionTipCard() {
       </div>
       <p className="mt-1 text-[13.5px] text-muted-foreground">
         {locked
-          ? `Abgabe ist vorbei. Richtig getippt bringt ${CHAMPION_BONUS} Bonuspunkte.`
-          : `${CHAMPION_BONUS} Bonuspunkte, wenn er stimmt. Änderbar bis zum Eröffnungsspiel.`}
+          ? "Abgabe ist vorbei."
+          : `Bonuspunkte, wenn er stimmt. Änderbar bis zum Eröffnungsspiel${where}.`}
       </p>
       {locked ? (
         <div className="mt-3 flex items-center gap-2.5 text-[16px] font-semibold">
@@ -143,19 +157,56 @@ export function ChampionTipCard() {
           )}
         </div>
       ) : (
-        <select
-          value={champion ?? ""}
-          onChange={(e) => setChampion(e.target.value || null)}
-          aria-label="Europameister-Tipp"
-          className="mt-3 h-12 w-full rounded-xl border border-border bg-card px-3 text-[16px] outline-none focus:border-primary"
-        >
-          <option value="">Noch kein Tipp</option>
-          {options.map((n) => (
-            <option key={n.code} value={n.code}>
-              {n.name}
-            </option>
-          ))}
-        </select>
+        <>
+          <select
+            value={draft ?? ""}
+            onChange={(e) => setDraft(e.target.value || null)}
+            aria-label="Europameister-Tipp"
+            className="mt-3 h-12 w-full rounded-xl border border-border bg-card px-3 text-[16px] outline-none focus:border-primary"
+          >
+            <option value="">Noch kein Tipp</option>
+            {options.map((n) => (
+              <option key={n.code} value={n.code}>
+                {n.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!dirty || busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await saveChampion(ctx, draft);
+                toast.success(
+                  draft
+                    ? `Europameister-Tipp gespeichert${where}`
+                    : `Europameister-Tipp gelöscht${where}`,
+                  { description: draft ? getNation(draft)?.name : undefined },
+                );
+              } catch (err) {
+                toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className={cn(
+              "mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-[16px] font-semibold",
+              dirty
+                ? "bg-primary text-primary-foreground"
+                : "border border-border bg-card text-muted-foreground",
+            )}
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : dirty ? (
+              <Save className="h-4 w-4" />
+            ) : saved ? (
+              <Check className="h-4 w-4" />
+            ) : null}
+            {dirty ? "Tipp speichern" : saved ? "Gespeichert" : "Erst auswählen, dann speichern"}
+          </button>
+        </>
       )}
     </section>
   );
@@ -195,7 +246,9 @@ export function GroupFormDrawer({
 }) {
   const tipName = useAppStore((s) => s.tipName);
   const setTipName = useAppStore((s) => s.setTipName);
-  const setInTipGroups = useAppStore((s) => s.setInTipGroups);
+  const setTipContext = useAppStore((s) => s.setTipContext);
+  const { matches } = useTournament();
+  const kickoffs = new Map(matches.map((m) => [m.id, Date.parse(m.kickoffUtc)]));
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState("");
@@ -213,9 +266,20 @@ export function GroupFormDrawer({
           ? await createGroup(groupName.trim(), name.trim())
           : await joinGroup(normalizeCode(code), name.trim());
       setTipName(name.trim());
-      setInTipGroups(true);
-      await syncTipsNow();
+      // Bisherige Einzel-Tipps für noch offene Spiele in die Runde übernehmen.
+      const { predictions, championTip } = useAppStore.getState();
+      const open = Object.entries(predictions)
+        .filter(([id]) => (kickoffs.get(id) ?? 0) > Date.now())
+        .map(([match_id, p]) => ({ match_id, home: p.home, away: p.away }));
+      const imported = open.length ? await importTips(g.id, open).catch(() => 0) : 0;
+      if (championTip) await setGroupChampion(g.id, championTip).catch(() => {});
+      setTipContext(g.id);
       await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
+      await qc.invalidateQueries({ queryKey: ["tip-board", g.id] });
+      if (imported > 0)
+        toast(`${imported} ${imported === 1 ? "Tipp" : "Tipps"} übernommen`, {
+          description: "Deine bisherigen Tipps gelten jetzt auch in dieser Runde.",
+        });
       onOpenChange(false);
       toast.success(mode === "create" ? "Tipprunde erstellt" : `Willkommen in „${g.name}“`, {
         description: mode === "create" ? `Code ${g.code} – jetzt Freunde einladen.` : undefined,
