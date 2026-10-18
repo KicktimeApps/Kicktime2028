@@ -1,5 +1,5 @@
 {
-  "name": "KickTime 2028 – Dein EM-Planer",
+  "name": "KickTime 2028",
   "short_name": "KickTime",
   "description": "Plane die EURO 2028 nach deinen Teams und deiner freien Zeit – spoilerfrei, mit Live-Tabellen und K.-o.-Baum.",
   "id": "/",
@@ -14,13 +14,38 @@
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
-    { "name": "Für dich", "short_name": "Start", "url": "/", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Spielplan", "short_name": "Spielplan", "url": "/spielplan", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Tabellen & K.-o.-Baum", "short_name": "Turnier", "url": "/turnier", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Tipps", "short_name": "Tipps", "url": "/tipps", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Für dich",
+      "short_name": "Start",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Spielplan",
+      "short_name": "Spielplan",
+      "url": "/spielplan",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tabellen & K.-o.-Baum",
+      "short_name": "Turnier",
+      "url": "/turnier",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tipps",
+      "short_name": "Tipps",
+      "url": "/tipps",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

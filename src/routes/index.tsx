@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { CalendarPlus, ChevronDown, ChevronRight, FlaskConical, Star, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Segmented } from "@/components/common/Segmented";
 import { Countdown } from "@/components/dashboard/Countdown";
 import { FitNote, MatchList, MatchRow } from "@/components/dashboard/MatchRow";
 import { MatchCard } from "@/components/match/MatchCard";
@@ -126,40 +127,23 @@ function HeroShell({ children, className }: { children: React.ReactNode; classNa
 
 /* ------------------------------------------------------------------ */
 
-const PILLS: { id: PillId; label: string; dot: string; hint: string; empty: string }[] = [
+const TABS: { id: PillId; label: string; hint: string; empty: string }[] = [
   {
-    id: "fits",
-    label: "Passt",
-    dot: "bg-primary",
-    hint: "Spiele deiner Teams in deiner freien Zeit – einfach einschalten.",
-    empty: "Gerade kein Spiel deiner Teams in deiner Zeit.",
-  },
-  {
-    id: "outside",
-    label: "Außerhalb",
-    dot: "bg-gold",
-    hint: "Spiele deiner Teams außerhalb deiner Zeit – Erinnerung stellen oder aufnehmen.",
-    empty: "Alle Spiele deiner Teams passen in deine Zeit.",
-  },
-  {
-    id: "top",
-    label: "Top",
-    dot: "bg-live",
-    hint: "Eröffnungsspiel, Deutschland, Top-Duelle und alles ab dem Viertelfinale.",
-    empty: "In dieser Runde stehen keine Top-Spiele mehr an.",
+    id: "mine",
+    label: "Meine Spiele",
+    hint: "Alle kommenden Spiele deiner Teams. An jedem Spiel steht, ob es in deine Zeit passt.",
+    empty: "Gerade stehen keine weiteren Spiele deiner Teams an.",
   },
   {
     id: "all",
-    label: "Alle",
-    dot: "bg-foreground/60",
+    label: "Alle Spiele",
     hint: "Alle kommenden Spiele dieser Runde.",
     empty: "In dieser Runde steht kein Spiel mehr an.",
   },
   {
     id: "results",
     label: "Ergebnisse",
-    dot: "bg-muted-foreground/60",
-    hint: "Die letzten Spiele deiner Teams.",
+    hint: "So haben deine Teams zuletzt gespielt.",
     empty: "Deine Teams haben noch nicht gespielt.",
   },
 ];
@@ -168,16 +152,17 @@ function Drawn({ started }: { started: boolean }) {
   const { matches } = useTournament();
   const prefs = usePrefs();
   const now = useNow();
-  const pills = useMemo(() => buildPills(matches, prefs), [matches, prefs]);
-  const [pill, setPill] = useState<PillId>(() =>
-    pills.fits.length ? "fits" : pills.top.length ? "top" : "all",
-  );
   const live = matches.filter((m) => m.status === "live");
   const next = nextOwnMatch(matches, prefs);
+  const pills = useMemo(
+    () => buildPills(matches, prefs, { exclude: next?.id }),
+    [matches, prefs, next?.id],
+  );
+  const [pill, setPill] = useState<PillId>(() => (pills.mine.length || next ? "mine" : "all"));
   const hasTeams = prefs.favorites.length + prefs.interesting.length > 0;
-  const meta = PILLS.find((p) => p.id === pill)!;
+  const meta = TABS.find((t) => t.id === pill)!;
   const list = pills[pill];
-  const mine = [...pills.fits, ...pills.outside];
+  const mine = next ? [next, ...pills.mine] : pills.mine;
 
   return (
     <>
@@ -206,32 +191,12 @@ function Drawn({ started }: { started: boolean }) {
         </div>
       )}
 
-      <div role="tablist" aria-label="Spiele filtern" className="flex flex-wrap gap-2">
-        {PILLS.map((p) => {
-          const active = p.id === pill;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setPill(p.id)}
-              className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[15px] font-semibold transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-foreground hover:border-muted-foreground/40",
-              )}
-            >
-              {!active && <span className={cn("h-2 w-2 rounded-full", p.dot)} />}
-              {p.label}
-              <span className={cn("tabular", active ? "opacity-80" : "text-muted-foreground")}>
-                {pills[p.id].length}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <Segmented<PillId>
+        size="lg"
+        value={pill}
+        onChange={setPill}
+        options={TABS.map((t) => ({ value: t.id, label: t.label }))}
+      />
       <p className="mb-4 mt-3 text-[14px] text-muted-foreground">{meta.hint}</p>
 
       {list.length === 0 ? (
@@ -239,7 +204,7 @@ function Drawn({ started }: { started: boolean }) {
           {meta.empty}
         </div>
       ) : (
-        <DayGroups matches={list} />
+        <DayGroups matches={list} showFit={pill === "mine"} />
       )}
 
       {pill !== "results" && mine.length > 0 && (
@@ -261,8 +226,9 @@ function Drawn({ started }: { started: boolean }) {
 }
 
 /** Spiele nach Tagen gruppiert, mit „Heute“/„Morgen“ als Überschrift. */
-function DayGroups({ matches }: { matches: MatchView[] }) {
-  const tz = usePrefs().timeZone;
+function DayGroups({ matches, showFit }: { matches: MatchView[]; showFit: boolean }) {
+  const prefs = usePrefs();
+  const tz = prefs.timeZone;
   const now = useNow();
   const days: { key: string; label: string; items: MatchView[] }[] = [];
   for (const m of matches) {
@@ -293,7 +259,10 @@ function DayGroups({ matches }: { matches: MatchView[] }) {
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
                 className="min-w-0"
               >
-                <MatchCard match={m} />
+                <MatchCard
+                  match={m}
+                  fit={showFit ? fitFor(m.kickoffUtc, tz, prefs.availability) : undefined}
+                />
               </motion.div>
             ))}
           </div>

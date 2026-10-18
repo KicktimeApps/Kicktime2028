@@ -16,7 +16,7 @@ export function Segmented<T extends string>({
   value: T;
   onChange: (v: T) => void;
   className?: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }) {
   const id = useId();
   return (
@@ -34,7 +34,11 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.value)}
             className={cn(
               "relative flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 font-medium transition-colors",
-              size === "sm" ? "h-8 text-[12px]" : "h-9 text-[13px]",
+              size === "sm"
+                ? "h-8 text-[12px]"
+                : size === "lg"
+                  ? "h-11 text-[15px] font-semibold"
+                  : "h-9 text-[13px]",
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -49,7 +53,8 @@ export function Segmented<T extends string>({
             {o.count !== undefined && o.count > 0 && (
               <span
                 className={cn(
-                  "relative z-10 rounded-full px-1.5 text-[10px] font-semibold tabular",
+                  "relative z-10 rounded-full px-1.5 font-semibold tabular",
+                  size === "lg" ? "text-[12px]" : "text-[10px]",
                   active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
                 )}
               >

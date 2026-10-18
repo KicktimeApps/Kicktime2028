@@ -16,8 +16,10 @@ const prefs = {
 describe("buildPills", () => {
   const { matches } = resolveTournament({ fixtures: FIXTURES, ...buildDemo("group") });
   const pills = buildPills(matches, prefs);
+  const own = (m: { home: string | null; away: string | null }) =>
+    [m.home, m.away].some((c) => c === "GER" || c === "ESP");
 
-  it("zeigt nur anstehende Spiele der laufenden Phase", () => {
+  it("„Alle“ zeigt nur anstehende Spiele der laufenden Phase", () => {
     expect(pills.all.length).toBeGreaterThan(0);
     for (const m of pills.all) {
       expect(m.status).toBe("scheduled");
@@ -25,15 +27,14 @@ describe("buildPills", () => {
     }
   });
 
-  it("teilt eigene Spiele vollständig in passt/außerhalb auf", () => {
-    const own = pills.all.filter((m) => [m.home, m.away].some((c) => c === "GER" || c === "ESP"));
-    expect(pills.fits.length + pills.outside.length).toBe(own.length);
+  it("„Meine Spiele“ enthält alle anstehenden eigenen Spiele", () => {
+    const expected = matches.filter((m) => m.status === "scheduled" && own(m));
+    expect(pills.mine).toEqual(expected);
   });
 
-  it("führt Deutschland-Spiele immer unter Top", () => {
-    for (const m of pills.all.filter((m) => m.home === "GER" || m.away === "GER")) {
-      expect(pills.top).toContain(m);
-    }
+  it("lässt das Spiel aus der großen Box weg", () => {
+    const first = pills.mine[0];
+    expect(buildPills(matches, prefs, { exclude: first.id }).mine).not.toContain(first);
   });
 
   it("listet Ergebnisse eigener Teams, neueste zuerst", () => {
