@@ -66,6 +66,7 @@ type OverrideRow = {
   status: MatchStatus;
   phase: LivePhase | null;
   updated_at: string;
+  source_sig?: string | null;
 };
 
 export async function fetchOverrides(): Promise<Record<string, ResultRecord>> {
@@ -73,7 +74,8 @@ export async function fetchOverrides(): Promise<Record<string, ResultRecord>> {
   if (!sb) return {};
   const { data, error } = await sb
     .from("match_overrides")
-    .select("match_id, score_home, score_away, pens_home, pens_away, status, phase, updated_at");
+    // "*" statt fester Spalten: funktioniert auch, bevor source_sig angelegt ist.
+    .select("*");
   if (error) {
     logError("supabase", `Overrides: ${error.message}`);
     return {};
@@ -90,6 +92,7 @@ export async function fetchOverrides(): Promise<Record<string, ResultRecord>> {
       phase: r.phase ?? undefined,
       source: "admin",
       updatedAt: Date.parse(r.updated_at),
+      sourceSig: r.source_sig ?? undefined,
     };
   }
   return out;

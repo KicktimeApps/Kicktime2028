@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { teamDisplay } from "@/domain/labels";
-import type { LivePhase, MatchStatus } from "@/domain/types";
+import { resultSignature, type LivePhase, type MatchStatus } from "@/domain/types";
 import { clearErrors, getErrors, subscribeErrors } from "@/lib/error-log";
 import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -243,9 +243,8 @@ function OverrideTab({ pin }: { pin: string }) {
   return (
     <div className="space-y-3">
       <p className="text-[12.5px] text-muted-foreground">
-        Eine Korrektur gilt für alle Nutzer und sperrt die Live-Daten für dieses Spiel, bis du sie
-        mit dem Papierkorb entfernst. Meldet die Quelle das Spielende, wird das Spiel beendet – mit
-        deinem Spielstand.
+        OpenLigaDB gibt vor. Eine Korrektur überbrückt nur, wenn die Quelle hängt: Sobald dort ein
+        neuer Stand ankommt (z. B. das Tor oder das Spielende), gilt automatisch wieder OpenLigaDB.
       </p>
       <input
         type="search"
@@ -304,6 +303,8 @@ function Stepper({
 
 function OverrideRow({ pin, matchId }: { pin: string; matchId: string }) {
   const m = useMatchStore((s) => s.tournament.matches.find((x) => x.id === matchId))!;
+  const apiResult = useMatchStore((s) => s.apiResults[matchId]);
+  const hasOverride = useMatchStore((s) => !!s.adminResults[matchId]);
   const [status, setStatus] = useState<MatchStatus>(m.status);
   const [home, setHome] = useState(m.score?.home ?? 0);
   const [away, setAway] = useState(m.score?.away ?? 0);
@@ -347,15 +348,23 @@ function OverrideRow({ pin, matchId }: { pin: string; matchId: string }) {
           {m.source === "admin" && " · korrigiert"}
         </span>
       </div>
-      <div className="text-[11px] text-muted-foreground">
-        #{m.number} ·{" "}
-        {new Date(m.kickoffUtc).toLocaleString("de-DE", {
-          weekday: "short",
-          day: "2-digit",
-          month: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
+      <div className="flex justify-between gap-2 text-[11px] text-muted-foreground">
+        <span>
+          #{m.number} ·{" "}
+          {new Date(m.kickoffUtc).toLocaleString("de-DE", {
+            weekday: "short",
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </span>
+        <span>
+          OpenLigaDB:{" "}
+          {apiResult?.score
+            ? `${apiResult.score.home}:${apiResult.score.away} (${STATUS_LABEL[apiResult.status]})`
+            : "noch nichts"}
+        </span>
       </div>
       <div className="flex items-center justify-between">
         <Stepper value={home} onChange={setHome} label="Tore Heim" />
@@ -402,6 +411,7 @@ function OverrideRow({ pin, matchId }: { pin: string; matchId: string }) {
                   pensHome: withPens ? pens[0] : null,
                   pensAway: withPens ? pens[1] : null,
                   phase: status === "live" ? phase : null,
+                  sourceSig: resultSignature(apiResult),
                 }),
               "Live geschaltet ⚡",
               `${a.name} ${home}:${away} ${b.name}`,
@@ -413,7 +423,7 @@ function OverrideRow({ pin, matchId }: { pin: string; matchId: string }) {
         </button>
         <button
           type="button"
-          disabled={busy || m.source !== "admin"}
+          disabled={busy || !hasOverride}
           onClick={() => run(() => clearOverride(pin, matchId), "Korrektur entfernt")}
           aria-label="Korrektur entfernen"
           title="Korrektur entfernen – danach gelten wieder die Live-Daten"

@@ -32,6 +32,8 @@ export type OverrideInput = {
   pensHome: number | null;
   pensAway: number | null;
   phase: LivePhase | null;
+  /** Stand der Live-Quelle beim Speichern (siehe resultSignature). */
+  sourceSig: string;
 };
 
 export const setOverride = (pin: string, o: OverrideInput) => invoke({ action: "set", pin, ...o });

@@ -92,9 +92,10 @@ Halbfinale, Finale) oder „MagentaTV“ (Free-TV noch offen).
   `OPENLIGA_LEAGUE`/`OPENLIGA_SEASON` (Edge Function) setzen.
 - OpenLigaDB wird von der Community gepflegt. Fehlerhafte Einträge (etwa Testteams wie
   „SV Großefehn“ bei der EM 2024) ignoriert KickTime. Falsche Spielstände korrigierst du im
-  **Admin-Bereich → Korrektur** (wie bei KickTime 2026): Eine Korrektur sperrt die Live-Daten
-  für dieses Spiel, bis du sie mit dem Papierkorb entfernst. Meldet die Quelle das Spielende,
-  wird das Spiel beendet – mit deinem korrigierten Spielstand.
+  **Admin-Bereich → Korrektur**. OpenLigaDB gibt grundsätzlich vor; eine Korrektur überbrückt
+  nur, wenn die Quelle hängt. Sie merkt sich, was OpenLigaDB beim Speichern gemeldet hat –
+  sobald dort etwas Neues ankommt (das Tor, das Spielende …), gilt automatisch wieder
+  OpenLigaDB. Neben jedem Spiel steht, was OpenLigaDB gerade meldet.
 - Elfmeterschießen: OpenLigaDB führt das Ergebnis „nach Elfmeterschießen“ nicht immer
   einheitlich (mal mit, mal ohne die Tore aus dem Spiel). Der **Sieger** wird in beiden Fällen
   richtig erkannt; sollte die angezeigte Elfmeterzahl nicht stimmen, im Admin-Bereich korrigieren.

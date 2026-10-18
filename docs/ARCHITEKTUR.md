@@ -60,9 +60,9 @@ abgedeckt.
 - **`app-store.ts`** (persistiert unter `kicktime-2028`): Teams, Zeitfenster, Zeitzone,
   Spoilerschutz und Aufgedecktes, Theme, Erinnerungen, Tipps, Vorschau-Modus.
 - **`match-store.ts`** (flüchtig): Live-Ergebnisse, Patches, Admin-Korrekturen, Uhr und der
-  daraus berechnete `tournament`-Zustand. Admin-Korrekturen sperren die Live-Daten eines
-  Spiels, bis sie entfernt werden; meldet die Quelle das Spielende, wird mit dem korrigierten
-  Stand beendet (`mergeResults`, wie KickTime 2026).
+  daraus berechnete `tournament`-Zustand. Die Live-Quelle gibt vor; eine Admin-Korrektur
+  gilt nur, solange die Quelle noch den beim Speichern gemerkten Stand meldet
+  (`source_sig`/`resultSignature`, `mergeResults`).
 - **`ui-store.ts`**: offene Detail-Sheets (Spiel/Team), einmal global gerendert.
 
 ### Motor (`src/hooks/useEngine.ts`)

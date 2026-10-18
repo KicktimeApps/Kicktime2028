@@ -35,8 +35,11 @@ create table if not exists public.match_overrides (
   pens_home   smallint check (pens_home between 0 and 50),
   pens_away   smallint check (pens_away between 0 and 50),
   phase       text check (phase in ('first', 'half', 'second', 'extra', 'penalties')),
-  updated_at  timestamptz not null default now()
+  updated_at  timestamptz not null default now(),
+  -- Stand der Live-Quelle beim Speichern; ändert sich die Quelle, gilt sie wieder
+  source_sig  text
 );
+alter table public.match_overrides add column if not exists source_sig text;
 
 -- ---------- Push-Erinnerungen -----------------------------------------
 

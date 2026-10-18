@@ -129,8 +129,16 @@ Deno.serve(async (req) => {
         pens_away: body.pensAway == null ? null : clampInt(body.pensAway, 0, 50),
         phase: PHASES.includes(body.phase) ? body.phase : null,
         updated_at: new Date().toISOString(),
+        // Stand der Live-Quelle beim Speichern: Ändert sie sich danach, gilt
+        // wieder die Quelle (die Korrektur überbrückt nur).
+        source_sig: typeof body.sourceSig === "string" ? body.sourceSig.slice(0, 100) : null,
       };
-      const { error } = await db.from("match_overrides").upsert(row);
+      let { error } = await db.from("match_overrides").upsert(row);
+      if (error) {
+        // Spalte source_sig noch nicht angelegt (SQL-Update fehlt) → ohne speichern.
+        const { source_sig: _unused, ...legacy } = row;
+        ({ error } = await db.from("match_overrides").upsert(legacy));
+      }
       return error ? json({ error: "Speichern fehlgeschlagen" }, 500) : json({ ok: true, row });
     }
 

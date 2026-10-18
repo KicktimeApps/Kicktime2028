@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDemo, DEMO_SCENARIOS } from "@/demo/demo";
 import { resolveTournament } from "@/domain/resolve";
-import type { ResultRecord } from "@/domain/types";
+import { resultSignature, type ResultRecord } from "@/domain/types";
 import { buildIcs } from "@/lib/calendar";
 import { FIXTURES } from "@/tournament/schedule";
 import { mergeResults } from "./match-store";
@@ -18,30 +18,60 @@ const r = (
   updatedAt: 0,
 });
 
-describe("mergeResults (Admin-Korrektur vs. Live-Daten, wie KickTime 2026)", () => {
-  it("Korrektur sperrt die Live-Daten – auch wenn die Quelle mehr Tore meldet", () => {
+describe("mergeResults: OpenLigaDB gibt vor, Korrektur überbrückt nur", () => {
+  const withSig = (rec: ResultRecord, api?: ResultRecord) => ({
+    ...rec,
+    sourceSig: resultSignature(api),
+  });
+
+  it("Korrektur gilt, solange die Quelle noch den alten Stand meldet", () => {
+    const api = r("live", 1, 0, "api");
+    const out = mergeResults({ m01: api }, { m01: withSig(r("live", 2, 0, "admin"), api) });
+    expect(out.m01.source).toBe("admin");
+    expect(out.m01.score).toEqual({ home: 2, away: 0 });
+  });
+
+  it("kommt das Tor bei der Quelle an, gilt sofort wieder die Quelle", () => {
+    const before = r("live", 1, 0, "api");
+    const out = mergeResults(
+      { m01: r("live", 2, 0, "api") },
+      { m01: withSig(r("live", 2, 0, "admin"), before) },
+    );
+    expect(out.m01.source).toBe("api");
+  });
+
+  it("auch wenn die Quelle danach etwas anderes meldet, gilt die Quelle", () => {
+    const before = r("live", 1, 0, "api");
+    const out = mergeResults(
+      { m01: r("live", 1, 1, "api") },
+      { m01: withSig(r("live", 2, 0, "admin"), before) },
+    );
+    expect(out.m01.score).toEqual({ home: 1, away: 1 });
+  });
+
+  it("Spielende der Quelle löst die Korrektur ab", () => {
+    const before = r("live", 1, 0, "api");
+    const out = mergeResults(
+      { m01: r("finished", 1, 0, "api") },
+      { m01: withSig(r("live", 2, 0, "admin"), before) },
+    );
+    expect(out.m01.source).toBe("api");
+    expect(out.m01.status).toBe("finished");
+  });
+
+  it("Korrektur, als die Quelle noch gar nichts hatte, gilt bis zur ersten Meldung", () => {
+    const admin = withSig(r("live", 1, 0, "admin"), undefined);
+    expect(mergeResults({}, { m01: admin }).m01.source).toBe("admin");
+    expect(mergeResults({ m01: r("live", 0, 0, "api") }, { m01: admin }).m01.source).toBe("api");
+  });
+
+  it("ältere Korrektur ohne Quellstand bleibt stehen (wie 2026)", () => {
     const out = mergeResults({ m01: r("live", 2, 0, "api") }, { m01: r("live", 1, 0, "admin") });
     expect(out.m01.source).toBe("admin");
-    expect(out.m01.score).toEqual({ home: 1, away: 0 });
   });
-  it("offizielles Spielende beendet das Spiel, der korrigierte Stand bleibt", () => {
-    const out = mergeResults(
-      { m01: r("finished", 2, 0, "api") },
-      { m01: r("live", 1, 0, "admin") },
-    );
-    expect(out.m01.status).toBe("finished");
-    expect(out.m01.score).toEqual({ home: 1, away: 0 });
-  });
-  it("beendete Korrektur gewinnt auch gegen ein anderes offizielles Ergebnis", () => {
-    const out = mergeResults(
-      { m01: r("finished", 3, 1, "api") },
-      { m01: r("finished", 2, 1, "admin") },
-    );
-    expect(out.m01.score).toEqual({ home: 2, away: 1 });
-  });
+
   it("ohne Korrektur gelten die Live-Daten", () => {
-    const out = mergeResults({ m01: r("live", 2, 0, "api") }, {});
-    expect(out.m01.source).toBe("api");
+    expect(mergeResults({ m01: r("live", 2, 0, "api") }, {}).m01.source).toBe("api");
   });
 });
 

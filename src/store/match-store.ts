@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { buildDemo, demoStart, type DemoScenario } from "@/demo/demo";
 import { resolveTournament, type TournamentState } from "@/domain/resolve";
-import type { FixturePatch, ResultRecord } from "@/domain/types";
+import { resultSignature, type FixturePatch, type ResultRecord } from "@/domain/types";
 import { DRAW } from "@/tournament/draw";
 import { FIXTURES } from "@/tournament/schedule";
 
@@ -34,11 +34,14 @@ type MatchStore = Inputs & {
 };
 
 /**
- * Admin-Korrekturen wie bei KickTime 2026: Solange eine Korrektur besteht,
- * werden Live-Daten der Quelle für dieses Spiel komplett ignoriert – bis der
- * Admin die Korrektur entfernt. Einzige Ausnahme: Meldet die offizielle
- * Quelle das Spielende, wird das Spiel beendet, der Spielstand aus der
- * Korrektur bleibt aber erhalten.
+ * Die Live-Quelle (OpenLigaDB) gibt vor. Eine Admin-Korrektur überbrückt nur,
+ * wenn die Quelle hängt: Sie gilt, solange die Quelle noch genau das meldet,
+ * was sie beim Speichern der Korrektur gemeldet hat. Kommt danach etwas Neues
+ * (z. B. das 2:0 oder das Spielende), gilt sofort wieder die Quelle.
+ *
+ * Korrekturen ohne gemerkten Quellstand (ältere Server-Funktion) bleiben wie
+ * bei KickTime 2026 stehen, bis sie entfernt werden; meldet die Quelle das
+ * Spielende, wird mit dem korrigierten Stand beendet.
  */
 export function mergeResults(
   api: Record<string, ResultRecord>,
@@ -47,6 +50,10 @@ export function mergeResults(
   const out: Record<string, ResultRecord> = { ...api };
   for (const [id, a] of Object.entries(admin)) {
     const b = api[id];
+    if (a.sourceSig !== undefined) {
+      if (resultSignature(b) === a.sourceSig) out[id] = a;
+      continue;
+    }
     if (b?.status === "finished" && a.status !== "finished") {
       out[id] = {
         ...a,

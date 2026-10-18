@@ -19,7 +19,23 @@ export type ResultRecord = {
   minute?: number;
   source: "api" | "admin" | "demo";
   updatedAt: number;
+  /**
+   * Nur Admin-Korrekturen: Stand der Live-Quelle beim Speichern (siehe
+   * {@link resultSignature}). Weicht die Quelle davon ab, gilt wieder sie.
+   */
+  sourceSig?: string;
 };
+
+/**
+ * Kurzform eines Live-Stands (Status, Tore, Elfmeter) – ohne Spielphase, weil
+ * die teils aus der Uhr abgeleitet wird und sich ohne neue Daten ändert.
+ */
+export function resultSignature(r: ResultRecord | undefined): string {
+  if (!r) return "none";
+  const s = r.score ? `${r.score.home}:${r.score.away}` : "-";
+  const p = r.penalties ? `${r.penalties.home}:${r.penalties.away}` : "-";
+  return `${r.status}|${s}|${p}`;
+}
 
 /** Zusatzinfos, die eine Live-Quelle zu einem Spiel liefern kann. */
 export type FixturePatch = {
