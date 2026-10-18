@@ -40,7 +40,9 @@ bun run dev        # http://localhost:5173
 
 Die App läuft **ohne jede Konfiguration**. Live-Daten kommen dann direkt von
 [OpenLigaDB](https://www.openligadb.de). Für Push-Erinnerungen im Hintergrund, Admin-Korrekturen und
-Statistik wird optional Supabase angebunden (siehe unten).
+Statistik wird optional Supabase angebunden (siehe unten). **Für den Live-Betrieb mit vielen
+Nutzern wird das Backend empfohlen**: Dann fragt nur der Server OpenLigaDB ab (mit Cache), nicht
+jedes einzelne Gerät.
 
 | Befehl              | Zweck                                       |
 | ------------------- | ------------------------------------------- |

@@ -17,20 +17,20 @@ export const ACCENTS: {
     label: "Flutlicht",
     swatch: "oklch(0.82 0.17 155)",
     dark: { primary: "oklch(0.82 0.17 155)", fg: "oklch(0.18 0.04 200)" },
-    light: { primary: "oklch(0.6 0.16 155)", fg: "oklch(0.99 0.005 155)" },
+    light: { primary: "oklch(0.47 0.14 155)", fg: "oklch(0.99 0.005 155)" },
   },
   {
     id: "gold",
     label: "Schwarz-Rot-Gold",
     swatch: "oklch(0.84 0.15 85)",
     dark: { primary: "oklch(0.85 0.15 85)", fg: "oklch(0.22 0.04 70)" },
-    light: { primary: "oklch(0.66 0.15 70)", fg: "oklch(0.99 0.01 85)" },
+    light: { primary: "oklch(0.55 0.13 70)", fg: "oklch(0.99 0.01 85)" },
   },
   {
     id: "red",
     label: "Rot-Weiß",
     swatch: "oklch(0.66 0.21 22)",
-    dark: { primary: "oklch(0.7 0.19 22)", fg: "oklch(0.99 0 0)" },
+    dark: { primary: "oklch(0.7 0.19 22)", fg: "oklch(0.18 0.04 25)" },
     light: { primary: "oklch(0.56 0.2 25)", fg: "oklch(0.99 0 0)" },
   },
   {
@@ -45,7 +45,7 @@ export const ACCENTS: {
     label: "Oranje",
     swatch: "oklch(0.75 0.17 55)",
     dark: { primary: "oklch(0.78 0.16 55)", fg: "oklch(0.2 0.04 50)" },
-    light: { primary: "oklch(0.64 0.18 50)", fg: "oklch(0.99 0 0)" },
+    light: { primary: "oklch(0.56 0.17 50)", fg: "oklch(0.99 0 0)" },
   },
 ];
 
