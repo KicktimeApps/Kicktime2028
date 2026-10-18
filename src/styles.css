@@ -312,3 +312,24 @@
     font-size: max(16px, 1em);
   }
 }
+
+/* Inhalt gleitet beim Start sanft herein (nur der Inhaltsbereich, damit
+   Kopfzeile und Navigation sofort an ihrem Platz stehen). */
+@keyframes app-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.app-rise {
+  animation: app-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-rise {
+    animation: none;
+  }
+}

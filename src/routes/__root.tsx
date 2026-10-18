@@ -172,10 +172,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {hydrated && (
+        // Nur Deckkraft – eine Verschiebung (transform) würde fest platzierte
+        // Elemente wie die Leiste unten an den Seitenrand statt an den
+        // Bildschirm hängen, sie „flögen“ dann verspätet ein.
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={ready ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: ready ? 1 : 0 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
         >
           <App />
         </motion.div>

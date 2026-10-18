@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <DemoBanner />
         </div>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 md:px-8 md:pb-12 md:pt-8">
+        <main className="app-rise mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 md:px-8 md:pb-12 md:pt-8">
           {children}
         </main>
 
