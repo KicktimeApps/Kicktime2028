@@ -244,3 +244,61 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Öffnungsanimation (SplashScreen) – reines CSS, läuft schon vor dem Laden von JavaScript */
+@keyframes splash-aura {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.1);
+  }
+}
+@keyframes splash-logo {
+  from {
+    opacity: 0;
+    transform: scale(0.8) rotate(-20deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes splash-text {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes splash-bar {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.splash-aura {
+  animation: splash-aura 2.4s ease-in-out infinite;
+}
+.splash-aura-2 {
+  animation-duration: 3s;
+  animation-delay: 0.4s;
+  opacity: 0.25;
+}
+.splash-logo {
+  animation: splash-logo 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.splash-text {
+  animation: splash-text 0.7s ease-out 0.35s both;
+}
+.splash-bar {
+  animation: splash-bar 2.4s ease-out both;
+}

@@ -7,9 +7,10 @@ import {
   Scripts,
   useRouter,
 } from "@tanstack/react-router";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { LogoMark } from "@/components/layout/Logo";
+import { SPLASH_MS, SplashScreen } from "@/components/layout/SplashScreen";
 import { MatchSheet } from "@/components/match/MatchSheet";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { TeamSheet } from "@/components/team/TeamSheet";
@@ -80,7 +81,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: DESCRIPTION },
       { name: "theme-color", content: "#0b1122" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "KickTime" },
       { property: "og:site_name", content: `KickTime ${TOURNAMENT.year}` },
       { property: "og:title", content: TITLE },
@@ -133,20 +133,52 @@ function useHydrated() {
   return hydrated;
 }
 
-function BootScreen() {
-  return (
-    <div className="app-backdrop flex min-h-dvh items-center justify-center">
-      <LogoMark className="h-14 w-14 animate-pulse" />
-    </div>
-  );
+const SPLASH_KEY = `${TOURNAMENT.storagePrefix}-splash`;
+
+/**
+ * Öffnungsanimation einmal pro Sitzung. Sie ist schon im Server-HTML enthalten
+ * und verschwindet frühestens nach {@link SPLASH_MS} – oder sofort, wenn sie in
+ * dieser Sitzung schon lief bzw. das Gerät reduzierte Bewegung wünscht.
+ */
+function useSplash() {
+  const [show, setShow] = useState(true);
+  useEffect(() => {
+    let seen = false;
+    try {
+      seen =
+        sessionStorage.getItem(SPLASH_KEY) === "1" ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      sessionStorage.setItem(SPLASH_KEY, "1");
+    } catch {
+      /* noop */
+    }
+    if (seen) {
+      setShow(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShow(false), SPLASH_MS);
+    return () => window.clearTimeout(t);
+  }, []);
+  return show;
 }
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const hydrated = useHydrated();
+  const splash = useSplash();
+  const ready = hydrated && !splash;
   return (
     <QueryClientProvider client={queryClient}>
-      {hydrated ? <App /> : <BootScreen />}
+      {hydrated && (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={ready ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <App />
+        </motion.div>
+      )}
+      <AnimatePresence>{!ready && <SplashScreen />}</AnimatePresence>
       <Toaster />
     </QueryClientProvider>
   );

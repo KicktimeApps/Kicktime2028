@@ -12,10 +12,11 @@ Ergebnisse geheim, bis du sie sehen willst.
 
 ## Funktionen
 
-- **Für dich**: schlichte Startseite, die sich der Turnierphase anpasst – vor der Auslosung
-  Countdown, deine Teams und die nächsten Termine; im Turnier _Jetzt live_, _Dein nächstes
-  Spiel_ (Tag, Uhrzeit, Sender, passt es in deine Zeit?), _Deine weiteren Spiele_,
-  _Auch sehenswert_ und _Zuletzt gespielt_ – jedes Spiel eine Zeile, ohne Fachbegriffe.
+- **Für dich**: Startseite, die sich der Turnierphase anpasst – vor der Auslosung Countdown,
+  deine Teams und die nächsten Termine; im Turnier _Jetzt live_, _Dein nächstes Spiel_ und
+  darunter wie bei KickTime 2026 Pillen für alle Spiele der laufenden Runde: _Passt_ ·
+  _Außerhalb_ · _Top_ · _Alle_ · _Ergebnisse_.
+- **Öffnungsanimation** beim ersten Start pro Sitzung (reines CSS, läuft schon vor dem Laden).
 - **Zeitfenster pro Wochentag**, auch über Mitternacht. Zusätzlich gibt es die Einstufung „teilweise schaubar“,
   wenn z. B. nur die 2. Halbzeit in deine Zeit fällt.
 - **Spielplan** mit Suche, Filtern (Meine Spiele, Passt in meine Zeit, Gruppe/Runde) und Sprung

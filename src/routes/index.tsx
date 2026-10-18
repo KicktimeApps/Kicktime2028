@@ -5,11 +5,20 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Countdown } from "@/components/dashboard/Countdown";
 import { FitNote, MatchList, MatchRow } from "@/components/dashboard/MatchRow";
+import { MatchCard } from "@/components/match/MatchCard";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
-import { buildFeed, nextOwnMatch } from "@/domain/recommend";
+import { buildPills, type PillId } from "@/domain/pills";
+import { nextOwnMatch } from "@/domain/recommend";
 import { currentStage, tournamentWinner } from "@/domain/status";
-import { fitFor, formatDate, formatDayLong, formatTime, relativeDay } from "@/domain/time";
+import {
+  fitFor,
+  formatDate,
+  formatDayLong,
+  formatTime,
+  localParts,
+  relativeDay,
+} from "@/domain/time";
 import type { MatchView } from "@/domain/types";
 import { usePrefs } from "@/hooks/usePrefs";
 import { downloadIcs } from "@/lib/calendar";
@@ -25,13 +34,10 @@ export const Route = createFileRoute("/")({
   component: ForYou,
 });
 
-/** Wie viele Spiele pro Abschnitt auf der Startseite – der Rest steht im Spielplan. */
-const LIST_LIMIT = 3;
-
 /**
- * Startseite. Bewusst schlicht: eine Spalte, klare Überschriften, jedes Spiel
- * eine Zeile. Reihenfolge nach Dringlichkeit: live → dein nächstes Spiel →
- * deine weiteren Spiele → sehenswert → zuletzt gespielt.
+ * Startseite: oben „Jetzt live“ und „Dein nächstes Spiel“, darunter – wie bei
+ * KickTime 2026 – Pillen, die alle Spiele der laufenden Turnierphase sortieren
+ * (passt in deine Zeit · außerhalb · Top · alle · Ergebnisse).
  */
 function ForYou() {
   const tournament = useTournament();
@@ -45,19 +51,13 @@ function ForYou() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <header className="mb-5">
+      <header className="mb-5 flex items-center justify-between gap-3">
         <h1 className="font-display text-[2rem] font-bold uppercase leading-none tracking-tight md:text-4xl">
           {greeting(now, prefs.timeZone)}
         </h1>
-        <p className="mt-1.5 text-[15px] text-muted-foreground">
-          {champion
-            ? `Die ${TOURNAMENT.name} ist vorbei.`
-            : stage && started
-              ? `${TOURNAMENT.name} · ${STAGE_LABEL[stage]}`
-              : drawn
-                ? `Bald geht's los: ${TOURNAMENT.name}`
-                : `Noch ist Zeit bis zur ${TOURNAMENT.name}.`}
-        </p>
+        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/12 px-3 py-1 text-[12px] font-semibold uppercase tracking-wider text-primary">
+          {champion ? "Beendet" : stage && started ? STAGE_LABEL[stage] : TOURNAMENT.name}
+        </span>
       </header>
 
       {champion && <ChampionBanner code={champion} />}
@@ -126,20 +126,58 @@ function HeroShell({ children, className }: { children: React.ReactNode; classNa
 
 /* ------------------------------------------------------------------ */
 
+const PILLS: { id: PillId; label: string; dot: string; hint: string; empty: string }[] = [
+  {
+    id: "fits",
+    label: "Passt",
+    dot: "bg-primary",
+    hint: "Spiele deiner Teams in deiner freien Zeit – einfach einschalten.",
+    empty: "Gerade kein Spiel deiner Teams in deiner Zeit.",
+  },
+  {
+    id: "outside",
+    label: "Außerhalb",
+    dot: "bg-gold",
+    hint: "Spiele deiner Teams außerhalb deiner Zeit – Erinnerung stellen oder aufnehmen.",
+    empty: "Alle Spiele deiner Teams passen in deine Zeit.",
+  },
+  {
+    id: "top",
+    label: "Top",
+    dot: "bg-live",
+    hint: "Eröffnungsspiel, Deutschland, Top-Duelle und alles ab dem Viertelfinale.",
+    empty: "In dieser Runde stehen keine Top-Spiele mehr an.",
+  },
+  {
+    id: "all",
+    label: "Alle",
+    dot: "bg-foreground/60",
+    hint: "Alle kommenden Spiele dieser Runde.",
+    empty: "In dieser Runde steht kein Spiel mehr an.",
+  },
+  {
+    id: "results",
+    label: "Ergebnisse",
+    dot: "bg-muted-foreground/60",
+    hint: "Die letzten Spiele deiner Teams.",
+    empty: "Deine Teams haben noch nicht gespielt.",
+  },
+];
+
 function Drawn({ started }: { started: boolean }) {
   const { matches } = useTournament();
   const prefs = usePrefs();
   const now = useNow();
-  const feed = useMemo(() => buildFeed(matches, prefs), [matches, prefs]);
-  // Sehenswert nur mit feststehenden Teams – „Sieger Spiel 39“ sagt niemandem etwas.
-  const bonus = feed.bonus.filter((r) => r.match.home && r.match.away).slice(0, LIST_LIMIT);
+  const pills = useMemo(() => buildPills(matches, prefs), [matches, prefs]);
+  const [pill, setPill] = useState<PillId>(() =>
+    pills.fits.length ? "fits" : pills.top.length ? "top" : "all",
+  );
   const live = matches.filter((m) => m.status === "live");
   const next = nextOwnMatch(matches, prefs);
-  const upcoming = [...feed.perfect, ...feed.outside]
-    .sort((a, b) => Date.parse(a.match.kickoffUtc) - Date.parse(b.match.kickoffUtc))
-    .filter((r) => r.match.status === "scheduled");
-  const rest = upcoming.filter((r) => r.match.id !== next?.id);
   const hasTeams = prefs.favorites.length + prefs.interesting.length > 0;
+  const meta = PILLS.find((p) => p.id === pill)!;
+  const list = pills[pill];
+  const mine = [...pills.fits, ...pills.outside];
 
   return (
     <>
@@ -160,59 +198,108 @@ function Drawn({ started }: { started: boolean }) {
       ) : null}
 
       {!hasTeams && (
-        <Block title="Deine Spiele">
-          <div className="rounded-2xl border border-border bg-card p-4 text-[15px]">
-            Du hast noch keine Teams ausgewählt.{" "}
-            <Link to="/einstellungen" className="font-semibold text-primary">
-              Jetzt Teams wählen
-            </Link>
-          </div>
-        </Block>
+        <div className="mb-6 rounded-2xl border border-border bg-card p-4 text-[15px]">
+          Du hast noch keine Teams ausgewählt.{" "}
+          <Link to="/einstellungen" className="font-semibold text-primary">
+            Jetzt Teams wählen
+          </Link>
+        </div>
       )}
 
-      {rest.length > 0 && (
-        <Block title="Deine weiteren Spiele" action={<MoreLink to="/spielplan">Alle</MoreLink>}>
-          <MatchList>
-            {rest.slice(0, LIST_LIMIT).map((r) => (
-              <MatchRow key={r.match.id} match={r.match} fit={r.fit} />
-            ))}
-          </MatchList>
-          <button
-            type="button"
-            onClick={() => {
-              const list = upcoming.map((r) => r.match);
-              downloadIcs(list, "kicktime-meine-spiele.ics");
-              toast.success(`${list.length} Spiele exportiert`, {
-                description: "Im Kalender öffnen und importieren.",
-              });
-            }}
-            className="mt-3 inline-flex items-center gap-2 text-[14px] font-medium text-muted-foreground hover:text-foreground"
-          >
-            <CalendarPlus className="h-4 w-4" /> Alle meine Spiele in den Kalender
-          </button>
-        </Block>
+      <div role="tablist" aria-label="Spiele filtern" className="flex flex-wrap gap-2">
+        {PILLS.map((p) => {
+          const active = p.id === pill;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setPill(p.id)}
+              className={cn(
+                "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[15px] font-semibold transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground hover:border-muted-foreground/40",
+              )}
+            >
+              {!active && <span className={cn("h-2 w-2 rounded-full", p.dot)} />}
+              {p.label}
+              <span className={cn("tabular", active ? "opacity-80" : "text-muted-foreground")}>
+                {pills[p.id].length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mb-4 mt-3 text-[14px] text-muted-foreground">{meta.hint}</p>
+
+      {list.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-[15px] text-muted-foreground">
+          {meta.empty}
+        </div>
+      ) : (
+        <DayGroups matches={list} />
       )}
 
-      {bonus.length > 0 && (
-        <Block title="Auch sehenswert">
-          <MatchList>
-            {bonus.map((r) => (
-              <MatchRow key={r.match.id} match={r.match} fit={r.fit} />
-            ))}
-          </MatchList>
-        </Block>
-      )}
-
-      {feed.recap.length > 0 && (
-        <Block title="Zuletzt gespielt">
-          <MatchList>
-            {feed.recap.slice(0, LIST_LIMIT).map((r) => (
-              <MatchRow key={r.match.id} match={r.match} />
-            ))}
-          </MatchList>
-        </Block>
+      {pill !== "results" && mine.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            downloadIcs(mine, "kicktime-meine-spiele.ics");
+            toast.success(`${mine.length} Spiele exportiert`, {
+              description: "Im Kalender öffnen und importieren.",
+            });
+          }}
+          className="mt-5 inline-flex items-center gap-2 text-[14px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <CalendarPlus className="h-4 w-4" /> Alle meine Spiele in den Kalender
+        </button>
       )}
     </>
+  );
+}
+
+/** Spiele nach Tagen gruppiert, mit „Heute“/„Morgen“ als Überschrift. */
+function DayGroups({ matches }: { matches: MatchView[] }) {
+  const tz = usePrefs().timeZone;
+  const now = useNow();
+  const days: { key: string; label: string; items: MatchView[] }[] = [];
+  for (const m of matches) {
+    const key = localParts(m.kickoffUtc, tz).dayKey;
+    let day = days.find((d) => d.key === key);
+    if (!day) {
+      const rel = relativeDay(m.kickoffUtc, now, tz);
+      day = {
+        key,
+        label: rel ? `${rel}, ${formatDayLong(m.kickoffUtc, tz)}` : formatDayLong(m.kickoffUtc, tz),
+        items: [],
+      };
+      days.push(day);
+    }
+    day.items.push(m);
+  }
+  return (
+    <div className="space-y-6">
+      {days.map((d) => (
+        <section key={d.key}>
+          <h3 className="mb-2.5 text-[15px] font-bold">{d.label}</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {d.items.map((m) => (
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                className="min-w-0"
+              >
+                <MatchCard match={m} />
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -257,18 +344,21 @@ function NextHero({ match: m, now }: { match: MatchView; now: number }) {
       <button
         type="button"
         onClick={() => openMatch(m.id)}
-        className="block w-full p-5 text-left md:p-7"
+        className="block w-full p-5 text-left md:p-6"
         aria-label={`Dein nächstes Spiel: ${a.name} gegen ${b.name}, Details öffnen`}
       >
-        <div className="text-[15px] font-medium text-muted-foreground">Dein nächstes Spiel</div>
-        <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div className="flex items-center justify-between text-[14px] font-medium text-muted-foreground">
+          Dein nächstes Spiel
+          <ChevronRight className="h-5 w-5" />
+        </div>
+        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           {[a, b].map((t, i) => (
             <div
               key={i}
               className={cn("flex min-w-0 flex-col items-center gap-2", i === 1 && "col-start-3")}
             >
-              <Flag flag={t.flag} size="xl" />
-              <span className="w-full truncate text-center font-display text-[22px] font-bold uppercase leading-none md:text-3xl">
+              <Flag flag={t.flag} size="lg" />
+              <span className="w-full truncate text-center font-display text-[20px] font-bold uppercase leading-none md:text-2xl">
                 {t.name}
               </span>
             </div>
@@ -277,22 +367,15 @@ function NextHero({ match: m, now }: { match: MatchView; now: number }) {
             gegen
           </span>
         </div>
-
-        <div className="mt-6 text-center">
-          <div className="font-display text-[30px] font-bold leading-none md:text-4xl">
+        <div className="mt-4 text-center">
+          <div className="font-display text-[26px] font-bold leading-none md:text-3xl">
             {rel ?? formatDayLong(m.kickoffUtc, prefs.timeZone)},{" "}
             {formatTime(m.kickoffUtc, prefs.timeZone)} Uhr
           </div>
-          <div className="mt-2 text-[15px] text-muted-foreground">
-            {untilText(Date.parse(m.kickoffUtc), now)}
-            <br />
-            im TV: {getTvInfo(m).label}
+          <div className="mt-2 text-[14px] text-muted-foreground">
+            {untilText(Date.parse(m.kickoffUtc), now)} · {getTvInfo(m).label}
           </div>
-          <FitNote fit={fit} className="mt-3 text-[15px] font-medium" />
-        </div>
-
-        <div className="mt-5 flex items-center justify-center gap-1 border-t border-border/70 pt-4 text-[14px] font-medium text-primary">
-          Details, Erinnerung & Kalender <ChevronRight className="h-4 w-4" />
+          <FitNote fit={fit} className="mt-2 text-[14px] font-medium" />
         </div>
       </button>
     </HeroShell>
