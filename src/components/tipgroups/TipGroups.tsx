@@ -13,7 +13,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Flag } from "@/components/team/Flag";
 import {
@@ -23,6 +23,7 @@ import {
   FormSheetTitle,
 } from "@/components/common/FormSheet";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import { buildRounds } from "@/domain/rounds";
 import { canPredict, CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import { saveChampion, useContextChampion, useTipContext, type TipContext } from "@/lib/tips";
@@ -45,7 +46,7 @@ import { NATIONS, getNation } from "@/tournament/nations";
 /* Regeln                                                              */
 /* ------------------------------------------------------------------ */
 
-export function RulesCard({ className }: { className?: string }) {
+function RulesCard({ className }: { className?: string }) {
   return (
     <section className={cn("rounded-2xl border border-border bg-card p-4", className)}>
       <h3 className="mb-3 text-[16px] font-bold">So wird gezählt</h3>
@@ -388,14 +389,25 @@ export function GroupFormDrawer({
 /* Abschnitt auf der Tipps-Seite                                       */
 /* ------------------------------------------------------------------ */
 
-/** Anzahl offener (gepaarter, noch nicht angepfiffener) Spiele ohne Tipp. */
-function useOpenWithoutTip(tips: Record<string, unknown> | undefined): number | null {
+/**
+ * Stand für die Rundenkarte: der nächste Spieltag mit offenen, noch nicht
+ * getippten Spielen – statt einer erschlagenden Gesamtzahl fürs Turnier.
+ */
+function useOpenWithoutTip(
+  tips: Record<string, unknown> | undefined,
+): { label: string; count: number } | "done" | null {
   const { matches } = useTournament();
   const now = useNow();
-  const open = matches.filter((m) => m.home && m.away && canPredict(m, now));
+  const rounds = useMemo(() => buildRounds(matches), [matches]);
+  if (!tips) return null;
+  const open = rounds
+    .map((r) => ({ label: r.label, list: r.matches.filter((m) => canPredict(m, now)) }))
+    .filter((r) => r.list.length > 0);
   // Noch nichts zu tippen (z. B. vor der Auslosung): keine Anzeige.
-  if (!tips || open.length === 0) return null;
-  return open.filter((m) => !tips[m.id]).length;
+  if (open.length === 0) return null;
+  const next = open.find((r) => r.list.some((m) => !tips[m.id]));
+  if (!next) return "done";
+  return { label: next.label, count: next.list.filter((m) => !tips[m.id]).length };
 }
 
 function RoundCard({
@@ -446,9 +458,9 @@ function RoundCard({
             </span>
           )}
           {open !== null &&
-            (open > 0 ? (
+            (open !== "done" ? (
               <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[12px] font-semibold text-gold">
-                {open} {open === 1 ? "Spiel" : "Spiele"} noch ohne Tipp
+                {open.label}: {open.count} noch ohne Tipp
               </span>
             ) : (
               <span className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-primary">

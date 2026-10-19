@@ -104,3 +104,30 @@ describe("Kalender-Export", () => {
     expect(ics.split("\r\n").every((l) => l.length <= 75)).toBe(true);
   });
 });
+
+describe("Uhr-Tick: Turnier nur neu, wenn sich etwas ändert", () => {
+  it("behält das Objekt ohne Änderung und liefert ein neues bei Statuswechsel", async () => {
+    const { useMatchStore } = await import("./match-store");
+    const realNow = Date.now;
+    try {
+      let t = 1_800_000_000_000;
+      Date.now = () => t;
+      const store = useMatchStore.getState();
+      store.setDemo({ enabled: true, scenario: "group", startedAt: t });
+      const first = useMatchStore.getState().tournament;
+      t += 1_000; // eine Sekunde später: nichts passiert
+      useMatchStore.getState().tick();
+      expect(useMatchStore.getState().tournament).toBe(first);
+      expect(useMatchStore.getState().now).toBe(t);
+      t += 4 * 3_600_000; // vier Stunden später: laufende Spiele sind beendet
+      useMatchStore.getState().tick();
+      const later = useMatchStore.getState().tournament;
+      expect(later).not.toBe(first);
+      const live = (x: typeof first) => x.matches.filter((m) => m.status === "live").length;
+      expect(live(first)).toBeGreaterThan(0);
+      expect(live(later)).not.toBe(live(first));
+    } finally {
+      Date.now = realNow;
+    }
+  });
+});

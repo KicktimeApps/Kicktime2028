@@ -31,16 +31,6 @@ export type Recommendation = {
   mine: boolean;
 };
 
-export const REASON_LABEL: Record<Reason, string> = {
-  favorite: "Dein Favorit",
-  interesting: "Dein Team",
-  pinned: "Vorgemerkt",
-  topDuel: "Top-Duell",
-  knockout: "K.-o.-Spiel",
-  opener: "Eröffnungsspiel",
-  final: "Finale",
-};
-
 const involves = (m: MatchView, codes: string[]) =>
   (!!m.home && codes.includes(m.home)) || (!!m.away && codes.includes(m.away));
 

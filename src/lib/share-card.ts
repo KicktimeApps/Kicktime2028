@@ -33,11 +33,7 @@ function roundRect(
   ctx.roundRect(x, y, w, h, r);
 }
 
-export async function renderShareCard(
-  m: MatchView,
-  timeZone: string,
-  hideScore: boolean,
-): Promise<Blob> {
+async function renderShareCard(m: MatchView, timeZone: string, hideScore: boolean): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;

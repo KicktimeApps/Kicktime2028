@@ -100,9 +100,19 @@ const initial: Inputs = {
 };
 
 export const useMatchStore = create<MatchStore>((set, get) => {
+  // Die Uhr tickt alle 10 s. Ändert sich am Turnier dabei nichts, bleibt das
+  // alte Objekt bestehen – sonst würden alle Listen und Tabellen grundlos
+  // neu gezeichnet.
+  let lastKey = "";
   const update = (patch: Partial<Inputs>) => {
     const next = { ...get(), ...patch };
-    set({ ...patch, tournament: compute(next) });
+    const tournament = compute(next);
+    const key = JSON.stringify(tournament);
+    if (key === lastKey) set(patch);
+    else {
+      lastKey = key;
+      set({ ...patch, tournament });
+    }
   };
   return {
     ...initial,
@@ -125,6 +135,11 @@ export const useMatchStore = create<MatchStore>((set, get) => {
 /** Simulierte bzw. echte „Jetzt“-Zeit – im Demo-Modus die Demo-Uhr. */
 export function useNow(): number {
   return useMatchStore((s) => (s.demo.enabled ? demoNow(s) : s.now));
+}
+
+/** Wie useNow, aber nur minutengenau – löst höchstens einmal pro Minute aus. */
+export function useNowMinute(): number {
+  return useMatchStore((s) => Math.floor((s.demo.enabled ? demoNow(s) : s.now) / 60_000) * 60_000);
 }
 
 function demoNow(s: Inputs): number {

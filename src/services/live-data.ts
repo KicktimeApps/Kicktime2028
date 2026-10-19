@@ -70,7 +70,7 @@ type OverrideRow = {
 };
 
 /** Admin-Korrekturen laden; null bei Fehler (dann bleiben die bisherigen). */
-export async function fetchOverrides(): Promise<Record<string, ResultRecord> | null> {
+async function fetchOverrides(): Promise<Record<string, ResultRecord> | null> {
   const sb = await getSupabase();
   if (!sb) return {};
   const { data, error } = await sb

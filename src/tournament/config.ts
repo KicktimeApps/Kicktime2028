@@ -35,14 +35,6 @@ export const STAGE_LABEL: Record<Stage, string> = {
   final: "Finale",
 };
 
-export const STAGE_SHORT: Record<Stage, string> = {
-  group: "Gruppe",
-  r16: "AF",
-  qf: "VF",
-  sf: "HF",
-  final: "Finale",
-};
-
 /** Gewichtung für die Empfehlungen – spätere Runden sind spannender. */
 export const STAGE_WEIGHT: Record<Stage, number> = {
   group: 0,

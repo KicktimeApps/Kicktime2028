@@ -64,7 +64,7 @@ function Stepper({
 }
 
 /** Zeigt, wofür getippt wird – bei mehreren Runden zum Umschalten. */
-export function TipContextBar({ className, matchId }: { className?: string; matchId?: string }) {
+function TipContextBar({ className, matchId }: { className?: string; matchId?: string }) {
   const contexts = useTipContexts();
   const tipped = useAppStore((s) =>
     matchId ? contexts.map((c) => !!tipsOf(s, c)[matchId]).join() : "",

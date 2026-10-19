@@ -8,11 +8,10 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { SPLASH_MS, SplashScreen } from "@/components/layout/SplashScreen";
 import { MatchSheet } from "@/components/match/MatchSheet";
-import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { TeamSheet } from "@/components/team/TeamSheet";
 import { GroupNotice } from "@/components/tipgroups/GroupNotice";
 import { ChampionCelebration } from "@/components/tournament/ChampionCelebration";
@@ -25,6 +24,11 @@ import { useMatchStore } from "@/store/match-store";
 import { SITE_URL, TOURNAMENT } from "@/tournament/config";
 
 import appCss from "../styles.css?url";
+
+// Nur beim allerersten Start gebraucht – nicht in jedes Laden packen.
+const OnboardingFlow = lazy(() =>
+  import("@/components/onboarding/OnboardingFlow").then((m) => ({ default: m.OnboardingFlow })),
+);
 
 const TITLE = `KickTime ${TOURNAMENT.year} – Dein persönlicher EM-Planer`;
 const DESCRIPTION =
@@ -200,7 +204,12 @@ function App() {
     return () => window.clearInterval(id);
   }, []);
 
-  if (!onboarded) return <OnboardingFlow />;
+  if (!onboarded)
+    return (
+      <Suspense fallback={null}>
+        <OnboardingFlow />
+      </Suspense>
+    );
   return (
     <AppShell>
       <Outlet />

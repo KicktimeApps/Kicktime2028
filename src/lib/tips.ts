@@ -14,13 +14,13 @@ export type TipContext =
 
 type StoreState = ReturnType<typeof useAppStore.getState>;
 
-export function contextsOf(s: StoreState): TipContext[] {
+function contextsOf(s: StoreState): TipContext[] {
   if (s.tipGroups.length > 0)
     return s.tipGroups.map((g) => ({ kind: "group" as const, id: g.id, label: g.name }));
   return [{ kind: "solo", id: "solo", label: "Allein" }];
 }
 
-export function currentContextOf(s: StoreState): TipContext {
+function currentContextOf(s: StoreState): TipContext {
   const list = contextsOf(s);
   return list.find((c) => c.id === s.tipContext) ?? list[0];
 }
@@ -30,7 +30,7 @@ export function tipsOf(s: StoreState, ctx: TipContext): Record<string, Predictio
   return s.demo.enabled ? s.demoPredictions : s.predictions;
 }
 
-export function championOf(s: StoreState, ctx: TipContext): string | null {
+function championOf(s: StoreState, ctx: TipContext): string | null {
   if (ctx.kind !== "solo") return s.groupChampion[ctx.id] ?? null;
   return s.demo.enabled ? s.demoChampionTip : s.championTip;
 }

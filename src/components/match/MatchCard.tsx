@@ -6,7 +6,7 @@ import { formatDayShort, formatTime, relativeDay } from "@/domain/time";
 import type { MatchView } from "@/domain/types";
 import { cn } from "@/lib/utils";
 import { useAppStore, useTimeZone } from "@/store/app-store";
-import { useNow } from "@/store/match-store";
+import { useNowMinute } from "@/store/match-store";
 import { useUi } from "@/store/ui-store";
 import { STAGE_LABEL } from "@/tournament/config";
 import { getTvInfo } from "@/tournament/tv";
@@ -30,7 +30,9 @@ export function MatchCard({
   className?: string;
 }) {
   const tz = useTimeZone();
-  const now = useNow();
+  // Minutengenau reicht hier („Heute“, „Morgen“) – so zeichnen lange Listen
+  // nicht bei jedem Uhr-Tick alle Karten neu.
+  const now = useNowMinute();
   const openMatch = useUi((s) => s.openMatch);
   const favorites = useAppStore((s) => s.favorites);
   const interesting = useAppStore((s) => s.interesting);

@@ -301,6 +301,3 @@ export function teamMarkOf(s: Pick<State, "favorites" | "interesting">, code: st
 function dropDemo(): Partial<State> {
   return { demoPredictions: {}, demoChampionTip: null };
 }
-
-export const selectPredictions = (s: State) => (s.demo.enabled ? s.demoPredictions : s.predictions);
-export const selectChampionTip = (s: State) => (s.demo.enabled ? s.demoChampionTip : s.championTip);

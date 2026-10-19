@@ -1,11 +1,23 @@
 import { ChevronLeft, ChevronRight, Eye, Loader2, Lock, Save, Target } from "lucide-react";
+import { useBlocker } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSpoiler } from "@/components/match/useSpoiler";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
 import { canPredict, scorePrediction, type Prediction } from "@/domain/predictions";
 import { formatDayShort, formatTime } from "@/domain/time";
+import { buildRounds, type Round } from "@/domain/rounds";
 import type { MatchView } from "@/domain/types";
 import { usePrefs } from "@/hooks/usePrefs";
 import { haptics } from "@/lib/haptics";
@@ -14,7 +26,6 @@ import { cn } from "@/lib/utils";
 import { TipError } from "@/services/tipgroups";
 import { useNow } from "@/store/match-store";
 import { useUi } from "@/store/ui-store";
-import { STAGE_LABEL } from "@/tournament/config";
 
 /**
  * Tippen nach Spieltagen – wie bei Kicktipp: immer ein Spieltag als
@@ -22,30 +33,8 @@ import { STAGE_LABEL } from "@/tournament/config";
  * mit einem Knopf speichern. Mit den Pfeilen zum nächsten Spieltag.
  */
 
-type Round = { key: string; label: string; matches: MatchView[] };
 /** Entwurf eines Spiels: leere Felder = "". */
 type Draft = { home: string; away: string };
-
-function buildRounds(matches: MatchView[]): Round[] {
-  const rounds: Round[] = [1, 2, 3].map((d) => ({
-    key: `md${d}`,
-    label: `${d}. Spieltag`,
-    matches: matches.filter((m) => m.stage === "group" && m.matchday === d),
-  }));
-  for (const st of ["r16", "qf", "sf", "final"] as const) {
-    rounds.push({
-      key: st,
-      label: STAGE_LABEL[st],
-      matches: matches.filter((m) => m.stage === st),
-    });
-  }
-  return rounds
-    .filter((r) => r.matches.length > 0)
-    .map((r) => ({
-      ...r,
-      matches: [...r.matches].sort((a, b) => Date.parse(a.kickoffUtc) - Date.parse(b.kickoffUtc)),
-    }));
-}
 
 /** Startet beim ersten Spieltag mit offenen Spielen, sonst beim letzten. */
 function initialRound(rounds: Round[], now: number): number {
@@ -84,9 +73,18 @@ export function MatchdayTips({
     const t = tips[id];
     return d.home !== (t ? String(t.home) : "") || d.away !== (t ? String(t.away) : "");
   });
+  // Ungespeicherte Tipps nicht stillschweigend verlieren (Seitenwechsel,
+  // Zurück-Geste, Neuladen).
+  const unsaved = useRef(0);
+  const blocker = useBlocker({
+    shouldBlockFn: () => unsaved.current > 0,
+    enableBeforeUnload: () => unsaved.current > 0,
+    withResolver: true,
+  });
   const isIncomplete = (d: Draft) => (d.home === "") !== (d.away === "");
   const incomplete = changed.filter(([, d]) => isIncomplete(d));
   const ready = changed.filter(([, d]) => !isIncomplete(d));
+  unsaved.current = changed.length;
 
   const set = (m: MatchView, side: "home" | "away", raw: string) => {
     const v = raw.replace(/\D/g, "").slice(-2);
@@ -102,7 +100,7 @@ export function MatchdayTips({
     }
   };
 
-  const saveAll = async () => {
+  const saveAll = async (): Promise<boolean> => {
     setBusy(true);
     let ok = 0;
     const failed: string[] = [];
@@ -140,6 +138,8 @@ export function MatchdayTips({
           description: "Bitte bei jedem Spiel beide Felder ausfüllen.",
         },
       );
+    unsaved.current = incomplete.length;
+    return failed.length === 0 && incomplete.length === 0;
   };
 
   if (!round) return null;
@@ -263,6 +263,40 @@ export function MatchdayTips({
           </button>
         </div>
       )}
+      <AlertDialog open={blocker.status === "blocked"}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tipps noch nicht gespeichert</AlertDialogTitle>
+            <AlertDialogDescription>
+              {changed.length === 1
+                ? "Du hast einen Tipp eingegeben, aber noch nicht gespeichert."
+                : `Du hast ${changed.length} Tipps eingegeben, aber noch nicht gespeichert.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>Zurück</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-muted text-foreground hover:bg-muted/80"
+              onClick={() => {
+                unsaved.current = 0;
+                blocker.proceed?.();
+              }}
+            >
+              Verwerfen
+            </AlertDialogAction>
+            {ready.length > 0 && (
+              <AlertDialogAction
+                onClick={async () => {
+                  if (await saveAll()) blocker.proceed?.();
+                  else blocker.reset?.();
+                }}
+              >
+                Speichern
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

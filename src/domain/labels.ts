@@ -9,7 +9,7 @@ import { getNation } from "@/tournament/nations";
  *  "3ADEF" → "Dritter A/D/E/F"
  *  "W37"   → "Sieger Spiel 37"
  */
-export function slotLabel(slot: string): string {
+function slotLabel(slot: string): string {
   let m = slot.match(/^([A-F])([1-4])$/);
   if (m) return `Gruppe ${m[1]} · Team ${m[2]}`;
   m = slot.match(/^1([A-F])$/);

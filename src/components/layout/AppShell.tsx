@@ -11,7 +11,9 @@ import { TOURNAMENT } from "@/tournament/config";
 
 function useActive() {
   const path = useRouterState({ select: (s) => s.location.pathname });
-  return (to: string) => (to === "/" ? path === "/" : path.startsWith(to));
+  // Tipprunden (/runde/…) gehören zum Bereich „Tipps“.
+  const section = path.startsWith("/runde/") ? "/tipps" : path;
+  return (to: string) => (to === "/" ? section === "/" : section.startsWith(to));
 }
 
 export function AppShell({ children }: { children: ReactNode }) {

@@ -10,7 +10,7 @@ export type PushSupport = "granted" | "denied" | "default" | "unsupported" | "io
 const isIos = () =>
   typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-export const isStandalone = () => {
+const isStandalone = () => {
   if (typeof window === "undefined") return false;
   if ((window.navigator as Navigator & { standalone?: boolean }).standalone === true) return true;
   return window.matchMedia?.("(display-mode: standalone)").matches ?? false;

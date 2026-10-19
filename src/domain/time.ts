@@ -20,7 +20,7 @@ export const DAY_NAMES = [
   "Samstag",
   "Sonntag",
 ];
-export const DAY_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const DAY_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
 export const DEFAULT_AVAILABILITY: WeekAvailability = [
   ...Array.from({ length: 5 }, () => ({ start: 17.5, end: 23.5 })),
@@ -29,7 +29,7 @@ export const DEFAULT_AVAILABILITY: WeekAvailability = [
 ];
 
 /** Typische Spieldauer inkl. Halbzeit (ohne Verlängerung). */
-export const MATCH_MINUTES = 110;
+const MATCH_MINUTES = 110;
 
 export type LocalParts = {
   year: number;
@@ -142,11 +142,6 @@ export function formatHour(h: number): string {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-export function formatWindow(w: DayWindow): string {
-  if (w.off) return "keine Zeit";
-  return `${formatHour(w.start)}–${formatHour(w.end)}${w.end > 24 ? " (+1)" : ""}`;
-}
-
 /* ------------------------------------------------------------------ */
 /* Formatierung für die Anzeige                                        */
 /* ------------------------------------------------------------------ */
@@ -214,15 +209,6 @@ export function detectTimeZone(): string {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Berlin";
   } catch {
     return "Europe/Berlin";
-  }
-}
-
-export function isValidTimeZone(tz: string): boolean {
-  try {
-    new Intl.DateTimeFormat("de-DE", { timeZone: tz });
-    return true;
-  } catch {
-    return false;
   }
 }
 

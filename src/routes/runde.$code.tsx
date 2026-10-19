@@ -505,16 +505,17 @@ function BoardView({
         ]}
       />
 
-      {tab === "tippen" ? (
-        <>
-          {demo && (
-            <p className="-mt-1 mb-3 px-1 text-[12.5px] text-muted-foreground">
-              Vorschau: Die Runde ist echt, Ergebnisse und Punkte sind simuliert.
-            </p>
-          )}
-          <TipPanel ctx={context} showStats={false} />
-        </>
-      ) : (
+      {/* „Tippen“ bleibt beim Wechsel zur Tabelle erhalten (nur versteckt) –
+          so gehen eingegebene, noch nicht gespeicherte Tipps nicht verloren. */}
+      <div hidden={tab !== "tippen"}>
+        {demo && (
+          <p className="-mt-1 mb-3 px-1 text-[12.5px] text-muted-foreground">
+            Vorschau: Die Runde ist echt, Ergebnisse und Punkte sind simuliert.
+          </p>
+        )}
+        <TipPanel ctx={context} showStats={false} />
+      </div>
+      {tab === "tabelle" && (
         <>
           {hiddenIds.length > 0 && (
             <div className="mb-3 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-[14px]">

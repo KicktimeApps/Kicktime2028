@@ -49,7 +49,7 @@ export const ACCENTS: {
   },
 ];
 
-export function resolveMode(mode: ThemeMode): "dark" | "light" {
+function resolveMode(mode: ThemeMode): "dark" | "light" {
   if (mode !== "system") return mode;
   if (typeof window === "undefined") return "dark";
   return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";

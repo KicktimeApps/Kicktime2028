@@ -12,10 +12,10 @@ import type { FreeTv, Stage } from "./types";
  * erst nach der Auslosung festgelegt. Bekannte Zuteilungen in FREE_TV
  * (Spielnummer → Sender) bzw. MAGENTA_EXCLUSIVE eintragen.
  */
-export const FREE_TV: Record<number, FreeTv> = {};
+const FREE_TV: Record<number, FreeTv> = {};
 
 /** Spielnummern, die nur bei MagentaTV laufen. */
-export const MAGENTA_EXCLUSIVE: number[] = [];
+const MAGENTA_EXCLUSIVE: number[] = [];
 
 export type TvInfo = {
   /** Sicher feststehender Free-TV-Sender. */
