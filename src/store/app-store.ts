@@ -55,8 +55,6 @@ type State = {
   groupTips: Record<string, Record<string, Prediction>>;
   /** Eigener Europameister-Tipp je Runde. */
   groupChampion: Record<string, string | null>;
-  /** Tipprunden im Vorschau-Modus – nur auf dem Gerät, Tipps in groupTips. */
-  demoGroups: DemoGroup[];
   /** Zuletzt gesehene eigene Runden inkl. Anfragen – zum Erkennen von Rauswurf/Ablehnung. */
   seenGroups: { id: string; name: string; pending: boolean }[];
   /** Einmaliger Hinweis: aus einer Runde entfernt bzw. Anfrage abgelehnt. */
@@ -94,11 +92,8 @@ type Actions = {
   ) => void;
   setGroupTips: (groupId: string, tips: Record<string, { home: number; away: number }>) => void;
   setGroupChampion: (groupId: string, code: string | null) => void;
-  addDemoGroup: (g: DemoGroup) => void;
   setSeenGroups: (list: { id: string; name: string; pending: boolean }[]) => void;
   setGroupNotice: (n: { name: string; reason: "removed" | "rejected" } | null) => void;
-  updateDemoGroup: (id: string, patch: Partial<DemoGroup>) => void;
-  removeDemoGroup: (id: string) => void;
   setPushEnabled: (v: boolean) => void;
   setAutoAlarmFavorites: (v: boolean) => void;
   setAlarm: (matchId: string, v: boolean | null) => void;
@@ -131,7 +126,6 @@ export const useAppStore = create<State & Actions>()(
       tipContext: null,
       groupTips: {},
       groupChampion: {},
-      demoGroups: [],
       seenGroups: [],
       groupNotice: null,
       pushEnabled: false,
@@ -196,8 +190,8 @@ export const useAppStore = create<State & Actions>()(
       setInTipGroups: (inTipGroups) => set({ inTipGroups }),
       setTipGroups: (tipGroups) =>
         set((s) => {
-          // Zwischenspeicher verlassener Runden aufräumen (Vorschau-Runden bleiben).
-          const ids = new Set([...tipGroups, ...s.demoGroups].map((g) => g.id));
+          // Zwischenspeicher verlassener Runden aufräumen.
+          const ids = new Set(tipGroups.map((g) => g.id));
           const keep = <T>(r: Record<string, T>) =>
             Object.fromEntries(Object.entries(r).filter(([id]) => ids.has(id)));
           return {
@@ -232,22 +226,6 @@ export const useAppStore = create<State & Actions>()(
         set((s) => ({ groupChampion: { ...s.groupChampion, [groupId]: code } })),
       setSeenGroups: (seenGroups) => set({ seenGroups }),
       setGroupNotice: (groupNotice) => set({ groupNotice }),
-      addDemoGroup: (g) => set((s) => ({ demoGroups: [...s.demoGroups, g] })),
-      updateDemoGroup: (id, patch) =>
-        set((s) => ({
-          demoGroups: s.demoGroups.map((g) => (g.id === id ? { ...g, ...patch } : g)),
-        })),
-      removeDemoGroup: (id) =>
-        set((s) => {
-          const { [id]: _t, ...groupTips } = s.groupTips;
-          const { [id]: _c, ...groupChampion } = s.groupChampion;
-          return {
-            demoGroups: s.demoGroups.filter((g) => g.id !== id),
-            groupTips,
-            groupChampion,
-            tipContext: s.tipContext === id ? null : s.tipContext,
-          };
-        }),
       setPushEnabled: (v) => set(v ? { pushEnabled: true } : { pushEnabled: false }),
       setAutoAlarmFavorites: (v) => set({ autoAlarmFavorites: v }),
       setAlarm: (id, v) =>
@@ -278,8 +256,8 @@ export const useAppStore = create<State & Actions>()(
       setDemo: (enabled, scenario) =>
         set((s) => ({
           demo: { enabled, scenario: scenario ?? s.demo.scenario, startedAt: Date.now() },
-          // Vorschau an oder aus → Vorschau-Tipps und -Runden verwerfen.
-          ...(enabled === s.demo.enabled ? {} : dropDemo(s)),
+          // Vorschau an oder aus → Vorschau-Tipps (allein) verwerfen.
+          ...(enabled === s.demo.enabled ? {} : dropDemo()),
         })),
       setCelebrated: (code) => set({ celebratedChampion: code }),
     }),
@@ -295,15 +273,8 @@ export const useAppStore = create<State & Actions>()(
           merged.availability = DEFAULT_AVAILABILITY;
         }
         if (merged.demo?.enabled) merged.demo = { ...merged.demo, startedAt: Date.now() };
-        // Vorschau-Runden aus älteren Versionen (anderes Format) ergänzen.
-        merged.demoGroups = (Array.isArray(merged.demoGroups) ? merged.demoGroups : []).map(
-          (g) => ({
-            ...g,
-            members: Array.isArray(g.members) ? g.members : [],
-            requests: Array.isArray(g.requests) ? g.requests : [],
-            pending: !!g.pending,
-          }),
-        );
+        // Vorschau-Runden aus älteren Versionen (nur auf dem Gerät) verwerfen.
+        delete (merged as Partial<State> & { demoGroups?: unknown }).demoGroups;
         return merged;
       },
     },
@@ -326,33 +297,9 @@ export function teamMarkOf(s: Pick<State, "favorites" | "interesting">, code: st
 }
 
 /** Tipps, die gerade gelten – im Vorschau-Modus die Vorschau-Tipps. */
-export type DemoGroup = {
-  id: string;
-  code: string;
-  name: string;
-  isOwner: boolean;
-  myName: string;
-  /** Ausgedachte Mitspieler in der Runde (IDs). */
-  members: string[];
-  /** Ausgedachte Mitspieler, die beitreten möchten (nur eigene Runden). */
-  requests: string[];
-  /** Selbst beigetreten, aber noch nicht angenommen. */
-  pending: boolean;
-};
-
-/** Alles aus dem Vorschau-Modus entfernen (Tipps, Runden, deren Tipps). */
-function dropDemo(s: State): Partial<State> {
-  const ids = new Set(s.demoGroups.map((g) => g.id));
-  const without = <T>(r: Record<string, T>) =>
-    Object.fromEntries(Object.entries(r).filter(([id]) => !ids.has(id)));
-  return {
-    demoPredictions: {},
-    demoChampionTip: null,
-    demoGroups: [],
-    groupTips: without(s.groupTips),
-    groupChampion: without(s.groupChampion),
-    tipContext: s.tipContext && ids.has(s.tipContext) ? null : s.tipContext,
-  };
+/** Vorschau-Tipps (allein) verwerfen – Tipprunden sind auch in der Vorschau echt. */
+function dropDemo(): Partial<State> {
+  return { demoPredictions: {}, demoChampionTip: null };
 }
 
 export const selectPredictions = (s: State) => (s.demo.enabled ? s.demoPredictions : s.predictions);

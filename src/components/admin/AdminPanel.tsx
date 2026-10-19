@@ -221,8 +221,6 @@ function DeleteAllGroups({ pin }: { pin: string }) {
   const run = async () => {
     setBusy(true);
     const store = useAppStore.getState();
-    const demoCount = store.demoGroups.length;
-    for (const g of store.demoGroups) store.removeDemoGroup(g.id);
     let serverCount = 0;
     if (isBackendConfigured()) {
       const res = await deleteAllTipGroups(pin);
@@ -239,7 +237,7 @@ function DeleteAllGroups({ pin }: { pin: string }) {
     setBusy(false);
     haptics.success();
     toast.success("Alle Tipprunden gelöscht", {
-      description: `${serverCount} auf dem Server, ${demoCount} in der Vorschau`,
+      description: `${serverCount} ${serverCount === 1 ? "Runde" : "Runden"} entfernt`,
     });
   };
   return (
@@ -258,8 +256,8 @@ function DeleteAllGroups({ pin }: { pin: string }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Wirklich alle Tipprunden löschen?</AlertDialogTitle>
           <AlertDialogDescription>
-            Alle Runden aller Nutzer verschwinden – mit Mitgliedern, Tipps und Tabellen. Auch die
-            Vorschau-Runden auf diesem Gerät. Das lässt sich nicht rückgängig machen.
+            Alle Runden aller Nutzer verschwinden – mit Mitgliedern, Tipps und Tabellen (auch die
+            aus dem Vorschau-Modus). Das lässt sich nicht rückgängig machen.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

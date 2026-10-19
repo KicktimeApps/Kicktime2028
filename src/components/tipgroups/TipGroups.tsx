@@ -4,7 +4,6 @@ import {
   Check,
   ChevronRight,
   Crown,
-  FlaskConical,
   Hourglass,
   Info,
   Loader2,
@@ -27,7 +26,6 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/compone
 import { canPredict, CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import { saveChampion, useContextChampion, useTipContext, type TipContext } from "@/lib/tips";
-import { demoMemberCount, newDemoGroup } from "@/demo/demoGroup";
 import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
 import {
@@ -258,7 +256,6 @@ export function GroupFormDrawer({
   const setTipContext = useAppStore((s) => s.setTipContext);
   const { matches } = useTournament();
   const now = useNow();
-  const demo = useAppStore((s) => s.demo.enabled);
   const kickoffs = new Map(matches.map((m) => [m.id, Date.parse(m.kickoffUtc)]));
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -272,10 +269,6 @@ export function GroupFormDrawer({
     setBusy(true);
     setError(null);
     try {
-      if (demo) {
-        submitDemo();
-        return;
-      }
       const g: { id: string; code: string; name: string; pending?: boolean } =
         mode === "create"
           ? await createGroup(groupName.trim(), name.trim())
@@ -322,29 +315,6 @@ export function GroupFormDrawer({
     navigate({ to: "/runde/$code", params: { code: g.code } });
   };
 
-  /** Vorschau: Runde nur auf dem Gerät anlegen – sonst genau wie in echt. */
-  const submitDemo = () => {
-    const store = useAppStore.getState();
-    const c = normalizeCode(code);
-    const existing = store.demoGroups.find((g) => g.code === c);
-    if (mode === "join" && existing) {
-      done(existing, 0, existing.pending);
-      return;
-    }
-    if (store.demoGroups.length >= 10) throw new TipError("Du bist schon in 10 Runden.");
-    const g = newDemoGroup(mode, groupName.trim(), name.trim(), mode === "join" ? c : undefined);
-    store.addDemoGroup(g);
-    setTipName(name.trim());
-    const open = openTips(store.demoPredictions);
-    store.setGroupTips(
-      g.id,
-      Object.fromEntries(open.map((t) => [t.match_id, { home: t.home, away: t.away }])),
-    );
-    if (store.demoChampionTip) store.setGroupChampion(g.id, store.demoChampionTip);
-    if (!g.pending) setTipContext(g.id);
-    done(g, open.length, g.pending);
-  };
-
   const valid =
     name.trim().length >= 2 &&
     (mode === "create" ? groupName.trim().length >= 2 : normalizeCode(code).length === 6);
@@ -366,10 +336,6 @@ export function GroupFormDrawer({
             {mode === "create"
               ? "Du bekommst einen Code, den du an Freunde schickst. Ohne Anmeldung."
               : "Gib den Code ein, den du bekommen hast. Ohne Anmeldung."}
-            {demo &&
-              (mode === "create"
-                ? " Vorschau: Die Runde gibt es nur auf diesem Gerät."
-                : " Vorschau: Jeder 6-stellige Code klappt – du triffst ausgedachte Mitspieler.")}
             {mode === "join" && " Der Ersteller der Runde muss dich danach noch annehmen."}
           </FormSheetDescription>
           {mode === "create" ? (
@@ -438,7 +404,6 @@ function RoundCard({
   sub,
   owner,
   tips,
-  demo,
   pending,
   requests = 0,
 }: {
@@ -447,7 +412,6 @@ function RoundCard({
   sub: string;
   owner?: boolean;
   tips: Record<string, unknown> | undefined;
-  demo?: boolean;
   pending?: boolean;
   requests?: number;
 }) {
@@ -456,28 +420,15 @@ function RoundCard({
     <Link
       to="/runde/$code"
       params={{ code }}
-      className={cn(
-        "flex min-h-[72px] items-center gap-3 rounded-2xl border px-4 py-3",
-        demo ? "border-gold/40 bg-gold/10" : "border-border bg-card hover:bg-muted/40",
-      )}
+      className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 hover:bg-muted/40"
     >
       <span
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-          pending
-            ? "bg-muted text-muted-foreground"
-            : demo
-              ? "bg-gold text-gold-foreground"
-              : "bg-primary/12 text-primary",
+          pending ? "bg-muted text-muted-foreground" : "bg-primary/12 text-primary",
         )}
       >
-        {pending ? (
-          <Hourglass className="h-5 w-5" />
-        ) : demo ? (
-          <FlaskConical className="h-5 w-5" />
-        ) : (
-          <Users className="h-5 w-5" />
-        )}
+        {pending ? <Hourglass className="h-5 w-5" /> : <Users className="h-5 w-5" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[17px] font-semibold">
@@ -551,27 +502,14 @@ function HowItWorks() {
 export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   const demo = useAppStore((s) => s.demo.enabled);
   const groupTips = useAppStore((s) => s.groupTips);
-  const demoGroups = useAppStore((s) => s.demoGroups);
-  const server = useMyGroups();
-  const { isLoading, isError, error } = server;
-  const groups = demo
-    ? demoGroups.map((g) => ({
-        id: g.id,
-        code: g.code,
-        name: g.name,
-        isOwner: g.isOwner,
-        members: demoMemberCount(g),
-        pending: g.pending,
-        requests: g.isOwner ? g.requests.length : 0,
-      }))
-    : server.data;
+  const { data: groups, isLoading, isError, error } = useMyGroups();
   const approved = groups?.filter((g) => !g.pending) ?? [];
   const pendingGroups = groups?.filter((g) => g.pending) ?? [];
   const [form, setForm] = useState<"create" | "join" | null>(null);
   const [invite, setInvite] = useState(false);
   // Eigene Tipps aller Runden laden, damit jede Karte „noch ohne Tipp“ zeigen kann.
   useQueries({
-    queries: (variant === "hub" && !demo ? approved : []).map((g) => ({
+    queries: (variant === "hub" ? approved : []).map((g) => ({
       queryKey: ["tip-board", g.id],
       queryFn: async () => {
         const board = await loadBoard(g.id);
@@ -587,8 +525,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   });
 
   // Ohne Server bzw. bevor die Tipprunde dort eingerichtet ist: ausblenden.
-  if (!demo && (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)))
-    return null;
+  if (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)) return null;
 
   const buttons = (
     <div className="grid grid-cols-2 gap-2">
@@ -622,8 +559,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
       name={g.name}
       sub={`${g.members} Mitspieler · Code ${g.code}`}
       owner={g.isOwner}
-      tips={groupTips[g.id] ?? (demo ? {} : undefined)}
-      demo={demo}
+      tips={groupTips[g.id]}
       pending={g.pending}
       requests={g.requests}
     />
@@ -666,7 +602,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
                 Erstelle eine Tipprunde und schick den Code weiter – ohne Anmeldung. Wer beitritt,
                 nimmst du an. Danach tippst du in der Runde, deine bisherigen Tipps werden
                 übernommen.
-                {demo && " Vorschau: Runden gibt es nur auf diesem Gerät."}
+                {demo && " Vorschau: Die Runden sind echt – Ergebnisse und Punkte simuliert."}
               </DrawerDescription>
               {buttons}
             </div>
@@ -689,18 +625,18 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
         {groups?.map(card)}
         {demo && (
           <p className="px-1 text-[13px] text-muted-foreground">
-            Vorschau: Runden gibt es nur auf diesem Gerät und verschwinden mit dem Ende der
-            Vorschau.
+            Vorschau: Die Runden sind echt – Einladungen und Anfragen funktionieren wie später.
+            Ergebnisse und Punkte sind simuliert.
           </p>
         )}
       </div>
 
-      {isLoading && !demo && (
+      {isLoading && (
         <p className="mb-3 flex items-center gap-2 text-[14px] text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Lade deine Runden …
         </p>
       )}
-      {isError && !demo && (
+      {isError && (
         <p className="mb-3 text-[14px] text-muted-foreground">
           Deine Runden konnten gerade nicht geladen werden.
         </p>

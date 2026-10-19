@@ -27,7 +27,6 @@ import { Segmented } from "@/components/common/Segmented";
 import { GroupFormDrawer, RulesButton } from "@/components/tipgroups/TipGroups";
 import { TipPanel } from "@/components/tipgroups/TipPanel";
 import type { TipContext } from "@/lib/tips";
-import { demoBoard } from "@/demo/demoGroup";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import {
   AlertDialog,
@@ -68,7 +67,7 @@ import {
   type TipMember,
   type TipRequest,
 } from "@/services/tipgroups";
-import { useAppStore, useTimeZone, type DemoGroup } from "@/store/app-store";
+import { useAppStore, useTimeZone } from "@/store/app-store";
 import { useTournament } from "@/store/match-store";
 import { getNation } from "@/tournament/nations";
 
@@ -81,7 +80,6 @@ export const Route = createFileRoute("/runde/$code")({
 
 function GroupPage() {
   const code = normalizeCode(Route.useParams().code);
-  const demo = useAppStore((s) => s.demo.enabled);
   const { data: groups, isLoading } = useMyGroups();
   const group = groups?.find((g) => g.code === code);
   // Angenommen, während die Seite offen war → kurz Bescheid geben.
@@ -95,16 +93,15 @@ function GroupPage() {
       });
     }
   }, [group]);
-  const demoGroup = useAppStore((s) => s.demoGroups.find((g) => g.code === code));
   // War man eben noch drin (verlassen, entfernt, Anfrage abgelehnt, Runde
   // gelöscht)? Dann zurück zur Tipps-Seite statt zur Einladung.
   const navigate = useNavigate();
   const wasIn = useRef(false);
-  const inNow = demo ? !!demoGroup : !!group;
+  const inNow = !!group;
   useEffect(() => {
     if (inNow) wasIn.current = true;
-    else if (wasIn.current && (demo || !isLoading)) navigate({ to: "/tipps", replace: true });
-  }, [inNow, demo, isLoading, navigate]);
+    else if (wasIn.current && !isLoading) navigate({ to: "/tipps", replace: true });
+  }, [inNow, isLoading, navigate]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -114,15 +111,7 @@ function GroupPage() {
       >
         <ChevronLeft className="h-5 w-5" /> Tipps
       </Link>
-      {demo ? (
-        demoGroup?.pending ? (
-          <DemoPending group={demoGroup} />
-        ) : demoGroup ? (
-          <DemoBoard group={demoGroup} />
-        ) : (
-          <JoinInvite code={code} />
-        )
-      ) : !isBackendConfigured() ? (
+      {!isBackendConfigured() ? (
         <Note>Tipprunden brauchen den KickTime-Server.</Note>
       ) : isLoading ? (
         <p className="flex items-center gap-2 text-muted-foreground">
@@ -217,22 +206,6 @@ function PendingView({
   );
 }
 
-/** Vorschau: wie in echt warten – nach ein paar Sekunden nimmt Oma Gerda an. */
-function DemoPending({ group: g }: { group: DemoGroup }) {
-  const update = useAppStore((s) => s.updateDemoGroup);
-  const removeGroup = useAppStore((s) => s.removeDemoGroup);
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      update(g.id, { pending: false });
-      toast.success(`Oma Gerda hat dich in „${g.name}“ angenommen`, {
-        description: "Vorschau: In echt entscheidet der Ersteller der Runde.",
-      });
-    }, 5000);
-    return () => window.clearTimeout(t);
-  }, [g.id, g.name, update]);
-  return <PendingView name={g.name} code={g.code} onWithdraw={async () => removeGroup(g.id)} />;
-}
-
 /** Beitrittsanfragen – nur der Ersteller sieht sie, gut sichtbar oben. */
 function RequestsCard({
   requests,
@@ -300,8 +273,6 @@ function RequestsCard({
 /* ------------------------------------------------------------------ */
 
 type BoardActions = {
-  /** Vorschau: nichts wird geteilt oder gespeichert. */
-  demo?: boolean;
   kick: (m: TipMember) => Promise<void>;
   leave: () => Promise<void>;
   remove: () => Promise<void>;
@@ -396,43 +367,6 @@ function ServerBoard({ groupId }: { groupId: string }) {
   );
 }
 
-/** Vorschau-Runde – verhält sich wie eine echte, alles nur auf dem Gerät. */
-function DemoBoard({ group: g }: { group: DemoGroup }) {
-  const { matches } = useTournament();
-  const navigate = useNavigate();
-  const update = useAppStore((s) => s.updateDemoGroup);
-  const removeGroup = useAppStore((s) => s.removeDemoGroup);
-  const myTips = useAppStore((s) => s.groupTips[g.id]) ?? EMPTY_TIPS;
-  const myChampion = useAppStore((s) => s.groupChampion[g.id]) ?? null;
-  const data = useMemo(() => demoBoard(matches, g), [matches, g]);
-  const leave = async () => {
-    navigate({ to: "/tipps", replace: true });
-    removeGroup(g.id);
-  };
-  return (
-    <BoardView
-      data={data}
-      myTips={myTips}
-      myChampion={myChampion}
-      context={{ kind: "demo", id: g.id, label: g.name }}
-      actions={{
-        demo: true,
-        kick: async (m) => update(g.id, { members: g.members.filter((id) => id !== m.id) }),
-        answer: async (r, accept) =>
-          update(g.id, {
-            requests: g.requests.filter((id) => id !== r.id),
-            members: accept ? [...g.members, r.id] : g.members,
-          }),
-        leave,
-        remove: leave,
-        rename: async (name) => update(g.id, { myName: name }),
-      }}
-    />
-  );
-}
-
-const EMPTY_TIPS: Record<string, { home: number; away: number }> = {};
-
 function BoardView({
   data,
   actions,
@@ -448,6 +382,7 @@ function BoardView({
   context: TipContext;
 }) {
   const tournament = useTournament();
+  const demo = useAppStore((s) => s.demo.enabled);
   const [tab, setTab] = useState<"tippen" | "tabelle">("tippen");
   // Diese Runde wird zur gewählten – auch das Spiel-Detail tippt dann hierfür.
   const setTipContext = useAppStore((s) => s.setTipContext);
@@ -494,12 +429,6 @@ function BoardView({
   const me = data.members.find((m) => m.isMe);
   const myRank = rows.find((r) => r.id === me?.id);
   const share = async () => {
-    if (actions.demo) {
-      toast("In der Vorschau wird nichts geteilt", {
-        description: "In einer echten Runde schickst du hier den Link an Freunde.",
-      });
-      return;
-    }
     const url = inviteUrl(g.code);
     const text = `Tipp mit mir die EURO 2028 in der Runde „${g.name}“! Code: ${g.code}`;
     try {
@@ -586,9 +515,9 @@ function BoardView({
               Du tippst für <strong>„{g.name}“</strong>
             </span>
           </p>
-          {actions.demo && (
+          {demo && (
             <p className="-mt-1.5 mb-3 px-1 text-[12.5px] text-muted-foreground">
-              Vorschau: Die Runde gibt es nur auf diesem Gerät.
+              Vorschau: Die Runde ist echt, Ergebnisse und Punkte sind simuliert.
             </p>
           )}
           <TipPanel ctx={context} showStats={false} />

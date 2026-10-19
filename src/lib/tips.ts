@@ -7,23 +7,14 @@ import { useAppStore } from "@/store/app-store";
  * Wofür gerade getippt wird:
  *  - „solo“: allein, nur auf dem Gerät – nur solange man in keiner Runde ist
  *  - eine Tipprunde: eigene Tipps je Runde, gespeichert auf dem Server
- *  - Vorschau-Runde: wie eine Tipprunde, aber nur auf dem Gerät
  */
 export type TipContext =
   | { kind: "solo"; id: "solo"; label: string }
-  | { kind: "group"; id: string; label: string }
-  | { kind: "demo"; id: string; label: string };
+  | { kind: "group"; id: string; label: string };
 
 type StoreState = ReturnType<typeof useAppStore.getState>;
 
 export function contextsOf(s: StoreState): TipContext[] {
-  if (s.demo.enabled) {
-    // Getippt wird nur in Runden, in denen man angenommen ist.
-    const joined = s.demoGroups.filter((g) => !g.pending);
-    if (joined.length > 0)
-      return joined.map((g) => ({ kind: "demo" as const, id: g.id, label: g.name }));
-    return [{ kind: "solo", id: "solo", label: "Allein" }];
-  }
   if (s.tipGroups.length > 0)
     return s.tipGroups.map((g) => ({ kind: "group" as const, id: g.id, label: g.name }));
   return [{ kind: "solo", id: "solo", label: "Allein" }];
@@ -82,10 +73,6 @@ export async function saveTip(
     store.setGroupTip(ctx.id, matchId, tip);
     return;
   }
-  if (ctx.kind === "demo") {
-    store.setGroupTip(ctx.id, matchId, tip);
-    return;
-  }
   // allein: nur auf dem Gerät (setPrediction wählt selbst Vorschau oder echt)
   if (tip) store.setPrediction(matchId, tip.home, tip.away);
   else store.clearPrediction(matchId);
@@ -95,10 +82,6 @@ export async function saveChampion(ctx: TipContext, code: string | null): Promis
   const store = useAppStore.getState();
   if (ctx.kind === "group") {
     await setGroupChampion(ctx.id, code);
-    store.setGroupChampion(ctx.id, code);
-    return;
-  }
-  if (ctx.kind === "demo") {
     store.setGroupChampion(ctx.id, code);
     return;
   }

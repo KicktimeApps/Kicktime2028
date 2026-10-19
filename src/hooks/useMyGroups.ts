@@ -7,11 +7,12 @@ export const TIP_GROUPS_KEY = ["tip-groups"] as const;
 
 /** Eigene Tipprunden – hält nebenbei fest, ob Tipps geteilt werden müssen. */
 export function useMyGroups() {
-  const demo = useAppStore((s) => s.demo.enabled);
   const setTipGroups = useAppStore((s) => s.setTipGroups);
   return useQuery({
     queryKey: TIP_GROUPS_KEY,
-    enabled: isBackendConfigured() && !demo,
+    // Auch im Vorschau-Modus: Tipprunden sind dort echt (nur die Ergebnisse
+    // sind simuliert), damit man echte Leute einladen kann.
+    enabled: isBackendConfigured(),
     staleTime: 5_000,
     // Solange eine Anfrage offen ist, regelmäßig nachsehen, ob angenommen wurde.
     // Bei offener Anfrage oft (angenommen?), sonst regelmäßig (neue Anfragen).

@@ -175,13 +175,13 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
 function CopyTips({ ctx, tips }: { ctx: TipContext; tips: Record<string, Prediction> }) {
   const { matches } = useTournament();
   const now = useNow();
-  const groups = useAppStore((s) => (ctx.kind === "demo" ? s.demoGroups : s.tipGroups));
-  // (tipGroups enthält nur angenommene Runden; Vorschau-Runden filtern wir hier.)
+  const groups = useAppStore((s) => s.tipGroups);
+  // (tipGroups enthält nur Runden, in denen man angenommen ist.)
   const groupTips = useAppStore((s) => s.groupTips);
   const [busy, setBusy] = useState<string | null>(null);
   const open = matches.filter((m) => m.home && m.away && canPredict(m, now) && !tips[m.id]);
   const sources = groups
-    .filter((g) => g.id !== ctx.id && !("pending" in g && g.pending))
+    .filter((g) => g.id !== ctx.id)
     .map((g) => ({
       g,
       list: open
@@ -209,8 +209,7 @@ function CopyTips({ ctx, tips }: { ctx: TipContext; tips: Record<string, Predict
             onClick={async () => {
               setBusy(g.id);
               try {
-                // Vorschau-Runden leben nur auf dem Gerät.
-                if (ctx.kind === "group") await importTips(ctx.id, list);
+                await importTips(ctx.id, list);
                 const store = useAppStore.getState();
                 const now2 = Date.now();
                 store.setGroupTips(ctx.id, {

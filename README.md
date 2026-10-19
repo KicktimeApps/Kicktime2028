@@ -43,8 +43,8 @@ Ergebnisse geheim, bis du sie sehen willst.
 - **Kalender-Export** einzelner Spiele oder aller eigenen Spiele (.ics).
 - **Teilen** als Bild, **Vormerken** einzelner Spiele, **Dark/Light/System** und Akzentfarben.
 - **Vorschau-Modus**: spielt das Turnier mit erfundener Auslosung durch, um die App schon heute im
-  Turnierzustand zu sehen. Tipprunden lassen sich dort wie in echt erstellen und (mit jedem Code)
-  beitreten – nur auf dem Gerät, mit ausgedachten Mitspielern.
+  Turnierzustand zu sehen. Tipprunden sind dort echt (Einladen, Anfragen, Verwaltung wie später),
+  nur Ergebnisse und Punkte sind simuliert. Aufräumen: Admin-Bereich → „Alle Tipprunden löschen“.
 - **Admin-Bereich** (5× auf die Versionsnummer tippen): Live-Status, Korrekturen inkl.
   Elfmeterschießen, Statistik, Feedback.
 
