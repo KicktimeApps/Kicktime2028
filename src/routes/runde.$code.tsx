@@ -21,7 +21,7 @@ import { Segmented } from "@/components/common/Segmented";
 import { GroupFormDrawer, RulesButton } from "@/components/tipgroups/TipGroups";
 import { TipPanel } from "@/components/tipgroups/TipPanel";
 import type { TipContext } from "@/lib/tips";
-import { DEMO_GROUP, demoBoard } from "@/demo/demoGroup";
+import { demoBoard } from "@/demo/demoGroup";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import {
   AlertDialog,
@@ -54,7 +54,7 @@ import {
   type TipBoard,
   type TipMember,
 } from "@/services/tipgroups";
-import { useAppStore, useTimeZone } from "@/store/app-store";
+import { useAppStore, useTimeZone, type DemoGroup } from "@/store/app-store";
 import { useTournament } from "@/store/match-store";
 import { getNation } from "@/tournament/nations";
 
@@ -70,6 +70,7 @@ function GroupPage() {
   const demo = useAppStore((s) => s.demo.enabled);
   const { data: groups, isLoading } = useMyGroups();
   const group = groups?.find((g) => g.code === code);
+  const demoGroup = useAppStore((s) => s.demoGroups.find((g) => g.code === code));
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -79,24 +80,14 @@ function GroupPage() {
       >
         <ChevronLeft className="h-5 w-5" /> Tipps
       </Link>
-      {!isBackendConfigured() ? (
-        <Note>Tipprunden brauchen den KickTime-Server.</Note>
-      ) : demo ? (
-        code === DEMO_GROUP.code ? (
-          <DemoBoard />
+      {demo ? (
+        demoGroup ? (
+          <DemoBoard group={demoGroup} />
         ) : (
-          <Note>
-            Im Vorschau-Modus gibt es nur die{" "}
-            <Link
-              to="/runde/$code"
-              params={{ code: DEMO_GROUP.code }}
-              className="font-semibold text-primary"
-            >
-              Beispielrunde
-            </Link>
-            . Echte Runden funktionieren, sobald du die Vorschau beendest.
-          </Note>
+          <JoinInvite code={code} />
         )
+      ) : !isBackendConfigured() ? (
+        <Note>Tipprunden brauchen den KickTime-Server.</Note>
       ) : isLoading ? (
         <p className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Lade …
@@ -227,37 +218,37 @@ function ServerBoard({ groupId }: { groupId: string }) {
   );
 }
 
-/** Beispielrunde im Vorschau-Modus – alles nur auf dem Gerät. */
-function DemoBoard() {
+/** Vorschau-Runde – verhält sich wie eine echte, alles nur auf dem Gerät. */
+function DemoBoard({ group: g }: { group: DemoGroup }) {
   const { matches } = useTournament();
-  const tipName = useAppStore((s) => s.tipName);
-  const [kicked, setKicked] = useState<string[]>([]);
-  const demoTips = useAppStore((s) => s.demoPredictions);
-  const demoChampion = useAppStore((s) => s.demoChampionTip);
-  const [myName, setMyName] = useState(tipName || "Du");
-  const data = useMemo(() => demoBoard(matches, kicked, myName), [matches, kicked, myName]);
+  const navigate = useNavigate();
+  const update = useAppStore((s) => s.updateDemoGroup);
+  const removeGroup = useAppStore((s) => s.removeDemoGroup);
+  const myTips = useAppStore((s) => s.groupTips[g.id]) ?? EMPTY_TIPS;
+  const myChampion = useAppStore((s) => s.groupChampion[g.id]) ?? null;
+  const data = useMemo(() => demoBoard(matches, g), [matches, g]);
+  const leave = async () => {
+    removeGroup(g.id);
+    navigate({ to: "/tipps" });
+  };
   return (
-    <>
-      <BoardView
-        data={data}
-        myTips={demoTips}
-        myChampion={demoChampion}
-        context={{ kind: "demo", id: "demo", label: DEMO_GROUP.name }}
-        actions={{
-          demo: true,
-          kick: async (m) => setKicked((k) => [...k, m.id]),
-          leave: async () => {
-            toast("In der Vorschau kannst du die Runde nicht verlassen.");
-          },
-          remove: async () => {
-            toast("In der Vorschau kannst du die Runde nicht löschen.");
-          },
-          rename: async (name) => setMyName(name),
-        }}
-      />
-    </>
+    <BoardView
+      data={data}
+      myTips={myTips}
+      myChampion={myChampion}
+      context={{ kind: "demo", id: g.id, label: g.name }}
+      actions={{
+        demo: true,
+        kick: async (m) => update(g.id, { kicked: [...g.kicked, m.id] }),
+        leave,
+        remove: leave,
+        rename: async (name) => update(g.id, { myName: name }),
+      }}
+    />
   );
 }
+
+const EMPTY_TIPS: Record<string, { home: number; away: number }> = {};
 
 function BoardView({
   data,
@@ -365,8 +356,7 @@ function BoardView({
             <Target className="h-4 w-4 shrink-0 text-primary" />
             <span>
               Deine Tipps gelten nur für <strong>„{g.name}“</strong>.
-              {actions.demo &&
-                " Beispielrunde: Die Mitspieler sind ausgedacht, nichts wird geteilt."}
+              {actions.demo && " Vorschau: Die Runde gibt es nur auf diesem Gerät."}
             </span>
           </p>
           <TipPanel ctx={context} showStats={false} />
@@ -479,7 +469,7 @@ function BoardView({
               action="Verlassen"
               onConfirm={async () => {
                 await actions.leave();
-                if (!actions.demo) toast("Runde verlassen");
+                toast("Runde verlassen");
               }}
             >
               <button
@@ -497,7 +487,7 @@ function BoardView({
                 action="Löschen"
                 onConfirm={async () => {
                   await actions.remove();
-                  if (!actions.demo) toast("Runde gelöscht");
+                  toast("Runde gelöscht");
                 }}
               >
                 <button

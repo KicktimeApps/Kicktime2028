@@ -55,6 +55,8 @@ type State = {
   groupTips: Record<string, Record<string, Prediction>>;
   /** Eigener Europameister-Tipp je Runde. */
   groupChampion: Record<string, string | null>;
+  /** Tipprunden im Vorschau-Modus – nur auf dem Gerät, Tipps in groupTips. */
+  demoGroups: DemoGroup[];
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -88,6 +90,9 @@ type Actions = {
   ) => void;
   setGroupTips: (groupId: string, tips: Record<string, { home: number; away: number }>) => void;
   setGroupChampion: (groupId: string, code: string | null) => void;
+  addDemoGroup: (g: DemoGroup) => void;
+  updateDemoGroup: (id: string, patch: Partial<DemoGroup>) => void;
+  removeDemoGroup: (id: string) => void;
   setPushEnabled: (v: boolean) => void;
   setAutoAlarmFavorites: (v: boolean) => void;
   setAlarm: (matchId: string, v: boolean | null) => void;
@@ -120,6 +125,7 @@ export const useAppStore = create<State & Actions>()(
       tipContext: null,
       groupTips: {},
       groupChampion: {},
+      demoGroups: [],
       pushEnabled: false,
       autoAlarmFavorites: true,
       alarms: {},
@@ -182,8 +188,8 @@ export const useAppStore = create<State & Actions>()(
       setInTipGroups: (inTipGroups) => set({ inTipGroups }),
       setTipGroups: (tipGroups) =>
         set((s) => {
-          // Zwischenspeicher verlassener Runden aufräumen.
-          const ids = new Set(tipGroups.map((g) => g.id));
+          // Zwischenspeicher verlassener Runden aufräumen (Vorschau-Runden bleiben).
+          const ids = new Set([...tipGroups, ...s.demoGroups].map((g) => g.id));
           const keep = <T>(r: Record<string, T>) =>
             Object.fromEntries(Object.entries(r).filter(([id]) => ids.has(id)));
           return {
@@ -216,6 +222,22 @@ export const useAppStore = create<State & Actions>()(
         })),
       setGroupChampion: (groupId, code) =>
         set((s) => ({ groupChampion: { ...s.groupChampion, [groupId]: code } })),
+      addDemoGroup: (g) => set((s) => ({ demoGroups: [...s.demoGroups, g] })),
+      updateDemoGroup: (id, patch) =>
+        set((s) => ({
+          demoGroups: s.demoGroups.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+        })),
+      removeDemoGroup: (id) =>
+        set((s) => {
+          const { [id]: _t, ...groupTips } = s.groupTips;
+          const { [id]: _c, ...groupChampion } = s.groupChampion;
+          return {
+            demoGroups: s.demoGroups.filter((g) => g.id !== id),
+            groupTips,
+            groupChampion,
+            tipContext: s.tipContext === id ? null : s.tipContext,
+          };
+        }),
       setPushEnabled: (v) => set(v ? { pushEnabled: true } : { pushEnabled: false }),
       setAutoAlarmFavorites: (v) => set({ autoAlarmFavorites: v }),
       setAlarm: (id, v) =>
@@ -246,8 +268,8 @@ export const useAppStore = create<State & Actions>()(
       setDemo: (enabled, scenario) =>
         set((s) => ({
           demo: { enabled, scenario: scenario ?? s.demo.scenario, startedAt: Date.now() },
-          // Vorschau beendet → Vorschau-Tipps verwerfen.
-          ...(enabled ? {} : { demoPredictions: {}, demoChampionTip: null }),
+          // Vorschau an oder aus → Vorschau-Tipps und -Runden verwerfen.
+          ...(enabled === s.demo.enabled ? {} : dropDemo(s)),
         })),
       setCelebrated: (code) => set({ celebratedChampion: code }),
     }),
@@ -285,5 +307,31 @@ export function teamMarkOf(s: Pick<State, "favorites" | "interesting">, code: st
 }
 
 /** Tipps, die gerade gelten – im Vorschau-Modus die Vorschau-Tipps. */
+export type DemoGroup = {
+  id: string;
+  code: string;
+  name: string;
+  isOwner: boolean;
+  myName: string;
+  /** Mit Code beigetreten → ausgedachte Mitspieler sind schon drin. */
+  withFriends: boolean;
+  kicked: string[];
+};
+
+/** Alles aus dem Vorschau-Modus entfernen (Tipps, Runden, deren Tipps). */
+function dropDemo(s: State): Partial<State> {
+  const ids = new Set(s.demoGroups.map((g) => g.id));
+  const without = <T>(r: Record<string, T>) =>
+    Object.fromEntries(Object.entries(r).filter(([id]) => !ids.has(id)));
+  return {
+    demoPredictions: {},
+    demoChampionTip: null,
+    demoGroups: [],
+    groupTips: without(s.groupTips),
+    groupChampion: without(s.groupChampion),
+    tipContext: s.tipContext && ids.has(s.tipContext) ? null : s.tipContext,
+  };
+}
+
 export const selectPredictions = (s: State) => (s.demo.enabled ? s.demoPredictions : s.predictions);
 export const selectChampionTip = (s: State) => (s.demo.enabled ? s.demoChampionTip : s.championTip);

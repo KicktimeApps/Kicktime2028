@@ -1,12 +1,41 @@
 import type { MatchView } from "@/domain/types";
 import type { TipBoard, TipMember } from "@/services/tipgroups";
+import type { DemoGroup } from "@/store/app-store";
 
 /**
- * Beispiel-Tipprunde für den Vorschau-Modus: ausgedachte Mitspieler mit
- * festen Tipps (aus Spiel und Person abgeleitet, also bei jedem Öffnen
- * gleich). Läuft komplett auf dem Gerät – nichts geht an den Server.
+ * Tipprunden im Vorschau-Modus: Erstellen und Beitreten wie in echt, aber
+ * nur auf dem Gerät. Wer mit Code beitritt, trifft ausgedachte Mitspieler
+ * mit festen Tipps (aus Spiel und Person abgeleitet, also bei jedem Öffnen
+ * gleich). Nichts geht an den Server.
  */
-export const DEMO_GROUP = { id: "demo", code: "VORSCH", name: "Familienrunde (Vorschau)" };
+
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function newDemoGroup(
+  mode: "create" | "join",
+  name: string,
+  myName: string,
+  code?: string,
+): DemoGroup {
+  const c =
+    code ??
+    Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join(
+      "",
+    );
+  return {
+    id: `demo-${c}`,
+    code: c,
+    name: mode === "create" ? name : `Runde ${c}`,
+    isOwner: mode === "create",
+    myName,
+    withFriends: mode === "join",
+    kicked: [],
+  };
+}
+
+export function demoMemberCount(g: DemoGroup): number {
+  return 1 + (g.withFriends ? PEOPLE.filter((p) => !g.kicked.includes(p.id)).length : 0);
+}
 
 const PEOPLE: { id: string; name: string; boldness: number; champion: string }[] = [
   { id: "demo-oma", name: "Oma Gerda", boldness: 0.2, champion: "GER" },
@@ -31,23 +60,33 @@ function tipFor(person: (typeof PEOPLE)[number], m: MatchView) {
 }
 
 /**
- * Tabelle der Beispielrunde. Fremde Tipps wie in echt nur für Spiele, die
- * (in der Vorschau) schon angepfiffen sind; eigene Tipps kommen vom Gerät.
+ * Tabelle einer Vorschau-Runde. Fremde Tipps wie in echt nur für Spiele,
+ * die (in der Vorschau) schon angepfiffen sind; eigene Tipps kommen vom Gerät.
  */
-export function demoBoard(matches: MatchView[], kicked: string[], myName: string): TipBoard {
+export function demoBoard(matches: MatchView[], g: DemoGroup): TipBoard {
   const playable = matches.filter((m) => m.home && m.away && m.status !== "scheduled");
-  const others: TipMember[] = PEOPLE.filter((p) => !kicked.includes(p.id)).map((p) => ({
-    id: p.id,
-    name: p.name,
-    isOwner: false,
-    isMe: false,
-    champion: playable.length > 0 ? p.champion : null,
-    tips: Object.fromEntries(playable.map((m) => [m.id, tipFor(p, m)])),
-  }));
+  const others: TipMember[] = (g.withFriends ? PEOPLE : [])
+    .filter((p) => !g.kicked.includes(p.id))
+    .map((p, i) => ({
+      id: p.id,
+      name: p.name,
+      // Beigetreten: Die Runde gehört jemand anderem.
+      isOwner: !g.isOwner && i === 0,
+      isMe: false,
+      champion: playable.length > 0 ? p.champion : null,
+      tips: Object.fromEntries(playable.map((m) => [m.id, tipFor(p, m)])),
+    }));
   return {
-    group: { ...DEMO_GROUP, isOwner: true },
+    group: { id: g.id, code: g.code, name: g.name, isOwner: g.isOwner },
     members: [
-      { id: "demo-me", name: myName || "Du", isOwner: true, isMe: true, champion: null, tips: {} },
+      {
+        id: "demo-me",
+        name: g.myName || "Du",
+        isOwner: g.isOwner,
+        isMe: true,
+        champion: null,
+        tips: {},
+      },
       ...others,
     ],
   };

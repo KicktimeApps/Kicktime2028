@@ -19,7 +19,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/compone
 import { canPredict, CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import { saveChampion, useContextChampion, useTipContext, type TipContext } from "@/lib/tips";
-import { DEMO_GROUP } from "@/demo/demoGroup";
+import { demoMemberCount, newDemoGroup } from "@/demo/demoGroup";
 import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
 import {
@@ -250,6 +250,8 @@ export function GroupFormDrawer({
   const setTipName = useAppStore((s) => s.setTipName);
   const setTipContext = useAppStore((s) => s.setTipContext);
   const { matches } = useTournament();
+  const now = useNow();
+  const demo = useAppStore((s) => s.demo.enabled);
   const kickoffs = new Map(matches.map((m) => [m.id, Date.parse(m.kickoffUtc)]));
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -263,6 +265,10 @@ export function GroupFormDrawer({
     setBusy(true);
     setError(null);
     try {
+      if (demo) {
+        submitDemo();
+        return;
+      }
       const g =
         mode === "create"
           ? await createGroup(groupName.trim(), name.trim())
@@ -270,28 +276,58 @@ export function GroupFormDrawer({
       setTipName(name.trim());
       // Bisherige Einzel-Tipps für noch offene Spiele in die Runde übernehmen.
       const { predictions, championTip } = useAppStore.getState();
-      const open = Object.entries(predictions)
-        .filter(([id]) => (kickoffs.get(id) ?? 0) > Date.now())
-        .map(([match_id, p]) => ({ match_id, home: p.home, away: p.away }));
+      const open = openTips(predictions);
       const imported = open.length ? await importTips(g.id, open).catch(() => 0) : 0;
       if (championTip) await setGroupChampion(g.id, championTip).catch(() => {});
       setTipContext(g.id);
       await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
       await qc.invalidateQueries({ queryKey: ["tip-board", g.id] });
-      if (imported > 0)
-        toast(`${imported} ${imported === 1 ? "Tipp" : "Tipps"} übernommen`, {
-          description: "Deine bisherigen Tipps gelten jetzt auch in dieser Runde.",
-        });
-      onOpenChange(false);
-      toast.success(mode === "create" ? "Tipprunde erstellt" : `Willkommen in „${g.name}“`, {
-        description: mode === "create" ? `Code ${g.code} – jetzt Freunde einladen.` : undefined,
-      });
-      navigate({ to: "/runde/$code", params: { code: g.code } });
+      done(g, imported);
     } catch (err) {
       setError(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const openTips = (tips: Record<string, { home: number; away: number }>) =>
+    Object.entries(tips)
+      .filter(([id]) => (kickoffs.get(id) ?? 0) > now)
+      .map(([match_id, p]) => ({ match_id, home: p.home, away: p.away }));
+
+  const done = (g: { name: string; code: string }, imported: number) => {
+    if (imported > 0)
+      toast(`${imported} ${imported === 1 ? "Tipp" : "Tipps"} übernommen`, {
+        description: "Deine bisherigen Tipps gelten jetzt auch in dieser Runde.",
+      });
+    onOpenChange(false);
+    toast.success(mode === "create" ? "Tipprunde erstellt" : `Willkommen in „${g.name}“`, {
+      description: mode === "create" ? `Code ${g.code} – jetzt Freunde einladen.` : undefined,
+    });
+    navigate({ to: "/runde/$code", params: { code: g.code } });
+  };
+
+  /** Vorschau: Runde nur auf dem Gerät anlegen – sonst genau wie in echt. */
+  const submitDemo = () => {
+    const store = useAppStore.getState();
+    const c = normalizeCode(code);
+    const existing = store.demoGroups.find((g) => g.code === c);
+    if (mode === "join" && existing) {
+      done(existing, 0);
+      return;
+    }
+    if (store.demoGroups.length >= 10) throw new TipError("Du bist schon in 10 Runden.");
+    const g = newDemoGroup(mode, groupName.trim(), name.trim(), mode === "join" ? c : undefined);
+    store.addDemoGroup(g);
+    setTipName(name.trim());
+    const open = openTips(store.demoPredictions);
+    store.setGroupTips(
+      g.id,
+      Object.fromEntries(open.map((t) => [t.match_id, { home: t.home, away: t.away }])),
+    );
+    if (store.demoChampionTip) store.setGroupChampion(g.id, store.demoChampionTip);
+    setTipContext(g.id);
+    done(g, open.length);
   };
 
   const valid =
@@ -315,6 +351,10 @@ export function GroupFormDrawer({
             {mode === "create"
               ? "Du bekommst einen Code, den du an Freunde schickst. Ohne Anmeldung."
               : "Gib den Code ein, den du bekommen hast. Ohne Anmeldung."}
+            {demo &&
+              (mode === "create"
+                ? " Vorschau: Die Runde gibt es nur auf diesem Gerät."
+                : " Vorschau: Jeder 6-stellige Code klappt – du triffst ausgedachte Mitspieler.")}
           </DrawerDescription>
           {mode === "create" ? (
             <Field
@@ -438,8 +478,18 @@ function RoundCard({
 export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   const demo = useAppStore((s) => s.demo.enabled);
   const groupTips = useAppStore((s) => s.groupTips);
-  const demoTips = useAppStore((s) => s.demoPredictions);
-  const { data: groups, isLoading, isError, error } = useMyGroups();
+  const demoGroups = useAppStore((s) => s.demoGroups);
+  const server = useMyGroups();
+  const { isLoading, isError, error } = server;
+  const groups = demo
+    ? demoGroups.map((g) => ({
+        id: g.id,
+        code: g.code,
+        name: g.name,
+        isOwner: g.isOwner,
+        members: demoMemberCount(g),
+      }))
+    : server.data;
   const [form, setForm] = useState<"create" | "join" | null>(null);
   // Eigene Tipps aller Runden laden, damit jede Karte „noch ohne Tipp“ zeigen kann.
   useQueries({
@@ -462,7 +512,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   if (!demo && (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)))
     return null;
 
-  const buttons = !demo && (
+  const buttons = (
     <div className="grid grid-cols-2 gap-2">
       <button
         type="button"
@@ -495,36 +545,28 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
         </div>
       ) : (
         <div className="mb-6 space-y-2.5">
-          {!demo && groups && groups.length > 1 && (
+          {groups && groups.length > 1 && (
             <p className="mb-1 rounded-2xl border border-primary/30 bg-primary/8 px-4 py-3 text-[14px]">
               Du bist in <strong>{groups.length} Runden</strong>. Jede Runde hat eigene Tipps –
               tippe in jeder Runde einzeln. Bereits getippte Spiele kannst du dort übernehmen.
             </p>
           )}
-          {demo ? (
-            <>
-              <RoundCard
-                code={DEMO_GROUP.code}
-                name={DEMO_GROUP.name}
-                sub="Beispielrunde mit ausgedachten Mitspielern"
-                tips={demoTips}
-                demo
-              />
-              <p className="px-1 text-[13px] text-muted-foreground">
-                Eigene Runden erstellen und beitreten geht, sobald du die Vorschau beendest.
-              </p>
-            </>
-          ) : (
-            groups?.map((g) => (
-              <RoundCard
-                key={g.id}
-                code={g.code}
-                name={g.name}
-                sub={`${g.members} Mitspieler · Code ${g.code}`}
-                owner={g.isOwner}
-                tips={groupTips[g.id]}
-              />
-            ))
+          {groups?.map((g) => (
+            <RoundCard
+              key={g.id}
+              code={g.code}
+              name={g.name}
+              sub={`${g.members} Mitspieler · Code ${g.code}`}
+              owner={g.isOwner}
+              tips={groupTips[g.id] ?? (demo ? {} : undefined)}
+              demo={demo}
+            />
+          ))}
+          {demo && (
+            <p className="px-1 text-[13px] text-muted-foreground">
+              Vorschau: Runden gibt es nur auf diesem Gerät und verschwinden mit dem Ende der
+              Vorschau.
+            </p>
           )}
         </div>
       )}
@@ -540,7 +582,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
         </p>
       )}
 
-      {variant === "hub" && !demo && (
+      {variant === "hub" && (
         <h2 className="mb-2.5 text-[15px] font-semibold text-muted-foreground">Weitere Runde</h2>
       )}
       {buttons}

@@ -191,7 +191,7 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
         />
       ) : (
         <>
-          {ctx.kind === "group" && <CopyTips ctx={ctx} tips={tips} />}
+          {ctx.kind !== "solo" && <CopyTips ctx={ctx} tips={tips} />}
           <Section
             title="Spiele tippen"
             icon={<Target />}
@@ -315,7 +315,7 @@ function byDay(list: MatchView[], now: number, tz: string) {
 function CopyTips({ ctx, tips }: { ctx: TipContext; tips: Record<string, Prediction> }) {
   const { matches } = useTournament();
   const now = useNow();
-  const groups = useAppStore((s) => s.tipGroups);
+  const groups = useAppStore((s) => (ctx.kind === "demo" ? s.demoGroups : s.tipGroups));
   const groupTips = useAppStore((s) => s.groupTips);
   const [busy, setBusy] = useState<string | null>(null);
   const open = matches.filter((m) => m.home && m.away && canPredict(m, now) && !tips[m.id]);
@@ -348,7 +348,8 @@ function CopyTips({ ctx, tips }: { ctx: TipContext; tips: Record<string, Predict
             onClick={async () => {
               setBusy(g.id);
               try {
-                await importTips(ctx.id, list);
+                // Vorschau-Runden leben nur auf dem Gerät.
+                if (ctx.kind === "group") await importTips(ctx.id, list);
                 const store = useAppStore.getState();
                 const now2 = Date.now();
                 store.setGroupTips(ctx.id, {
