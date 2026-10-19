@@ -25,7 +25,8 @@ Ergebnisse geheim, bis du sie sehen willst.
   zum heutigen Tag.
 - **Turnier**: Live-Tabellen nach UEFA-Regeln (direkter Vergleich), Rangliste der Gruppendritten,
   symmetrischer K.-o.-Baum und alle 54 Nationen mit Status.
-- **Tipps** direkt in der Liste, gespeichert per „Tipp speichern“: 4 Punkte exakt, 3 richtige Tordifferenz
+- **Tipps** nach Spieltagen (1.–3. Spieltag, Achtelfinale … Finale), Ergebnis direkt eintippen,
+  alle Änderungen mit einem Knopf speichern: 4 Punkte exakt, 3 richtige Tordifferenz
   (nicht bei Remis), 2 richtige Tendenz; Halbfinale und Finale doppelt; Europameister-Tipp
   +10.
 - **Tipprunden** mit Freunden (optional): Code bzw. Link `/runde/CODE`, ohne Login, nur ein

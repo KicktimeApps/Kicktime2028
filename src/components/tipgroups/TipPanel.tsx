@@ -26,6 +26,7 @@ import { importTips, TipError } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
 import { useNow, useTournament } from "@/store/match-store";
 import { useUi } from "@/store/ui-store";
+import { MatchdayTips } from "./MatchdayTips";
 import { ChampionTipCard } from "./TipGroups";
 
 const RESULT_COLOR: Record<PredictionResult, string> = {
@@ -137,52 +138,19 @@ function Stats({ tips }: { tips: Record<string, Prediction> }) {
   );
 }
 
-type Filter = "open" | "mine";
-
 /**
- * Alles zum Tippen für genau einen Kontext (allein, eine Runde oder die
- * Vorschau-Runde): Europameister-Tipp, offene Spiele, laufende und
- * ausgewertete Tipps.
+ * Alles zum Tippen für genau einen Kontext (allein, eine Runde oder eine
+ * Vorschau-Runde): Europameister-Tipp und die Spiele nach Spieltagen.
  */
 export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats?: boolean }) {
   const { matches } = useTournament();
-  const now = useNow();
-  const prefs = usePrefs();
   const tips = useContextTips(ctx);
-  const [filter, setFilter] = useState<Filter>("open");
-  const [allRated, setAllRated] = useState(false);
-
-  // In einer Runde zählen alle Spiele – dort gibt es keinen Filter „Meine Teams“
-  // und alle offenen Spiele stehen zum Tippen da.
-  const inRound = ctx.kind !== "solo";
-  const tippable = useMemo(() => {
-    const list = matches.filter((m) => canPredict(m, now) && m.home && m.away);
-    if (inRound) return list;
-    const filtered = filter === "mine" ? list.filter((m) => recommend(m, prefs).mine) : list;
-    return filtered.slice(0, 12);
-  }, [matches, now, filter, prefs, inRound]);
-  const openCount = useMemo(
-    () => matches.filter((m) => canPredict(m, now) && m.home && m.away && !tips[m.id]).length,
-    [matches, now, tips],
-  );
-  const rated = useMemo(
-    () =>
-      matches
-        .filter((m) => tips[m.id] && m.status === "finished" && m.score)
-        .sort((a, b) => Date.parse(b.kickoffUtc) - Date.parse(a.kickoffUtc)),
-    [matches, tips],
-  );
-  const pending = useMemo(
-    () => matches.filter((m) => tips[m.id] && !canPredict(m, now) && m.status !== "finished"),
-    [matches, tips, now],
-  );
   const anyTeams = matches.some((m) => m.home && m.away);
 
   return (
     <>
       {showStats && <Stats tips={tips} />}
       <ChampionTipCard context={ctx} />
-
       {!anyTeams ? (
         <EmptyState
           icon={<Target />}
@@ -192,119 +160,11 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
       ) : (
         <>
           {ctx.kind !== "solo" && <CopyTips ctx={ctx} tips={tips} />}
-          <Section
-            title="Spiele tippen"
-            icon={<Target />}
-            hint={
-              openCount > 0
-                ? `${openCount} ${openCount === 1 ? "Spiel" : "Spiele"} noch ohne Tipp`
-                : undefined
-            }
-            action={
-              !inRound && (
-                <Segmented<Filter>
-                  size="sm"
-                  className="w-40"
-                  value={filter}
-                  onChange={setFilter}
-                  options={[
-                    { value: "open", label: "Alle" },
-                    { value: "mine", label: "Meine Teams" },
-                  ]}
-                />
-              )
-            }
-          >
-            {tippable.length === 0 ? (
-              <EmptyState
-                icon={<CheckCircle2 />}
-                title="Nichts mehr offen"
-                text="Alle anstehenden Spiele sind getippt oder noch ohne Paarung."
-              />
-            ) : (
-              <div className="space-y-5">
-                {byDay(tippable, now, prefs.timeZone).map((d) => (
-                  <div key={d.key}>
-                    <h3 className="mb-2 text-[15px] font-bold">{d.label}</h3>
-                    <div className="grid gap-2.5 lg:grid-cols-2">
-                      {d.items.map((m) => (
-                        <div
-                          key={m.id}
-                          className="rounded-2xl border border-border bg-card px-4 py-3"
-                        >
-                          <MatchHead m={m} day={false} />
-                          <div className="mt-2.5">
-                            <PredictionEditor match={m} context={ctx} showContext={false} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          {pending.length > 0 && (
-            <Section title="Läuft gerade" count={pending.length}>
-              <div className="space-y-2">
-                {pending.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <MatchHead m={m} />
-                    </div>
-                    <span className="shrink-0 rounded-lg bg-muted px-2 py-0.5 font-display text-[17px] font-bold tabular">
-                      {tips[m.id].home}:{tips[m.id].away}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {rated.length > 0 && (
-            <Section title="Ausgewertet" icon={<Trophy />} count={rated.length}>
-              <div className="space-y-2">
-                {(allRated ? rated : rated.slice(0, 3)).map((m) => (
-                  <RatedRow key={m.id} m={m} tip={tips[m.id]} />
-                ))}
-              </div>
-              {rated.length > 3 && (
-                <button
-                  type="button"
-                  onClick={() => setAllRated((v) => !v)}
-                  className="mt-2 inline-flex h-10 items-center gap-1 text-[14px] font-medium text-primary"
-                >
-                  {allRated ? "Weniger anzeigen" : `Alle ${rated.length} anzeigen`}
-                  <ChevronDown className={cn("h-4 w-4", allRated && "rotate-180")} />
-                </button>
-              )}
-            </Section>
-          )}
+          <MatchdayTips ctx={ctx} matches={matches} tips={tips} />
         </>
       )}
     </>
   );
-}
-
-/** Offene Spiele nach Tagen – mit „Heute“/„Morgen“ als Überschrift. */
-function byDay(list: MatchView[], now: number, tz: string) {
-  const days: { key: string; label: string; items: MatchView[] }[] = [];
-  for (const m of list) {
-    const key = localParts(m.kickoffUtc, tz).dayKey;
-    let d = days.find((x) => x.key === key);
-    if (!d) {
-      const rel = relativeDay(m.kickoffUtc, now, tz);
-      const long = formatDayLong(m.kickoffUtc, tz);
-      d = { key, label: rel ? `${rel}, ${long}` : long, items: [] };
-      days.push(d);
-    }
-    d.items.push(m);
-  }
-  return days;
 }
 
 /**
