@@ -16,9 +16,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Flag } from "@/components/team/Flag";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
-import { CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
+import { canPredict, CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
-import { saveChampion, useContextChampion, useTipContext } from "@/lib/tips";
+import { saveChampion, useContextChampion, useTipContext, type TipContext } from "@/lib/tips";
 import { DEMO_GROUP } from "@/demo/demoGroup";
 import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
@@ -114,8 +114,9 @@ export function RulesButton() {
 /* Europameister-Tipp                                                  */
 /* ------------------------------------------------------------------ */
 
-export function ChampionTipCard() {
-  const ctx = useTipContext();
+export function ChampionTipCard({ context }: { context?: TipContext } = {}) {
+  const current = useTipContext();
+  const ctx = context ?? current;
   const saved = useContextChampion(ctx);
   const [draft, setDraft] = useState<string | null>(saved);
   const [busy, setBusy] = useState(false);
@@ -364,8 +365,72 @@ export function GroupFormDrawer({
 /* Abschnitt auf der Tipps-Seite                                       */
 /* ------------------------------------------------------------------ */
 
-export function TipGroupsSection() {
+/** Anzahl offener (gepaarter, noch nicht angepfiffener) Spiele ohne Tipp. */
+function useOpenWithoutTip(tips: Record<string, unknown> | undefined): number | null {
+  const { matches } = useTournament();
+  const now = useNow();
+  if (!tips) return null;
+  return matches.filter((m) => m.home && m.away && canPredict(m, now) && !tips[m.id]).length;
+}
+
+function RoundCard({
+  code,
+  name,
+  sub,
+  owner,
+  tips,
+  demo,
+}: {
+  code: string;
+  name: string;
+  sub: string;
+  owner?: boolean;
+  tips: Record<string, unknown> | undefined;
+  demo?: boolean;
+}) {
+  const open = useOpenWithoutTip(tips);
+  return (
+    <Link
+      to="/runde/$code"
+      params={{ code }}
+      className={cn(
+        "flex min-h-[72px] items-center gap-3 rounded-2xl border px-4 py-3",
+        demo ? "border-gold/40 bg-gold/10" : "border-border bg-card hover:bg-muted/40",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+          demo ? "bg-gold text-gold-foreground" : "bg-primary/12 text-primary",
+        )}
+      >
+        {demo ? <FlaskConical className="h-5 w-5" /> : <Users className="h-5 w-5" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-[17px] font-semibold">
+          <span className="line-clamp-2 leading-tight">{name}</span>
+          {owner && <Crown className="h-4 w-4 shrink-0 text-gold" aria-label="von dir erstellt" />}
+        </span>
+        <span className="block text-[13px] text-muted-foreground">{sub}</span>
+        {open !== null && open > 0 && (
+          <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[12px] font-semibold text-gold">
+            {open} {open === 1 ? "Spiel" : "Spiele"} noch ohne Tipp
+          </span>
+        )}
+      </span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-primary" />
+    </Link>
+  );
+}
+
+/**
+ * „solo“: unter den eigenen Tipps – lädt zu einer Runde ein.
+ * „hub“: man ist in Runden – die Runden sind der Weg zum Tippen.
+ */
+export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   const demo = useAppStore((s) => s.demo.enabled);
+  const groupTips = useAppStore((s) => s.groupTips);
+  const demoTips = useAppStore((s) => s.demoPredictions);
   const { data: groups, isLoading, isError, error } = useMyGroups();
   const [form, setForm] = useState<"create" | "join" | null>(null);
 
@@ -373,102 +438,82 @@ export function TipGroupsSection() {
   if (!demo && (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)))
     return null;
 
+  const buttons = !demo && (
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        onClick={() => setForm("create")}
+        className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-semibold text-primary-foreground"
+      >
+        <Plus className="h-4 w-4" /> Runde erstellen
+      </button>
+      <button
+        type="button"
+        onClick={() => setForm("join")}
+        className="inline-flex h-12 items-center justify-center rounded-full border border-border bg-card text-[15px] font-semibold"
+      >
+        Mit Code beitreten
+      </button>
+    </div>
+  );
+
   return (
-    <section className="mb-7">
-      <div className="mb-2.5 flex items-center gap-2">
-        <Users className="h-5 w-5 text-primary" />
-        <h2 className="text-[19px] font-bold tracking-tight">Tipprunden</h2>
-      </div>
-
-      {demo ? (
-        <>
-          <Link
-            to="/runde/$code"
-            params={{ code: DEMO_GROUP.code }}
-            className="mb-3 flex min-h-[60px] items-center gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3"
-          >
-            <FlaskConical className="h-5 w-5 shrink-0 text-gold" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[16px] font-semibold">{DEMO_GROUP.name}</span>
-              <span className="text-[13px] text-muted-foreground">
-                Beispielrunde mit ausgedachten Mitspielern – zum Ausprobieren
-              </span>
-            </span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
-          </Link>
-          <p className="text-[13px] text-muted-foreground">
-            Eigene Runden erstellen und beitreten geht, sobald du die Vorschau beendest.
+    <section className={variant === "solo" ? "mt-2" : undefined}>
+      {variant === "solo" ? (
+        <div className="mb-3 rounded-2xl border border-border bg-card p-4">
+          <p className="flex items-center gap-2 text-[16px] font-semibold">
+            <Users className="h-5 w-5 text-primary" /> Mit Freunden oder Familie tippen
           </p>
-        </>
+          <p className="mt-1 text-[14px] text-muted-foreground">
+            Erstelle eine Tipprunde und schick den Code weiter – ohne Anmeldung. Danach tippst du in
+            der Runde, deine bisherigen Tipps werden übernommen.
+          </p>
+        </div>
       ) : (
-        <>
-          {groups && groups.length > 0 && (
-            <div className="mb-3 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
-              {groups.map((g) => (
-                <Link
-                  key={g.id}
-                  to="/runde/$code"
-                  params={{ code: g.code }}
-                  className="flex min-h-[60px] items-center gap-3 px-4 py-3 hover:bg-muted/40"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-[16px] font-semibold">
-                      <span className="truncate">{g.name}</span>
-                      {g.isOwner && (
-                        <Crown
-                          className="h-4 w-4 shrink-0 text-gold"
-                          aria-label="von dir erstellt"
-                        />
-                      )}
-                    </span>
-                    <span className="text-[13px] text-muted-foreground">
-                      {g.members} {g.members === 1 ? "Mitspieler" : "Mitspieler"} · Code {g.code}
-                    </span>
-                  </span>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {(!groups || groups.length === 0) && !isLoading && (
-            <div className="mb-3 rounded-2xl border border-border bg-card p-4">
-              <p className="text-[15px] font-semibold">Mit Freunden oder der Familie tippen</p>
-              <p className="mt-1 text-[14px] text-muted-foreground">
-                Erstelle eine Runde und schick den Code weiter – alle sehen eine gemeinsame Tabelle.
-                Ganz ohne Anmeldung. Das ist freiwillig: Du kannst auch einfach allein tippen.
+        <div className="mb-6 space-y-2.5">
+          {demo ? (
+            <>
+              <RoundCard
+                code={DEMO_GROUP.code}
+                name={DEMO_GROUP.name}
+                sub="Beispielrunde mit ausgedachten Mitspielern"
+                tips={demoTips}
+                demo
+              />
+              <p className="px-1 text-[13px] text-muted-foreground">
+                Eigene Runden erstellen und beitreten geht, sobald du die Vorschau beendest.
               </p>
-            </div>
+            </>
+          ) : (
+            groups?.map((g) => (
+              <RoundCard
+                key={g.id}
+                code={g.code}
+                name={g.name}
+                sub={`${g.members} Mitspieler · Code ${g.code}`}
+                owner={g.isOwner}
+                tips={groupTips[g.id]}
+              />
+            ))
           )}
-          {isLoading && (
-            <p className="mb-3 flex items-center gap-2 text-[14px] text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Lade deine Runden …
-            </p>
-          )}
-          {isError && (
-            <p className="mb-3 text-[14px] text-muted-foreground">
-              Deine Runden konnten gerade nicht geladen werden.
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setForm("create")}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-semibold text-primary-foreground"
-            >
-              <Plus className="h-4 w-4" /> Runde erstellen
-            </button>
-            <button
-              type="button"
-              onClick={() => setForm("join")}
-              className="inline-flex h-12 items-center justify-center rounded-full border border-border bg-card text-[15px] font-semibold"
-            >
-              Mit Code beitreten
-            </button>
-          </div>
-        </>
+        </div>
       )}
+
+      {isLoading && !demo && (
+        <p className="mb-3 flex items-center gap-2 text-[14px] text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Lade deine Runden …
+        </p>
+      )}
+      {isError && !demo && (
+        <p className="mb-3 text-[14px] text-muted-foreground">
+          Deine Runden konnten gerade nicht geladen werden.
+        </p>
+      )}
+
+      {variant === "hub" && !demo && (
+        <h2 className="mb-2.5 text-[15px] font-semibold text-muted-foreground">Weitere Runde</h2>
+      )}
+      {buttons}
 
       <GroupFormDrawer
         key={form ?? "none"}

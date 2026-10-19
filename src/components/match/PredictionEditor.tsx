@@ -7,7 +7,13 @@ import { teamDisplay } from "@/domain/labels";
 import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { useSpoiler } from "./useSpoiler";
-import { saveTip, useContextTips, useTipContext, useTipContexts } from "@/lib/tips";
+import {
+  saveTip,
+  useContextTips,
+  useTipContext,
+  useTipContexts,
+  type TipContext,
+} from "@/lib/tips";
 import { TipError } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
 import { useNow } from "@/store/match-store";
@@ -114,12 +120,16 @@ export function TipContextBar({ className }: { className?: string }) {
 export function PredictionEditor({
   match: m,
   showContext = true,
+  context,
 }: {
   match: MatchView;
   showContext?: boolean;
+  /** Fester Kontext (z. B. auf der Seite einer Runde); sonst der ausgewählte. */
+  context?: TipContext;
 }) {
   const now = useNow();
-  const ctx = useTipContext();
+  const current = useTipContext();
+  const ctx = context ?? current;
   const saved = useContextTips(ctx)[m.id];
   const { hidden } = useSpoiler(m);
   const open = canPredict(m, now);

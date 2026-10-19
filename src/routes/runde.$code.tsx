@@ -17,7 +17,10 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Flag } from "@/components/team/Flag";
+import { Segmented } from "@/components/common/Segmented";
 import { GroupFormDrawer, RulesButton } from "@/components/tipgroups/TipGroups";
+import { TipPanel } from "@/components/tipgroups/TipPanel";
+import type { TipContext } from "@/lib/tips";
 import { DEMO_GROUP, demoBoard } from "@/demo/demoGroup";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import {
@@ -200,7 +203,7 @@ function ServerBoard({ groupId }: { groupId: string }) {
           ? cachedChampion
           : (data.members.find((m) => m.isMe)?.champion ?? null)
       }
-      contextId={groupId}
+      context={{ kind: "group", id: groupId, label: data.group.name }}
       actions={{
         kick: async (m) => {
           await kickMember(groupId, m.id);
@@ -235,15 +238,11 @@ function DemoBoard() {
   const data = useMemo(() => demoBoard(matches, kicked, myName), [matches, kicked, myName]);
   return (
     <>
-      <p className="mb-4 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-[14px]">
-        <strong>Beispielrunde zum Ausprobieren.</strong> Tippe unter „Tipps“ – hier siehst du, wie
-        die Tabelle mitläuft. Nichts wird geteilt oder gespeichert.
-      </p>
       <BoardView
         data={data}
         myTips={demoTips}
         myChampion={demoChampion}
-        contextId="demo"
+        context={{ kind: "demo", id: "demo", label: DEMO_GROUP.name }}
         actions={{
           demo: true,
           kick: async (m) => setKicked((k) => [...k, m.id]),
@@ -265,18 +264,20 @@ function BoardView({
   actions,
   myTips,
   myChampion,
-  contextId,
+  context,
 }: {
   data: TipBoard;
   actions: BoardActions;
   /** Eigene Tipps in dieser Runde (frisch vom Gerät). */
   myTips: Record<string, { home: number; away: number }>;
   myChampion: string | null;
-  contextId: string;
+  context: TipContext;
 }) {
   const tournament = useTournament();
-  const navigate = useNavigate();
+  const [tab, setTab] = useState<"tippen" | "tabelle">("tippen");
+  // Diese Runde wird zur gewählten – auch das Spiel-Detail tippt dann hierfür.
   const setTipContext = useAppStore((s) => s.setTipContext);
+  useEffect(() => setTipContext(context.id), [context.id, setTipContext]);
   const spoiler = useAppStore((s) => s.spoilerProtection);
   const revealed = useAppStore((s) => s.revealed);
   const revealMany = useAppStore((s) => s.revealMany);
@@ -313,6 +314,7 @@ function BoardView({
 
   const g = data.group;
   const me = data.members.find((m) => m.isMe);
+  const myRank = rows.find((r) => r.id === me?.id);
   const share = async () => {
     if (actions.demo) {
       toast("In der Vorschau wird nichts geteilt", {
@@ -338,157 +340,178 @@ function BoardView({
       <PageHeader
         eyebrow="Tipprunde"
         title={g.name}
-        subtitle={`${rows.length} Mitspieler`}
+        subtitle={
+          myRank
+            ? `${rows.length} Mitspieler · Du: ${myRank.rank}. Platz, ${myRank.points} Punkte`
+            : `${rows.length} Mitspieler`
+        }
         action={<RulesButton />}
       />
 
-      {/* Einladen */}
-      <section className="mb-6 rounded-2xl border border-border bg-card p-4">
-        <div className="text-[13px] text-muted-foreground">Code zum Beitreten</div>
-        <div className="mt-0.5 flex items-center gap-3">
-          <span className="font-display text-[34px] font-bold tracking-[0.2em] tabular">
-            {g.code}
-          </span>
-          <button
-            type="button"
-            aria-label="Code kopieren"
-            onClick={async () => {
-              await navigator.clipboard?.writeText(g.code).catch(() => {});
-              toast.success("Code kopiert");
-            }}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border"
-          >
-            <Copy className="h-4 w-4" />
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={share}
-          className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[16px] font-semibold text-primary-foreground"
-        >
-          <Share2 className="h-4 w-4" /> Freunde einladen
-        </button>
-      </section>
+      <Segmented<"tippen" | "tabelle">
+        size="lg"
+        className="mb-5"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "tippen", label: "Tippen" },
+          { value: "tabelle", label: "Tabelle" },
+        ]}
+      />
 
-      <button
-        type="button"
-        onClick={() => {
-          setTipContext(contextId);
-          navigate({ to: "/tipps" });
-        }}
-        className="mb-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary/10 text-[16px] font-semibold text-primary"
-      >
-        <Target className="h-4 w-4" /> In dieser Runde tippen
-      </button>
-
-      {/* Tabelle */}
-      <h2 className="mb-2.5 text-[19px] font-bold tracking-tight">Tabelle</h2>
-      {hiddenIds.length > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-[14px]">
-          <span className="flex-1 text-muted-foreground">
-            Spoilerschutz: {hiddenIds.length}{" "}
-            {hiddenIds.length === 1 ? "Ergebnis zählt" : "Ergebnisse zählen"} noch nicht mit.
-          </span>
-          <button
-            type="button"
-            onClick={() => revealMany(hiddenIds)}
-            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-elevated px-3.5 font-semibold ring-1 ring-border"
-          >
-            <Eye className="h-4 w-4" /> Aufdecken
-          </button>
-        </div>
-      )}
-      <ol className="mb-6 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
-        {rows.map((r) => {
-          const m = members.find((x) => x.id === r.id)!;
-          return (
-            <li key={r.id}>
+      {tab === "tippen" ? (
+        <>
+          <p className="mb-4 flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/8 px-4 py-3 text-[14px]">
+            <Target className="h-4 w-4 shrink-0 text-primary" />
+            <span>
+              Deine Tipps gelten nur für <strong>„{g.name}“</strong>.
+              {actions.demo &&
+                " Beispielrunde: Die Mitspieler sind ausgedacht, nichts wird geteilt."}
+            </span>
+          </p>
+          <TipPanel ctx={context} showStats={false} />
+        </>
+      ) : (
+        <>
+          {/* Tabelle */}
+          {hiddenIds.length > 0 && (
+            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-[14px]">
+              <span className="flex-1 text-muted-foreground">
+                Spoilerschutz: {hiddenIds.length}{" "}
+                {hiddenIds.length === 1 ? "Ergebnis zählt" : "Ergebnisse zählen"} noch nicht mit.
+              </span>
               <button
                 type="button"
-                onClick={() => setSelected(m)}
-                className={cn(
-                  "flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40",
-                  m.isMe && "bg-primary/8",
-                )}
+                onClick={() => revealMany(hiddenIds)}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-elevated px-3.5 font-semibold ring-1 ring-border"
               >
-                <span
-                  className={cn(
-                    "w-7 shrink-0 text-center font-display text-[20px] font-bold tabular",
-                    r.rank === 1 ? "text-gold" : "text-muted-foreground",
-                  )}
-                >
-                  {r.rank}.
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-[16px] font-semibold">
-                    <span className="truncate">{r.name}</span>
-                    {m.isMe && <span className="text-[13px] font-normal text-primary">(du)</span>}
-                    {m.isOwner && <Crown className="h-4 w-4 shrink-0 text-gold" />}
-                  </span>
-                  <span className="text-[12.5px] text-muted-foreground">
-                    {r.exact} Volltreffer · {r.hits} Treffer
-                    {r.championPoints > 0 && " · Europameister richtig"}
-                  </span>
-                </span>
-                <span className="font-display text-[26px] font-bold tabular">{r.points}</span>
+                <Eye className="h-4 w-4" /> Aufdecken
               </button>
-            </li>
-          );
-        })}
-      </ol>
+            </div>
+          )}
+          <ol className="mb-6 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+            {rows.map((r) => {
+              const m = members.find((x) => x.id === r.id)!;
+              return (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(m)}
+                    className={cn(
+                      "flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40",
+                      m.isMe && "bg-primary/8",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-7 shrink-0 text-center font-display text-[20px] font-bold tabular",
+                        r.rank === 1 ? "text-gold" : "text-muted-foreground",
+                      )}
+                    >
+                      {r.rank}.
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5 text-[16px] font-semibold">
+                        <span className="truncate">{r.name}</span>
+                        {m.isMe && (
+                          <span className="text-[13px] font-normal text-primary">(du)</span>
+                        )}
+                        {m.isOwner && <Crown className="h-4 w-4 shrink-0 text-gold" />}
+                      </span>
+                      <span className="text-[12.5px] text-muted-foreground">
+                        {r.exact} Volltreffer · {r.hits} Treffer
+                        {r.championPoints > 0 && " · Europameister richtig"}
+                      </span>
+                    </span>
+                    <span className="font-display text-[26px] font-bold tabular">{r.points}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
 
-      {/* Eigene Einstellungen */}
-      <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
-        <button
-          type="button"
-          onClick={() => setRenaming(true)}
-          className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] hover:bg-muted/40"
-        >
-          <Pencil className="h-[18px] w-[18px] text-muted-foreground" />
-          <span className="flex-1">Meinen Namen ändern</span>
-          <span className="text-muted-foreground">{me?.name}</span>
-        </button>
-        <Confirm
-          title="Runde verlassen?"
-          text={
-            g.isOwner
-              ? "Du hast die Runde erstellt. Wenn du gehst, übernimmt das älteste Mitglied."
-              : "Du kannst später mit dem Code wieder beitreten."
-          }
-          action="Verlassen"
-          onConfirm={async () => {
-            await actions.leave();
-            if (!actions.demo) toast("Runde verlassen");
-          }}
-        >
-          <button
-            type="button"
-            className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] text-destructive hover:bg-muted/40"
-          >
-            <LogOut className="h-[18px] w-[18px]" />
-            <span className="flex-1">Runde verlassen</span>
-          </button>
-        </Confirm>
-        {g.isOwner && (
-          <Confirm
-            title="Runde für alle löschen?"
-            text="Die Runde und ihre Tabelle verschwinden für alle Mitspieler. Eure Tipps bleiben auf euren Geräten."
-            action="Löschen"
-            onConfirm={async () => {
-              await actions.remove();
-              if (!actions.demo) toast("Runde gelöscht");
-            }}
-          >
+          {/* Einladen */}
+          <section className="mb-6 rounded-2xl border border-border bg-card p-4">
+            <div className="text-[13px] text-muted-foreground">Code zum Beitreten</div>
+            <div className="mt-0.5 flex items-center gap-3">
+              <span className="font-display text-[34px] font-bold tracking-[0.2em] tabular">
+                {g.code}
+              </span>
+              <button
+                type="button"
+                aria-label="Code kopieren"
+                onClick={async () => {
+                  await navigator.clipboard?.writeText(g.code).catch(() => {});
+                  toast.success("Code kopiert");
+                }}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
             <button
               type="button"
-              className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] text-destructive hover:bg-muted/40"
+              onClick={share}
+              className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[16px] font-semibold text-primary-foreground"
             >
-              <Trash2 className="h-[18px] w-[18px]" />
-              <span className="flex-1">Runde löschen</span>
+              <Share2 className="h-4 w-4" /> Freunde einladen
             </button>
-          </Confirm>
-        )}
-      </div>
+          </section>
+
+          {/* Eigene Einstellungen */}
+          <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] hover:bg-muted/40"
+            >
+              <Pencil className="h-[18px] w-[18px] text-muted-foreground" />
+              <span className="flex-1">Meinen Namen ändern</span>
+              <span className="text-muted-foreground">{me?.name}</span>
+            </button>
+            <Confirm
+              title="Runde verlassen?"
+              text={
+                g.isOwner
+                  ? "Du hast die Runde erstellt. Wenn du gehst, übernimmt das älteste Mitglied."
+                  : "Du kannst später mit dem Code wieder beitreten."
+              }
+              action="Verlassen"
+              onConfirm={async () => {
+                await actions.leave();
+                if (!actions.demo) toast("Runde verlassen");
+              }}
+            >
+              <button
+                type="button"
+                className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] text-destructive hover:bg-muted/40"
+              >
+                <LogOut className="h-[18px] w-[18px]" />
+                <span className="flex-1">Runde verlassen</span>
+              </button>
+            </Confirm>
+            {g.isOwner && (
+              <Confirm
+                title="Runde für alle löschen?"
+                text="Die Runde und ihre Tabelle verschwinden für alle Mitspieler. Eure Tipps bleiben auf euren Geräten."
+                action="Löschen"
+                onConfirm={async () => {
+                  await actions.remove();
+                  if (!actions.demo) toast("Runde gelöscht");
+                }}
+              >
+                <button
+                  type="button"
+                  className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] text-destructive hover:bg-muted/40"
+                >
+                  <Trash2 className="h-[18px] w-[18px]" />
+                  <span className="flex-1">Runde löschen</span>
+                </button>
+              </Confirm>
+            )}
+          </div>
+        </>
+      )}
 
       <MemberDrawer
         member={selected}

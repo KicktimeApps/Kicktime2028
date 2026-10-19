@@ -30,9 +30,9 @@ Ergebnisse geheim, bis du sie sehen willst.
   +10.
 - **Tipprunden** mit Freunden (optional): Code bzw. Link `/runde/CODE`, ohne Login, nur ein
   Name. Gemeinsame Tabelle, fremde Tipps erst ab Anpfiff sichtbar, Ersteller kann Mitspieler
-  entfernen. Der Server sperrt Tipps ab Anpfiff. Wer in Runden ist, tippt nur dort – in jeder
-  Runde eigene Tipps und ein eigener Europameister-Tipp; beim Beitreten werden bisherige
-  Einzel-Tipps übernommen.
+  entfernen. Der Server sperrt Tipps ab Anpfiff. Wer in Runden ist, tippt nur dort: Die Tipps-Seite
+  zeigt dann die Runden, jede Runde hat die Reiter „Tippen“ und „Tabelle“ mit eigenen Tipps und
+  eigenem Europameister-Tipp. Beim Beitreten werden bisherige Einzel-Tipps übernommen.
 - **Spoilerschutz** für Spielstände, Live-Stände, Tabellen, K.-o.-Baum und Europameister.
 - **Erinnerungen** (Web Push) 15 Minuten vor Anpfiff, automatisch für Favoriten.
 - **Offline nutzbar**: zuletzt geladener Stand bleibt, App öffnet auch im Funkloch.
