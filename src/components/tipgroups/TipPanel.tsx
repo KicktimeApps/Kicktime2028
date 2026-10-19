@@ -1,108 +1,15 @@
-import { CheckCircle2, ChevronDown, Copy, Eye, Loader2, Target, Trophy } from "lucide-react";
+import { Copy, Loader2, Target, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
-import { Section } from "@/components/common/Section";
-import { Segmented } from "@/components/common/Segmented";
-import { PredictionEditor } from "@/components/match/PredictionEditor";
-import { useSpoiler } from "@/components/match/useSpoiler";
-import { Flag } from "@/components/team/Flag";
-import { teamDisplay } from "@/domain/labels";
-import {
-  canPredict,
-  RESULT_LABEL,
-  scorePrediction,
-  summarize,
-  type Prediction,
-  type PredictionResult,
-} from "@/domain/predictions";
-import { recommend } from "@/domain/recommend";
-import { formatDayLong, formatDayShort, formatTime, localParts, relativeDay } from "@/domain/time";
-import type { MatchView } from "@/domain/types";
-import { usePrefs } from "@/hooks/usePrefs";
-import { useContextTips, type TipContext } from "@/lib/tips";
+import { canPredict, CHAMPION_BONUS, summarize, type Prediction } from "@/domain/predictions";
+import { useContextChampion, useContextTips, type TipContext } from "@/lib/tips";
 import { cn } from "@/lib/utils";
 import { importTips, TipError } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
 import { useNow, useTournament } from "@/store/match-store";
-import { useUi } from "@/store/ui-store";
 import { MatchdayTips } from "./MatchdayTips";
 import { ChampionTipCard } from "./TipGroups";
-
-const RESULT_COLOR: Record<PredictionResult, string> = {
-  exact: "bg-primary",
-  diff: "bg-primary/60",
-  tendency: "bg-gold",
-  miss: "bg-muted-foreground/30",
-};
-
-function MatchHead({ m, day = true }: { m: MatchView; day?: boolean }) {
-  const prefs = usePrefs();
-  const openMatch = useUi((s) => s.openMatch);
-  const a = teamDisplay(m.home, m.slotHome);
-  const b = teamDisplay(m.away, m.slotAway);
-  return (
-    <button type="button" onClick={() => openMatch(m.id)} className="block w-full text-left">
-      <span className="block text-[13px] text-muted-foreground tabular">
-        {day && `${formatDayShort(m.kickoffUtc, prefs.timeZone)} · `}
-        {formatTime(m.kickoffUtc, prefs.timeZone)} Uhr
-      </span>
-      <span className="mt-1 flex items-center gap-2">
-        <Flag flag={a.flag} size="sm" />
-        <span className="truncate text-[15px] font-semibold">{a.name}</span>
-        <span className="text-muted-foreground">–</span>
-        <span className="truncate text-[15px] font-semibold">{b.name}</span>
-        <Flag flag={b.flag} size="sm" />
-      </span>
-    </button>
-  );
-}
-
-/** Ausgewertetes Spiel – bei Spoilerschutz erst nach „Zeigen“ mit Ergebnis und Punkten. */
-function RatedRow({ m, tip }: { m: MatchView; tip: Prediction }) {
-  const { hidden, reveal } = useSpoiler(m);
-  const r = scorePrediction(tip, m.score!, m.stage);
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
-      <span
-        className={cn(
-          "h-8 w-1 shrink-0 rounded-full",
-          hidden ? "bg-muted-foreground/30" : RESULT_COLOR[r.result],
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <MatchHead m={m} />
-        <div className="mt-0.5 text-[12px] text-muted-foreground">
-          Tipp {tip.home}:{tip.away}
-          {!hidden && (
-            <>
-              {" "}
-              · Ergebnis {m.score!.home}:{m.score!.away} · {RESULT_LABEL[r.result]}
-            </>
-          )}
-        </div>
-      </div>
-      {hidden ? (
-        <button
-          type="button"
-          onClick={reveal}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-elevated px-3 py-1.5 text-[13px] font-semibold ring-1 ring-border"
-        >
-          <Eye className="h-4 w-4" /> Zeigen
-        </button>
-      ) : (
-        <span
-          className={cn(
-            "shrink-0 font-display text-xl font-bold tabular",
-            r.points ? "text-primary" : "text-muted-foreground",
-          )}
-        >
-          +{r.points}
-        </span>
-      )}
-    </div>
-  );
-}
 
 /** Punkte, Quote, Anzahl – nur aus aufgedeckten Spielen (sonst verraten sie Ergebnisse). */
 function Stats({ tips }: { tips: Record<string, Prediction> }) {
@@ -150,6 +57,7 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
   return (
     <>
       {showStats && <Stats tips={tips} />}
+      <BonusHint ctx={ctx} />
       {!anyTeams ? (
         <EmptyState
           icon={<Target />}
@@ -164,11 +72,44 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
         </>
       )}
       {/* Bonustipp unter den Spielen – oben stehen die Spieltage im Mittelpunkt. */}
-      <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <h2
+        id="bonustipp"
+        className="mb-2 scroll-mt-24 px-1 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+      >
         Bonustipp
       </h2>
       <ChampionTipCard context={ctx} />
     </>
+  );
+}
+
+/**
+ * Erinnerung oben: Europameister noch nicht getippt. Nur bis zum
+ * Eröffnungsspiel und nur, solange in diesem Kontext kein Tipp gespeichert ist.
+ */
+function BonusHint({ ctx }: { ctx: TipContext }) {
+  const champion = useContextChampion(ctx);
+  const { matches } = useTournament();
+  const now = useNow();
+  const opener = matches.find((m) => m.number === 1);
+  if (champion || !opener || now >= Date.parse(opener.kickoffUtc)) return null;
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        document.getElementById("bonustipp")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+      className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-2.5 text-left"
+    >
+      <Trophy className="h-5 w-5 shrink-0 text-gold" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14.5px] font-semibold">Bonustipp noch offen</span>
+        <span className="block text-[12.5px] text-muted-foreground">
+          Wer wird Europameister? +{CHAMPION_BONUS} Punkte – nur bis zum Eröffnungsspiel.
+        </span>
+      </span>
+      <span className="shrink-0 text-[14px] font-semibold text-primary">Tippen</span>
+    </button>
   );
 }
 

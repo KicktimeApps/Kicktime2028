@@ -1,7 +1,6 @@
 import {
   CalendarPlus,
   ChevronDown,
-  Clock3,
   Info,
   MapPin,
   Plane,
