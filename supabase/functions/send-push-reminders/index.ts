@@ -3,7 +3,8 @@
  *
  * Wird jede Minute per pg_cron aufgerufen (siehe Migration). Sendet für alle
  * fälligen Erinnerungen einen Web Push (VAPID). Hat sich die Anstoßzeit seit
- * der letzten Benachrichtigung geändert, wird erneut erinnert.
+ * der letzten Benachrichtigung geändert, wird erneut erinnert. Außerdem gehen
+ * Nachrichten der Tipprunden raus (z. B. „Neue Beitrittsanfrage“).
  *
  * Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRON_SECRET
  * Deploy mit --no-verify-jwt; geschützt über den Header x-cron-secret.
@@ -51,6 +52,8 @@ type Row = {
   push_subscriptions: Sub | Sub[] | null;
 };
 type Sub = { endpoint: string; p256dh: string; auth: string };
+
+type TipPush = Sub & { device_id: string; title: string; body: string; url: string; tag: string };
 
 type Due = {
   device_id: string;
@@ -155,12 +158,32 @@ Deno.serve(async (req) => {
         for (let row = queue.shift(); row; row = queue.shift()) await sendOne(row);
       }),
     );
+    // Tipprunden-Nachrichten (SQL-Update „Push bei Beitrittsanfrage“).
+    let tipSent = 0;
+    const { data: tipRows, error: tipErr } = await db.rpc("kt_claim_tip_push");
+    if (!tipErr) {
+      for (const row of (tipRows ?? []) as TipPush[]) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+            JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
+            { TTL: 86_400, urgency: "normal" },
+          );
+          tipSent++;
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode;
+          if (status === 404 || status === 410) expired.add(row.device_id);
+          else console.warn("[push] Tipprunden-Nachricht fehlgeschlagen", status);
+        }
+      }
+    }
+
     if (expired.size > 0)
       await db
         .from("push_subscriptions")
         .delete()
         .in("device_id", [...expired]);
-    return json({ ok: true, sent, due: list.length, cleaned: expired.size });
+    return json({ ok: true, sent, due: list.length, tipSent, cleaned: expired.size });
   } catch (err) {
     console.error("[push]", err);
     return json({ error: "Interner Fehler" }, 500);

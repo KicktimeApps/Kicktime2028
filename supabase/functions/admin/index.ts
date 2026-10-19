@@ -5,7 +5,7 @@
  * Die PIN liegt nur als Secret ADMIN_PIN auf dem Server. Brute-Force-Schutz:
  * nach 5 Fehlversuchen pro IP (bzw. 30 insgesamt) ist der Zugang 15 Minuten gesperrt.
  *
- * Aktionen: verify | set | clear | stats | feedback
+ * Aktionen: verify | set | clear | stats | feedback | fixtures | delete_tip_groups
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
@@ -235,6 +235,20 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(50);
       return json({ rows: data ?? [] });
+    }
+
+    // Alle Tipprunden löschen (zum Aufräumen nach dem Testen).
+    case "delete_tip_groups": {
+      const { data, error } = await db.rpc("kt_admin_delete_tip_groups");
+      if (!error) return json({ ok: true, count: data ?? 0 });
+      // Rückfall ohne SQL-Update: direkt löschen (Mitglieder/Tipps fallen mit).
+      const { error: delErr, count } = await db
+        .from("tip_groups")
+        .delete({ count: "exact" })
+        .not("id", "is", null);
+      return delErr
+        ? json({ error: "Löschen fehlgeschlagen" }, 500)
+        : json({ ok: true, count: count ?? 0 });
     }
 
     default:

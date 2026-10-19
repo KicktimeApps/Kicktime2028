@@ -30,7 +30,8 @@ Ergebnisse geheim, bis du sie sehen willst.
   (nicht bei Remis), 2 richtige Tendenz; Halbfinale und Finale doppelt; Europameister-Tipp
   +10.
 - **Tipprunden** mit Freunden (optional): Code bzw. Link `/runde/CODE`, ohne Login, nur ein
-  Name. Wer mit Code beitritt, stellt eine Anfrage – der Ersteller nimmt an oder lehnt ab.
+  Name. Wer mit Code beitritt, stellt eine Anfrage – der Ersteller bekommt eine Push-Nachricht
+  und nimmt in den Einstellungen der Runde (Zahnrad) an oder lehnt ab.
   Gemeinsame Tabelle, fremde Tipps erst ab Anpfiff sichtbar, Ersteller kann Mitspieler
   entfernen. Der Server sperrt Tipps ab Anpfiff. Wer in Runden ist, tippt nur dort: Die Tipps-Seite
   zeigt dann die Runden, jede Runde hat die Reiter „Tippen“ und „Tabelle“ mit eigenen Tipps und

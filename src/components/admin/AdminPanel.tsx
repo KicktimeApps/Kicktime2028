@@ -1,7 +1,19 @@
 import { Clock, Loader2, Lock, Minus, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Segmented } from "@/components/common/Segmented";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Flag } from "@/components/team/Flag";
 import {
   Dialog,
@@ -17,6 +29,7 @@ import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import {
   clearOverride,
+  deleteAllTipGroups,
   fetchFeedback,
   fetchStats,
   setOverride,
@@ -27,6 +40,7 @@ import {
 } from "@/services/admin";
 import { refreshLiveData } from "@/services/live-data";
 import { isBackendConfigured } from "@/services/supabase";
+import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";
 
 type Tab = "system" | "override" | "stats";
@@ -176,6 +190,7 @@ function SystemTab({ pin }: { pin: string }) {
       >
         <Clock className="h-4 w-4" /> Anstoßzeiten für Tipprunden abgleichen
       </button>
+      <DeleteAllGroups pin={pin} />
       <div>
         <div className="mb-1 flex items-center justify-between">
           <span className="font-semibold">Fehlerprotokoll</span>
@@ -196,6 +211,67 @@ function SystemTab({ pin }: { pin: string }) {
         </ul>
       </div>
     </div>
+  );
+}
+
+/** Zum Aufräumen nach dem Testen: alle Tipprunden weg – echte und Vorschau. */
+function DeleteAllGroups({ pin }: { pin: string }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    const store = useAppStore.getState();
+    const demoCount = store.demoGroups.length;
+    for (const g of store.demoGroups) store.removeDemoGroup(g.id);
+    let serverCount = 0;
+    if (isBackendConfigured()) {
+      const res = await deleteAllTipGroups(pin);
+      if (!res.ok) {
+        setBusy(false);
+        toast.error("Löschen fehlgeschlagen", { description: res.error });
+        return;
+      }
+      serverCount = res.data.count;
+      store.setTipGroups([]);
+      await qc.invalidateQueries();
+    }
+    setBusy(false);
+    haptics.success();
+    toast.success("Alle Tipprunden gelöscht", {
+      description: `${serverCount} auf dem Server, ${demoCount} in der Vorschau`,
+    });
+  };
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <button
+          type="button"
+          disabled={busy}
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-destructive text-[14px] font-semibold text-destructive-foreground disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          Alle Tipprunden löschen
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Wirklich alle Tipprunden löschen?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Alle Runden aller Nutzer verschwinden – mit Mitgliedern, Tipps und Tabellen. Auch die
+            Vorschau-Runden auf diesem Gerät. Das lässt sich nicht rückgängig machen.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={run}
+          >
+            Alle löschen
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

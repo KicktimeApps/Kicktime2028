@@ -63,3 +63,7 @@ export const fetchFeedback = (pin: string) =>
 /** Anstoßzeiten an den Server geben (Sperre für Tipprunden ab Anpfiff). */
 export const syncFixtures = (pin: string, fixtures: { matchId: string; kickoffUtc: string }[]) =>
   invoke<{ ok: true; count: number }>({ action: "fixtures", pin, fixtures });
+
+/** Alle Tipprunden auf dem Server löschen (mit Mitgliedern und Tipps). */
+export const deleteAllTipGroups = (pin: string) =>
+  invoke<{ ok: true; count: number }>({ action: "delete_tip_groups", pin });

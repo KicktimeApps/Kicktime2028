@@ -140,84 +140,77 @@ export function ChampionTipCard({ context }: { context?: TipContext } = {}) {
   const pick = getNation(saved);
   const dirty = draft !== saved;
   const where = ctx.kind === "solo" ? "" : ` für „${ctx.label}“`;
+  const save = async () => {
+    setBusy(true);
+    try {
+      await saveChampion(ctx, draft);
+      toast.success(
+        draft ? `Europameister-Tipp gespeichert${where}` : `Europameister-Tipp gelöscht${where}`,
+        { description: draft ? getNation(draft)?.name : undefined },
+      );
+    } catch (err) {
+      toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  // Kompakt in einer Zeile – die Spiele sollen gleich darunter sichtbar sein.
   return (
-    <section className="mb-7 rounded-2xl border border-gold/30 bg-gold/8 p-4">
-      <div className="flex items-center gap-2 text-[16px] font-bold">
-        <Trophy className="h-5 w-5 text-gold" /> Dein Europameister-Tipp
-      </div>
-      <p className="mt-1 text-[13.5px] text-muted-foreground">
-        {locked
-          ? "Abgabe ist vorbei."
-          : `Bonuspunkte, wenn er stimmt. Änderbar bis zum Eröffnungsspiel${where}.`}
-      </p>
-      {locked ? (
-        <div className="mt-3 flex items-center gap-2.5 text-[16px] font-semibold">
-          {pick ? (
-            <>
-              <Flag flag={pick.flag} size="md" /> {pick.name}
-            </>
-          ) : (
-            <span className="text-muted-foreground">Kein Tipp abgegeben</span>
-          )}
-        </div>
-      ) : (
-        <>
-          <select
-            value={draft ?? ""}
-            onChange={(e) => setDraft(e.target.value || null)}
-            aria-label="Europameister-Tipp"
-            className="mt-3 h-12 w-full rounded-xl border border-border bg-card px-3 text-[16px] outline-none focus:border-primary"
-          >
-            <option value="">Noch kein Tipp</option>
-            {options.map((n) => (
-              <option key={n.code} value={n.code}>
-                {n.name}
-              </option>
-            ))}
-          </select>
-          {dirty || busy ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await saveChampion(ctx, draft);
-                  toast.success(
-                    draft
-                      ? `Europameister-Tipp gespeichert${where}`
-                      : `Europameister-Tipp gelöscht${where}`,
-                    { description: draft ? getNation(draft)?.name : undefined },
-                  );
-                } catch (err) {
-                  toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
+    <section className="mb-5 rounded-2xl border border-gold/30 bg-gold/8 px-3.5 py-2.5">
+      <div className="flex items-center gap-2.5">
+        <Trophy className="h-5 w-5 shrink-0 text-gold" />
+        <span className="shrink-0 text-[14px] font-semibold leading-tight">
+          Europa&shy;meister
+          <span className="block text-[11.5px] font-normal text-muted-foreground">
+            {locked ? "fest" : `+${CHAMPION_BONUS} Punkte`}
+          </span>
+        </span>
+        {locked ? (
+          <span className="flex min-w-0 flex-1 items-center justify-end gap-2 text-[15px] font-semibold">
+            {pick ? (
+              <>
+                <Flag flag={pick.flag} size="sm" />
+                <span className="truncate">{pick.name}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">kein Tipp</span>
+            )}
+          </span>
+        ) : (
+          <>
+            <select
+              value={draft ?? ""}
+              onChange={(e) => setDraft(e.target.value || null)}
+              aria-label="Europameister-Tipp"
               className={cn(
-                "mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-[16px] font-semibold",
-                dirty
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border bg-card text-muted-foreground",
+                "h-10 min-w-0 flex-1 rounded-xl border bg-card px-2.5 text-[15px] outline-none focus:border-primary",
+                dirty ? "border-gold" : "border-border",
               )}
             >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : dirty ? (
-                <Save className="h-4 w-4" />
-              ) : saved ? (
-                <Check className="h-4 w-4" />
-              ) : null}
-              {dirty ? "Tipp speichern" : saved ? "Gespeichert" : "Erst auswählen, dann speichern"}
-            </button>
-          ) : saved ? (
-            <p className="mt-2 inline-flex items-center gap-1 text-[13px] text-muted-foreground">
-              <Check className="h-3.5 w-3.5 text-primary" /> Gespeichert
-            </p>
-          ) : null}
-        </>
-      )}
+              <option value="">Noch kein Tipp</option>
+              {options.map((n) => (
+                <option key={n.code} value={n.code}>
+                  {n.name}
+                </option>
+              ))}
+            </select>
+            {dirty || busy ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={save}
+                aria-label="Europameister-Tipp speichern"
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[14px] font-semibold text-primary-foreground"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Speichern
+              </button>
+            ) : saved ? (
+              <Check className="h-5 w-5 shrink-0 text-primary" aria-label="gespeichert" />
+            ) : null}
+          </>
+        )}
+      </div>
     </section>
   );
 }

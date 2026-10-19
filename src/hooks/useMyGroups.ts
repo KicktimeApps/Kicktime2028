@@ -12,9 +12,10 @@ export function useMyGroups() {
   return useQuery({
     queryKey: TIP_GROUPS_KEY,
     enabled: isBackendConfigured() && !demo,
-    staleTime: 30_000,
+    staleTime: 5_000,
     // Solange eine Anfrage offen ist, regelmäßig nachsehen, ob angenommen wurde.
-    refetchInterval: (q) => (q.state.data?.some((g) => g.pending) ? 30_000 : false),
+    // Bei offener Anfrage oft (angenommen?), sonst regelmäßig (neue Anfragen).
+    refetchInterval: (q) => (q.state.data?.some((g) => g.pending) ? 5_000 : 20_000),
     // Fehlt die Funktion auf dem Server (SQL-Update nicht ausgeführt), nicht
     // ständig nachfragen.
     retry: (count, err) => !(err instanceof TipError && err.notInstalled) && count < 2,

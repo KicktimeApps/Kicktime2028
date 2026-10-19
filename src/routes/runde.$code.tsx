@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Check,
   ChevronLeft,
+  ChevronRight,
   Hourglass,
   Copy,
   Crown,
@@ -10,6 +11,7 @@ import {
   Loader2,
   LogOut,
   Pencil,
+  Settings,
   Share2,
   Target,
   Trash2,
@@ -17,7 +19,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Flag } from "@/components/team/Flag";
@@ -76,6 +78,17 @@ function GroupPage() {
   const demo = useAppStore((s) => s.demo.enabled);
   const { data: groups, isLoading } = useMyGroups();
   const group = groups?.find((g) => g.code === code);
+  // Angenommen, während die Seite offen war → kurz Bescheid geben.
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (group?.pending) wasPending.current = true;
+    else if (group && wasPending.current) {
+      wasPending.current = false;
+      toast.success(`Du bist jetzt in „${group.name}“ dabei`, {
+        description: "Ab sofort kannst du hier tippen.",
+      });
+    }
+  }, [group]);
   const demoGroup = useAppStore((s) => s.demoGroups.find((g) => g.code === code));
 
   return (
@@ -233,7 +246,7 @@ function RequestsCard({
         {requests.length === 1 ? "1 Beitrittsanfrage" : `${requests.length} Beitrittsanfragen`}
       </h2>
       <p className="mt-0.5 text-[13px] text-muted-foreground">
-        Nur du als Ersteller siehst das. Erst wen du annimmst, tippt mit.
+        Nur du als Ersteller siehst das. Nur wen du annimmst, tippt mit.
       </p>
       <ul className="mt-3 space-y-2">
         {requests.map((r) => (
@@ -288,7 +301,8 @@ function ServerBoard({ groupId }: { groupId: string }) {
   const { data, error, isLoading, refetch } = useQuery({
     queryKey: ["tip-board", groupId],
     queryFn: () => loadBoard(groupId),
-    refetchInterval: 60_000,
+    // Oft nachsehen, damit neue Anfragen und Mitglieder gleich erscheinen.
+    refetchInterval: 10_000,
   });
   const cachedTips = useAppStore((s) => s.groupTips[groupId]);
   const cachedChampion = useAppStore((s) => s.groupChampion[groupId]);
@@ -421,6 +435,10 @@ function BoardView({
   const revealMany = useAppStore((s) => s.revealMany);
   const [selected, setSelected] = useState<TipMember | null>(null);
   const [renaming, setRenaming] = useState(false);
+  // Aus der Push-Nachricht „Neue Beitrittsanfrage“: direkt die Verwaltung öffnen.
+  const [settings, setSettings] = useState(
+    () => typeof window !== "undefined" && /[?&]verwaltung=/.test(window.location.search),
+  );
 
   // Eigene Tipps immer frisch vom Gerät (der Server kennt sie evtl. noch nicht).
   const members = useMemo(
@@ -473,6 +491,8 @@ function BoardView({
     }
   };
 
+  const requests = g.isOwner ? (data.requests ?? []) : [];
+
   return (
     <>
       <PageHeader
@@ -483,14 +503,50 @@ function BoardView({
             ? `${rows.length} Mitspieler · Du: ${myRank.rank}. Platz, ${myRank.points} Punkte`
             : `${rows.length} Mitspieler`
         }
-        action={<RulesButton />}
+        action={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSettings(true)}
+              aria-label={
+                requests.length
+                  ? `Einstellungen der Runde, ${requests.length} offene Anfragen`
+                  : "Einstellungen der Runde"
+              }
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground"
+            >
+              <Settings className="h-5 w-5" />
+              {requests.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-destructive-foreground">
+                  {requests.length}
+                </span>
+              )}
+            </button>
+            <RulesButton />
+          </div>
+        }
       />
 
-      {g.isOwner && <RequestsCard requests={data.requests ?? []} onAnswer={actions.answer} />}
+      {requests.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setSettings(true)}
+          className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-left"
+        >
+          <UserPlus className="h-5 w-5 shrink-0 text-gold" />
+          <span className="min-w-0 flex-1 text-[15px] font-semibold">
+            {requests.length === 1
+              ? `${requests[0].name} möchte mittippen`
+              : `${requests.length} Beitrittsanfragen`}
+          </span>
+          <span className="text-[14px] font-semibold text-primary">Ansehen</span>
+          <ChevronRight className="-ml-2 h-5 w-5 shrink-0 text-primary" />
+        </button>
+      )}
 
       <Segmented<"tippen" | "tabelle">
         size="lg"
-        className="mb-5"
+        className="mb-3"
         value={tab}
         onChange={setTab}
         options={[
@@ -501,18 +557,22 @@ function BoardView({
 
       {tab === "tippen" ? (
         <>
-          <p className="mb-4 flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/8 px-4 py-3 text-[14px]">
-            <Target className="h-4 w-4 shrink-0 text-primary" />
-            <span>
-              Deine Tipps gelten nur für <strong>„{g.name}“</strong>.
-              {actions.demo && " Vorschau: Die Runde gibt es nur auf diesem Gerät."}
+          {/* Klein, aber unübersehbar: Wofür gilt der Tipp? */}
+          <p className="mb-3 flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-[14px] font-medium text-primary-foreground">
+            <Target className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">
+              Du tippst für <strong>„{g.name}“</strong>
             </span>
           </p>
+          {actions.demo && (
+            <p className="-mt-1.5 mb-3 px-1 text-[12.5px] text-muted-foreground">
+              Vorschau: Die Runde gibt es nur auf diesem Gerät.
+            </p>
+          )}
           <TipPanel ctx={context} showStats={false} />
         </>
       ) : (
         <>
-          {/* Tabelle */}
           {hiddenIds.length > 0 && (
             <div className="mb-3 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-[14px]">
               <span className="flex-1 text-muted-foreground">
@@ -568,100 +628,28 @@ function BoardView({
               );
             })}
           </ol>
-
-          {/* Einladen */}
-          <section className="mb-6 rounded-2xl border border-border bg-card p-4">
-            <div className="text-[13px] text-muted-foreground">Code zum Beitreten</div>
-            <div className="mt-0.5 flex items-center gap-3">
-              <span className="font-display text-[34px] font-bold tracking-[0.2em] tabular">
-                {g.code}
-              </span>
-              <button
-                type="button"
-                aria-label="Code kopieren"
-                onClick={async () => {
-                  await navigator.clipboard?.writeText(g.code).catch(() => {});
-                  toast.success("Code kopiert");
-                }}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border"
-              >
-                <Copy className="h-4 w-4" />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={share}
-              className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[16px] font-semibold text-primary-foreground"
-            >
-              <Share2 className="h-4 w-4" /> Freunde einladen
-            </button>
-          </section>
-
-          {/* Eigene Einstellungen */}
-          <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
-            <button
-              type="button"
-              onClick={() => setRenaming(true)}
-              className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] hover:bg-muted/40"
-            >
-              <Pencil className="h-[18px] w-[18px] text-muted-foreground" />
-              <span className="flex-1">Meinen Namen ändern</span>
-              <span className="text-muted-foreground">{me?.name}</span>
-            </button>
-            <Confirm
-              title="Runde verlassen?"
-              text={
-                g.isOwner
-                  ? "Du hast die Runde erstellt. Wenn du gehst, übernimmt das älteste Mitglied."
-                  : "Du kannst später mit dem Code wieder beitreten."
-              }
-              action="Verlassen"
-              onConfirm={async () => {
-                await actions.leave();
-                toast("Runde verlassen");
-              }}
-            >
-              <button
-                type="button"
-                className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] text-destructive hover:bg-muted/40"
-              >
-                <LogOut className="h-[18px] w-[18px]" />
-                <span className="flex-1">Runde verlassen</span>
-              </button>
-            </Confirm>
-            {g.isOwner && (
-              <Confirm
-                title="Runde für alle löschen?"
-                text="Die Runde und ihre Tabelle verschwinden für alle Mitspieler. Eure Tipps bleiben auf euren Geräten."
-                action="Löschen"
-                onConfirm={async () => {
-                  await actions.remove();
-                  toast("Runde gelöscht");
-                }}
-              >
-                <button
-                  type="button"
-                  className="flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] text-destructive hover:bg-muted/40"
-                >
-                  <Trash2 className="h-[18px] w-[18px]" />
-                  <span className="flex-1">Runde löschen</span>
-                </button>
-              </Confirm>
-            )}
-          </div>
+          <InviteCard code={g.code} onShare={share} />
         </>
       )}
 
+      <RoundSettings
+        open={settings}
+        onClose={() => setSettings(false)}
+        group={g}
+        me={me}
+        members={members}
+        requests={requests}
+        actions={actions}
+        onShare={share}
+        onRename={() => {
+          setSettings(false);
+          setRenaming(true);
+        }}
+      />
       <MemberDrawer
         member={selected}
         row={rows.find((r) => r.id === selected?.id)}
-        canKick={g.isOwner && !!selected && !selected.isMe}
         onClose={() => setSelected(null)}
-        onKick={async (m) => {
-          await actions.kick(m);
-          toast(`${m.name} wurde entfernt`);
-          setSelected(null);
-        }}
         isVisible={isVisible}
       />
       <RenameDrawer
@@ -671,6 +659,166 @@ function BoardView({
         onSave={actions.rename}
       />
     </>
+  );
+}
+
+function InviteCard({ code, onShare }: { code: string; onShare: () => void }) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-4">
+      <div className="text-[13px] text-muted-foreground">Code zum Beitreten</div>
+      <div className="mt-0.5 flex items-center gap-3">
+        <span className="font-display text-[34px] font-bold tracking-[0.2em] tabular">{code}</span>
+        <button
+          type="button"
+          aria-label="Code kopieren"
+          onClick={async () => {
+            await navigator.clipboard?.writeText(code).catch(() => {});
+            toast.success("Code kopiert");
+          }}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border"
+        >
+          <Copy className="h-4 w-4" />
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onShare}
+        className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[16px] font-semibold text-primary-foreground"
+      >
+        <Share2 className="h-4 w-4" /> Freunde einladen
+      </button>
+    </section>
+  );
+}
+
+/**
+ * Einstellungen der Runde (Zahnrad): eigener Name, verlassen; für den
+ * Ersteller zusätzlich Anfragen und Mitgliederverwaltung, Runde löschen.
+ */
+function RoundSettings({
+  open,
+  onClose,
+  group: g,
+  me,
+  members,
+  requests,
+  actions,
+  onShare,
+  onRename,
+}: {
+  open: boolean;
+  onClose: () => void;
+  group: TipBoard["group"];
+  me?: TipMember;
+  members: TipMember[];
+  requests: TipRequest[];
+  actions: BoardActions;
+  onShare: () => void;
+  onRename: () => void;
+}) {
+  const row = "flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] hover:bg-muted/40";
+  return (
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()} shouldScaleBackground={false}>
+      <DrawerContent className="mx-auto max-h-[92dvh] max-w-lg border-border bg-background">
+        <div className="overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3">
+          <DrawerTitle className="font-display text-2xl font-bold uppercase">
+            Einstellungen
+          </DrawerTitle>
+          <DrawerDescription className="mb-4 text-[14px] text-muted-foreground">
+            „{g.name}“ · Code {g.code}
+          </DrawerDescription>
+
+          {g.isOwner && (
+            <>
+              <RequestsCard requests={requests} onAnswer={actions.answer} />
+              <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                Mitglieder ({members.length})
+              </h3>
+              <ul className="mb-5 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+                {members.map((m) => (
+                  <li key={m.id} className="flex min-h-14 items-center gap-2 px-4 py-2">
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-semibold">
+                      <span className="truncate">{m.name}</span>
+                      {m.isMe && <span className="text-[13px] font-normal text-primary">(du)</span>}
+                      {m.isOwner && <Crown className="h-4 w-4 shrink-0 text-gold" />}
+                    </span>
+                    {!m.isMe && (
+                      <Confirm
+                        title={`${m.name} entfernen?`}
+                        text="Die Person verschwindet aus der Tabelle und kann mit dem Code nicht wieder beitreten."
+                        action="Entfernen"
+                        onConfirm={async () => {
+                          await actions.kick(m);
+                          toast(`${m.name} wurde entfernt`);
+                        }}
+                      >
+                        <button
+                          type="button"
+                          aria-label={`${m.name} entfernen`}
+                          className="inline-flex h-10 items-center gap-1 rounded-full border border-destructive/40 px-3 text-[13.5px] font-semibold text-destructive"
+                        >
+                          <UserMinus className="h-4 w-4" /> Entfernen
+                        </button>
+                      </Confirm>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={onShare}
+            className="mb-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[16px] font-semibold text-primary-foreground"
+          >
+            <Share2 className="h-4 w-4" /> Freunde einladen
+          </button>
+
+          <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+            <button type="button" onClick={onRename} className={row}>
+              <Pencil className="h-[18px] w-[18px] text-muted-foreground" />
+              <span className="flex-1">Meinen Namen ändern</span>
+              <span className="text-muted-foreground">{me?.name}</span>
+            </button>
+            <Confirm
+              title="Runde verlassen?"
+              text={
+                g.isOwner
+                  ? "Du hast die Runde erstellt. Wenn du gehst, übernimmt das älteste Mitglied."
+                  : "Du kannst später mit dem Code wieder anfragen."
+              }
+              action="Verlassen"
+              onConfirm={async () => {
+                await actions.leave();
+                toast("Runde verlassen");
+              }}
+            >
+              <button type="button" className={cn(row, "text-destructive")}>
+                <LogOut className="h-[18px] w-[18px]" />
+                <span className="flex-1">Runde verlassen</span>
+              </button>
+            </Confirm>
+            {g.isOwner && (
+              <Confirm
+                title="Runde für alle löschen?"
+                text="Die Runde, ihre Tabelle und alle Tipps darin verschwinden für alle Mitspieler."
+                action="Löschen"
+                onConfirm={async () => {
+                  await actions.remove();
+                  toast("Runde gelöscht");
+                }}
+              >
+                <button type="button" className={cn(row, "text-destructive")}>
+                  <Trash2 className="h-[18px] w-[18px]" />
+                  <span className="flex-1">Runde löschen</span>
+                </button>
+              </Confirm>
+            )}
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -718,16 +866,12 @@ function Confirm({
 function MemberDrawer({
   member,
   row,
-  canKick,
   onClose,
-  onKick,
   isVisible,
 }: {
   member: TipMember | null;
   row?: BoardRow;
-  canKick: boolean;
   onClose: () => void;
-  onKick: (m: TipMember) => Promise<void>;
   isVisible: (m: MatchView) => boolean;
 }) {
   const { matches } = useTournament();
@@ -787,21 +931,6 @@ function MemberDrawer({
                 );
               })}
             </ul>
-            {canKick && (
-              <Confirm
-                title={`${member.name} entfernen?`}
-                text="Die Person verschwindet aus der Tabelle und kann mit dem Code nicht wieder beitreten."
-                action="Entfernen"
-                onConfirm={() => onKick(member)}
-              >
-                <button
-                  type="button"
-                  className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-destructive/40 text-[15px] font-semibold text-destructive"
-                >
-                  <UserMinus className="h-4 w-4" /> Aus der Runde entfernen
-                </button>
-              </Confirm>
-            )}
           </div>
         )}
       </DrawerContent>
