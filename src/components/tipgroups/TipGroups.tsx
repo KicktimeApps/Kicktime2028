@@ -17,6 +17,12 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Flag } from "@/components/team/Flag";
+import {
+  FormSheet,
+  FormSheetContent,
+  FormSheetDescription,
+  FormSheetTitle,
+} from "@/components/common/FormSheet";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { canPredict, CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
@@ -344,19 +350,19 @@ export function GroupFormDrawer({
     (mode === "create" ? groupName.trim().length >= 2 : normalizeCode(code).length === 6);
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} shouldScaleBackground={false}>
-      <DrawerContent className="mx-auto max-w-lg border-border bg-background">
+    <FormSheet open={open} onOpenChange={onOpenChange}>
+      <FormSheetContent>
         <form
-          className="space-y-4 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3"
+          className="space-y-4 pr-8"
           onSubmit={(e) => {
             e.preventDefault();
             if (valid && !busy) void submit();
           }}
         >
-          <DrawerTitle className="font-display text-2xl font-bold uppercase">
+          <FormSheetTitle className="font-display text-2xl font-bold uppercase">
             {mode === "create" ? "Tipprunde erstellen" : "Tipprunde beitreten"}
-          </DrawerTitle>
-          <DrawerDescription className="text-[14px] text-muted-foreground">
+          </FormSheetTitle>
+          <FormSheetDescription className="text-[14px] text-muted-foreground">
             {mode === "create"
               ? "Du bekommst einen Code, den du an Freunde schickst. Ohne Anmeldung."
               : "Gib den Code ein, den du bekommen hast. Ohne Anmeldung."}
@@ -365,7 +371,7 @@ export function GroupFormDrawer({
                 ? " Vorschau: Die Runde gibt es nur auf diesem Gerät."
                 : " Vorschau: Jeder 6-stellige Code klappt – du triffst ausgedachte Mitspieler.")}
             {mode === "join" && " Der Ersteller der Runde muss dich danach noch annehmen."}
-          </DrawerDescription>
+          </FormSheetDescription>
           {mode === "create" ? (
             <Field
               label="Name der Runde"
@@ -407,8 +413,8 @@ export function GroupFormDrawer({
             {mode === "create" ? "Runde erstellen" : "Beitreten"}
           </button>
         </form>
-      </DrawerContent>
-    </Drawer>
+      </FormSheetContent>
+    </FormSheet>
   );
 }
 

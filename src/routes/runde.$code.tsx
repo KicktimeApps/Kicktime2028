@@ -40,6 +40,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  FormSheet,
+  FormSheetContent,
+  FormSheetDescription,
+  FormSheetTitle,
+} from "@/components/common/FormSheet";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { teamDisplay } from "@/domain/labels";
 import { buildBoard, scorePrediction, type BoardRow } from "@/domain/predictions";
@@ -959,11 +965,11 @@ function RenameDrawer({
     }
   }, [open, current]);
   return (
-    <Drawer open={open} onOpenChange={(v) => !v && onClose()} shouldScaleBackground={false}>
-      <DrawerContent className="mx-auto max-w-lg border-border bg-background">
+    <FormSheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <FormSheetContent>
         <form
           key={String(open)}
-          className="space-y-4 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3"
+          className="space-y-4 pr-8"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -979,10 +985,12 @@ function RenameDrawer({
             }
           }}
         >
-          <DrawerTitle className="font-display text-2xl font-bold uppercase">
+          <FormSheetTitle className="font-display text-2xl font-bold uppercase">
             Namen ändern
-          </DrawerTitle>
-          <DrawerDescription className="sr-only">Neuer Name in dieser Runde</DrawerDescription>
+          </FormSheetTitle>
+          <FormSheetDescription className="sr-only">
+            Neuer Name in dieser Runde
+          </FormSheetDescription>
           <input
             defaultValue={current}
             onChange={(e) => setName(e.target.value)}
@@ -999,7 +1007,7 @@ function RenameDrawer({
             Speichern
           </button>
         </form>
-      </DrawerContent>
-    </Drawer>
+      </FormSheetContent>
+    </FormSheet>
   );
 }
