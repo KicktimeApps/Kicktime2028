@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, Loader2, Lock, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Loader2, Lock, Save, Target } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSpoiler } from "@/components/match/useSpoiler";
@@ -156,6 +156,15 @@ export function MatchdayTips({
 
   return (
     <section className="mb-7">
+      {/* Wofür gilt der Tipp? Dezent, aber direkt über den Spielen. */}
+      {ctx.kind === "group" && (
+        <div className="mb-2 flex justify-center">
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-primary/12 px-3 py-1 text-[13px] font-semibold text-primary">
+            <Target className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Tipps für „{ctx.label}“</span>
+          </span>
+        </div>
+      )}
       {/* Spieltag wählen */}
       <div className="mb-3 flex items-center gap-2">
         <button
@@ -244,10 +253,13 @@ export function MatchdayTips({
             type="button"
             disabled={busy || ready.length === 0}
             onClick={saveAll}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-[16px] font-semibold text-primary-foreground shadow-lg shadow-black/20 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3.5 text-[16px] font-semibold text-primary-foreground shadow-lg shadow-black/20 disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {ready.length <= 1 ? "Tipp speichern" : `${ready.length} Tipps speichern`}
+            <span className="truncate">
+              {ready.length <= 1 ? "Tipp" : `${ready.length} Tipps`}
+              {ctx.kind === "group" ? ` für „${ctx.label}“` : ""} speichern
+            </span>
           </button>
         </div>
       )}

@@ -13,7 +13,6 @@ import {
   Pencil,
   Settings,
   Share2,
-  Target,
   Trash2,
   UserMinus,
   UserPlus,
@@ -508,15 +507,8 @@ function BoardView({
 
       {tab === "tippen" ? (
         <>
-          {/* Klein, aber unübersehbar: Wofür gilt der Tipp? */}
-          <p className="mb-3 flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-[14px] font-medium text-primary-foreground">
-            <Target className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 truncate">
-              Du tippst für <strong>„{g.name}“</strong>
-            </span>
-          </p>
           {demo && (
-            <p className="-mt-1.5 mb-3 px-1 text-[12.5px] text-muted-foreground">
+            <p className="-mt-1 mb-3 px-1 text-[12.5px] text-muted-foreground">
               Vorschau: Die Runde ist echt, Ergebnisse und Punkte sind simuliert.
             </p>
           )}
