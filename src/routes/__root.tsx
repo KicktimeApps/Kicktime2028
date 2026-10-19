@@ -18,6 +18,8 @@ import { ChampionCelebration } from "@/components/tournament/ChampionCelebration
 import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
 import { logError } from "@/lib/error-log";
+// Früh mithören: Android meldet die Installierbarkeit oft schon beim Laden.
+import "@/lib/install";
 import { sendPing } from "@/lib/telemetry";
 import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";

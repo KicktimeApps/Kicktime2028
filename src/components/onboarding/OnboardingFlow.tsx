@@ -7,16 +7,30 @@ import { Flag } from "@/components/team/Flag";
 import { TeamPicker } from "@/components/team/TeamPicker";
 import { Switch } from "@/components/ui/switch";
 import { formatDate } from "@/domain/time";
+import { shouldOfferInstall, useInstallPrompt } from "@/lib/install";
 import { cn } from "@/lib/utils";
 import { useAppStore, useTimeZone } from "@/store/app-store";
 import { TOURNAMENT } from "@/tournament/config";
 import { getNation } from "@/tournament/nations";
+import { InstallStep } from "./InstallStep";
 
-const STEPS = ["Willkommen", "Teams", "Zeit", "Fertig"] as const;
+type StepId = "welcome" | "install" | "teams" | "time" | "done";
 
 export function OnboardingFlow() {
+  // Installieren nur im Browser auf Handy/Tablet – und gleich am Anfang, weil die
+  // Home-Bildschirm-App auf dem iPhone getrennt von Safari speichert.
+  const [steps] = useState<StepId[]>(() => [
+    "welcome",
+    ...(shouldOfferInstall() ? (["install"] as const) : []),
+    "teams",
+    "time",
+    "done",
+  ]);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
+  const installPrompt = useInstallPrompt();
+  const current = steps[step];
+  const last = step === steps.length - 1;
   const favorites = useAppStore((s) => s.favorites);
   const interesting = useAppStore((s) => s.interesting);
   const complete = useAppStore((s) => s.completeOnboarding);
@@ -41,7 +55,7 @@ export function OnboardingFlow() {
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="flex flex-1 gap-1.5">
-              {STEPS.slice(1).map((s, i) => (
+              {steps.slice(1).map((s, i) => (
                 <span
                   key={s}
                   className={cn(
@@ -52,7 +66,7 @@ export function OnboardingFlow() {
               ))}
             </div>
             <span className="w-9 text-right text-[12px] font-medium text-muted-foreground tabular">
-              {step}/{STEPS.length - 1}
+              {step}/{steps.length - 1}
             </span>
           </div>
         )}
@@ -67,8 +81,9 @@ export function OnboardingFlow() {
             transition={{ duration: 0.22, ease: "easeOut" }}
             className="flex-1"
           >
-            {step === 0 && <Welcome onStart={() => go(1)} />}
-            {step === 1 && (
+            {current === "welcome" && <Welcome onStart={() => go(1)} />}
+            {current === "install" && <InstallStep />}
+            {current === "teams" && (
               <>
                 <StepTitle
                   icon={<Users />}
@@ -78,35 +93,49 @@ export function OnboardingFlow() {
                 <TeamPicker />
               </>
             )}
-            {step === 2 && <TimeStep />}
-            {step === 3 && <Done />}
+            {current === "time" && <TimeStep />}
+            {current === "done" && <Done />}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {step > 0 && (
+      {current === "install" && installPrompt !== "installed" && (
+        <div className="safe-bottom fixed inset-x-0 bottom-0 border-t border-border/70 bg-background/90 backdrop-blur-md">
+          <div className="mx-auto flex max-w-xl justify-center px-5 py-3">
+            <button
+              type="button"
+              onClick={() => go(step + 1)}
+              className="inline-flex h-11 items-center gap-1.5 px-3 text-[13.5px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Ohne Installieren weiter <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step > 0 && (current !== "install" || installPrompt === "installed") && (
         <div className="safe-bottom fixed inset-x-0 bottom-0 border-t border-border/70 bg-background/90 backdrop-blur-md">
           <div className="mx-auto flex max-w-xl items-center gap-3 px-5 py-3">
-            {step === 1 && (
+            {current === "teams" && (
               <span className="flex-1 text-[13px] text-muted-foreground">
                 {teamCount === 0
                   ? "Mindestens ein Team wählen"
                   : `${teamCount} ${teamCount === 1 ? "Team" : "Teams"} gewählt`}
               </span>
             )}
-            {step === 2 && (
+            {current === "time" && (
               <span className="flex-1 text-[13px] text-muted-foreground">
                 Später jederzeit änderbar
               </span>
             )}
-            {step === 3 && <span className="flex-1" />}
+            {(current === "done" || current === "install") && <span className="flex-1" />}
             <button
               type="button"
-              disabled={step === 1 && teamCount === 0}
-              onClick={() => (step < 3 ? go(step + 1) : complete())}
+              disabled={current === "teams" && teamCount === 0}
+              onClick={() => (last ? complete() : go(step + 1))}
               className="inline-flex h-12 items-center gap-2 rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity disabled:opacity-40"
             >
-              {step < 3 ? "Weiter" : "Los geht's"} <ArrowRight className="h-4 w-4" />
+              {last ? "Los geht's" : "Weiter"} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
