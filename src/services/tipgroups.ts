@@ -15,6 +15,10 @@ export type TipGroup = {
   name: string;
   isOwner: boolean;
   members: number;
+  /** Beitrittsanfrage gestellt, der Ersteller hat noch nicht angenommen. */
+  pending?: boolean;
+  /** Offene Beitrittsanfragen (nur für den Ersteller). */
+  requests?: number;
 };
 
 export type TipMember = {
@@ -27,9 +31,13 @@ export type TipMember = {
   tips: Record<string, Pick<Score, "home" | "away">>;
 };
 
+export type TipRequest = { id: string; name: string };
+
 export type TipBoard = {
   group: { id: string; code: string; name: string; isOwner: boolean };
   members: TipMember[];
+  /** Offene Beitrittsanfragen – nur der Ersteller bekommt sie. */
+  requests?: TipRequest[];
 };
 
 /** Serverfehler → verständlicher deutscher Text. */
@@ -47,6 +55,7 @@ const MESSAGES: [string, string][] = [
   ["match started", "Das Spiel hat schon begonnen – Tippen ist nicht mehr möglich."],
   ["champion locked", "Das Eröffnungsspiel hat begonnen – der Europameister-Tipp ist fest."],
   ["unknown match", "Dieses Spiel kennt der Server noch nicht."],
+  ["pending", "Der Ersteller der Runde muss dich noch annehmen."],
 ];
 
 export class TipError extends Error {
@@ -81,7 +90,7 @@ export const createGroup = (groupName: string, player: string) =>
   });
 
 export const joinGroup = (code: string, player: string) =>
-  rpc<{ id: string; code: string; name: string }>("kt_tip_join", {
+  rpc<{ id: string; code: string; name: string; pending?: boolean }>("kt_tip_join", {
     p_code: code,
     p_player: player,
   });
@@ -92,6 +101,10 @@ export const kickMember = (groupId: string, memberId: string) =>
   rpc<null>("kt_tip_kick", { p_group: groupId, p_member: memberId });
 export const renameMe = (groupId: string, player: string) =>
   rpc<null>("kt_tip_rename", { p_group: groupId, p_player: player });
+
+/** Beitrittsanfrage annehmen oder ablehnen (nur Ersteller). */
+export const answerRequest = (groupId: string, memberId: string, accept: boolean) =>
+  rpc<null>("kt_tip_answer", { p_group: groupId, p_member: memberId, p_accept: accept });
 
 export const myGroups = () => rpc<TipGroup[]>("kt_tip_my_groups", {});
 export const loadBoard = (groupId: string) => rpc<TipBoard>("kt_tip_board", { p_group: groupId });

@@ -285,6 +285,15 @@ export const useAppStore = create<State & Actions>()(
           merged.availability = DEFAULT_AVAILABILITY;
         }
         if (merged.demo?.enabled) merged.demo = { ...merged.demo, startedAt: Date.now() };
+        // Vorschau-Runden aus älteren Versionen (anderes Format) ergänzen.
+        merged.demoGroups = (Array.isArray(merged.demoGroups) ? merged.demoGroups : []).map(
+          (g) => ({
+            ...g,
+            members: Array.isArray(g.members) ? g.members : [],
+            requests: Array.isArray(g.requests) ? g.requests : [],
+            pending: !!g.pending,
+          }),
+        );
         return merged;
       },
     },
@@ -313,9 +322,12 @@ export type DemoGroup = {
   name: string;
   isOwner: boolean;
   myName: string;
-  /** Mit Code beigetreten → ausgedachte Mitspieler sind schon drin. */
-  withFriends: boolean;
-  kicked: string[];
+  /** Ausgedachte Mitspieler in der Runde (IDs). */
+  members: string[];
+  /** Ausgedachte Mitspieler, die beitreten möchten (nur eigene Runden). */
+  requests: string[];
+  /** Selbst beigetreten, aber noch nicht angenommen. */
+  pending: boolean;
 };
 
 /** Alles aus dem Vorschau-Modus entfernen (Tipps, Runden, deren Tipps). */

@@ -32,8 +32,8 @@ function TipsPage() {
       />
       {solo ? (
         <>
-          <TipPanel ctx={ctx} />
           <TipGroupsSection variant="solo" />
+          <TipPanel ctx={ctx} />
         </>
       ) : (
         <TipGroupsSection variant="hub" />

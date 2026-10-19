@@ -22,19 +22,28 @@ export function newDemoGroup(
     Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join(
       "",
     );
+  const join = mode === "join";
   return {
     id: `demo-${c}`,
     code: c,
-    name: mode === "create" ? name : `Runde ${c}`,
-    isOwner: mode === "create",
+    name: join ? `Runde ${c}` : name,
+    isOwner: !join,
     myName,
-    withFriends: mode === "join",
-    kicked: [],
+    // Beigetreten: Die anderen sind schon drin, man selbst wartet auf Freigabe.
+    // Erstellt: Zwei ausgedachte Freunde fragen an – zum Ausprobieren.
+    members: join ? PEOPLE.map((p) => p.id) : [],
+    requests: join ? [] : ["demo-lena", "demo-tom"],
+    pending: join,
   };
 }
 
 export function demoMemberCount(g: DemoGroup): number {
-  return 1 + (g.withFriends ? PEOPLE.filter((p) => !g.kicked.includes(p.id)).length : 0);
+  return 1 + g.members.length;
+}
+
+/** Name eines ausgedachten Mitspielers. */
+export function demoName(id: string): string {
+  return PEOPLE.find((p) => p.id === id)?.name ?? "Jemand";
 }
 
 const PEOPLE: { id: string; name: string; boldness: number; champion: string }[] = [
@@ -65,19 +74,18 @@ function tipFor(person: (typeof PEOPLE)[number], m: MatchView) {
  */
 export function demoBoard(matches: MatchView[], g: DemoGroup): TipBoard {
   const playable = matches.filter((m) => m.home && m.away && m.status !== "scheduled");
-  const others: TipMember[] = (g.withFriends ? PEOPLE : [])
-    .filter((p) => !g.kicked.includes(p.id))
-    .map((p, i) => ({
-      id: p.id,
-      name: p.name,
-      // Beigetreten: Die Runde gehört jemand anderem.
-      isOwner: !g.isOwner && i === 0,
-      isMe: false,
-      champion: playable.length > 0 ? p.champion : null,
-      tips: Object.fromEntries(playable.map((m) => [m.id, tipFor(p, m)])),
-    }));
+  const others: TipMember[] = PEOPLE.filter((p) => g.members.includes(p.id)).map((p) => ({
+    id: p.id,
+    name: p.name,
+    // Beigetreten: Die Runde gehört Oma Gerda.
+    isOwner: !g.isOwner && p.id === "demo-oma",
+    isMe: false,
+    champion: playable.length > 0 ? p.champion : null,
+    tips: Object.fromEntries(playable.map((m) => [m.id, tipFor(p, m)])),
+  }));
   return {
     group: { id: g.id, code: g.code, name: g.name, isOwner: g.isOwner },
+    requests: g.isOwner ? g.requests.map((id) => ({ id, name: demoName(id) })) : [],
     members: [
       {
         id: "demo-me",

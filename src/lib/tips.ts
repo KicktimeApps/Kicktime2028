@@ -18,8 +18,10 @@ type StoreState = ReturnType<typeof useAppStore.getState>;
 
 export function contextsOf(s: StoreState): TipContext[] {
   if (s.demo.enabled) {
-    if (s.demoGroups.length > 0)
-      return s.demoGroups.map((g) => ({ kind: "demo" as const, id: g.id, label: g.name }));
+    // Getippt wird nur in Runden, in denen man angenommen ist.
+    const joined = s.demoGroups.filter((g) => !g.pending);
+    if (joined.length > 0)
+      return joined.map((g) => ({ kind: "demo" as const, id: g.id, label: g.name }));
     return [{ kind: "solo", id: "solo", label: "Allein" }];
   }
   if (s.tipGroups.length > 0)

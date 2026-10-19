@@ -13,12 +13,17 @@ export function useMyGroups() {
     queryKey: TIP_GROUPS_KEY,
     enabled: isBackendConfigured() && !demo,
     staleTime: 30_000,
+    // Solange eine Anfrage offen ist, regelmäßig nachsehen, ob angenommen wurde.
+    refetchInterval: (q) => (q.state.data?.some((g) => g.pending) ? 30_000 : false),
     // Fehlt die Funktion auf dem Server (SQL-Update nicht ausgeführt), nicht
     // ständig nachfragen.
     retry: (count, err) => !(err instanceof TipError && err.notInstalled) && count < 2,
     queryFn: async (): Promise<TipGroup[]> => {
       const list = await myGroups();
-      setTipGroups(list.map(({ id, code, name }) => ({ id, code, name })));
+      // Getippt wird nur in Runden, in denen man angenommen ist.
+      setTipGroups(
+        list.filter((g) => !g.pending).map(({ id, code, name }) => ({ id, code, name })),
+      );
       return list;
     },
   });

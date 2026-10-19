@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
+  Check,
   ChevronLeft,
+  Hourglass,
   Copy,
   Crown,
   Eye,
@@ -12,6 +14,8 @@ import {
   Target,
   Trash2,
   UserMinus,
+  UserPlus,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -43,6 +47,7 @@ import type { MatchView } from "@/domain/types";
 import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
 import {
+  answerRequest,
   deleteGroup,
   inviteUrl,
   kickMember,
@@ -53,6 +58,7 @@ import {
   TipError,
   type TipBoard,
   type TipMember,
+  type TipRequest,
 } from "@/services/tipgroups";
 import { useAppStore, useTimeZone, type DemoGroup } from "@/store/app-store";
 import { useTournament } from "@/store/match-store";
@@ -81,7 +87,9 @@ function GroupPage() {
         <ChevronLeft className="h-5 w-5" /> Tipps
       </Link>
       {demo ? (
-        demoGroup ? (
+        demoGroup?.pending ? (
+          <DemoPending group={demoGroup} />
+        ) : demoGroup ? (
           <DemoBoard group={demoGroup} />
         ) : (
           <JoinInvite code={code} />
@@ -92,6 +100,8 @@ function GroupPage() {
         <p className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Lade …
         </p>
+      ) : group?.pending ? (
+        <PendingView name={group.name} code={group.code} onWithdraw={() => leaveGroup(group.id)} />
       ) : group ? (
         <ServerBoard groupId={group.id} />
       ) : (
@@ -118,7 +128,8 @@ function JoinInvite({ code }: { code: string }) {
       <div className="rounded-2xl border border-border bg-card p-5 text-center">
         <p className="text-[16px]">Du wurdest zu einer Tipprunde eingeladen.</p>
         <p className="mt-1 text-[14px] text-muted-foreground">
-          Wähle einen Namen – dann siehst du die gemeinsame Tabelle. Ohne Anmeldung.
+          Wähle einen Namen und schick eine Anfrage. Sobald der Ersteller dich annimmt, tippst du
+          mit. Ohne Anmeldung.
         </p>
         <button
           type="button"
@@ -133,6 +144,131 @@ function JoinInvite({ code }: { code: string }) {
   );
 }
 
+/** Anfrage gestellt – wartet auf den Ersteller. */
+function PendingView({
+  name,
+  code,
+  onWithdraw,
+}: {
+  name: string;
+  code: string;
+  onWithdraw: () => Promise<unknown>;
+}) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  return (
+    <>
+      <PageHeader eyebrow="Tipprunde" title={name} subtitle={`Code ${code}`} />
+      <div className="rounded-2xl border border-gold/40 bg-gold/10 p-5 text-center">
+        <Hourglass className="mx-auto h-8 w-8 text-gold" />
+        <p className="mt-2 text-[17px] font-semibold">Wartet auf Freigabe</p>
+        <p className="mt-1 text-[14px] text-muted-foreground">
+          Deine Anfrage ist angekommen. Sobald der Ersteller der Runde dich annimmt, kannst du hier
+          tippen und siehst die Tabelle. Deine bisherigen Tipps sind schon dabei.
+        </p>
+      </div>
+      <Confirm
+        title="Anfrage zurückziehen?"
+        text="Du kannst später mit dem Code erneut anfragen."
+        action="Zurückziehen"
+        onConfirm={async () => {
+          await onWithdraw();
+          await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
+          toast("Anfrage zurückgezogen");
+          navigate({ to: "/tipps" });
+        }}
+      >
+        <button
+          type="button"
+          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full border border-border bg-card text-[15px] font-semibold text-muted-foreground"
+        >
+          Anfrage zurückziehen
+        </button>
+      </Confirm>
+    </>
+  );
+}
+
+/** Vorschau: wie in echt warten – nach ein paar Sekunden nimmt Oma Gerda an. */
+function DemoPending({ group: g }: { group: DemoGroup }) {
+  const update = useAppStore((s) => s.updateDemoGroup);
+  const removeGroup = useAppStore((s) => s.removeDemoGroup);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      update(g.id, { pending: false });
+      toast.success(`Oma Gerda hat dich in „${g.name}“ angenommen`, {
+        description: "Vorschau: In echt entscheidet der Ersteller der Runde.",
+      });
+    }, 5000);
+    return () => window.clearTimeout(t);
+  }, [g.id, g.name, update]);
+  return <PendingView name={g.name} code={g.code} onWithdraw={async () => removeGroup(g.id)} />;
+}
+
+/** Beitrittsanfragen – nur der Ersteller sieht sie, gut sichtbar oben. */
+function RequestsCard({
+  requests,
+  onAnswer,
+}: {
+  requests: TipRequest[];
+  onAnswer: (r: TipRequest, accept: boolean) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  if (requests.length === 0) return null;
+  const answer = async (r: TipRequest, accept: boolean) => {
+    setBusy(r.id);
+    try {
+      await onAnswer(r, accept);
+      toast(accept ? `${r.name} ist jetzt dabei` : `Anfrage von ${r.name} abgelehnt`);
+    } catch (err) {
+      toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <section className="mb-5 rounded-2xl border border-gold/40 bg-gold/10 p-4">
+      <h2 className="flex items-center gap-2 text-[16px] font-bold">
+        <UserPlus className="h-5 w-5 text-gold" />
+        {requests.length === 1 ? "1 Beitrittsanfrage" : `${requests.length} Beitrittsanfragen`}
+      </h2>
+      <p className="mt-0.5 text-[13px] text-muted-foreground">
+        Nur du als Ersteller siehst das. Erst wen du annimmst, tippt mit.
+      </p>
+      <ul className="mt-3 space-y-2">
+        {requests.map((r) => (
+          <li key={r.id} className="flex items-center gap-2 rounded-xl bg-card px-3 py-2">
+            <span className="min-w-0 flex-1 truncate text-[16px] font-semibold">{r.name}</span>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => answer(r, false)}
+              aria-label={`${r.name} ablehnen`}
+              className="inline-flex h-11 items-center justify-center gap-1 rounded-full border border-border px-3.5 text-[14px] font-semibold text-muted-foreground disabled:opacity-50"
+            >
+              <X className="h-4 w-4" /> Ablehnen
+            </button>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => answer(r, true)}
+              aria-label={`${r.name} annehmen`}
+              className="inline-flex h-11 items-center justify-center gap-1 rounded-full bg-primary px-3.5 text-[14px] font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              {busy === r.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              Annehmen
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
 type BoardActions = {
@@ -142,6 +278,7 @@ type BoardActions = {
   leave: () => Promise<void>;
   remove: () => Promise<void>;
   rename: (name: string) => Promise<void>;
+  answer: (r: TipRequest, accept: boolean) => Promise<void>;
 };
 
 /** Echte Runde: Daten vom Server, Aktionen über die RPC-Funktionen. */
@@ -208,6 +345,11 @@ function ServerBoard({ groupId }: { groupId: string }) {
           await deleteGroup(groupId);
           await afterLeave();
         },
+        answer: async (r, accept) => {
+          await answerRequest(groupId, r.id, accept);
+          await refetch();
+          await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
+        },
         rename: async (name) => {
           await renameMe(groupId, name);
           useAppStore.getState().setTipName(name);
@@ -239,7 +381,12 @@ function DemoBoard({ group: g }: { group: DemoGroup }) {
       context={{ kind: "demo", id: g.id, label: g.name }}
       actions={{
         demo: true,
-        kick: async (m) => update(g.id, { kicked: [...g.kicked, m.id] }),
+        kick: async (m) => update(g.id, { members: g.members.filter((id) => id !== m.id) }),
+        answer: async (r, accept) =>
+          update(g.id, {
+            requests: g.requests.filter((id) => id !== r.id),
+            members: accept ? [...g.members, r.id] : g.members,
+          }),
         leave,
         remove: leave,
         rename: async (name) => update(g.id, { myName: name }),
@@ -338,6 +485,8 @@ function BoardView({
         }
         action={<RulesButton />}
       />
+
+      {g.isOwner && <RequestsCard requests={data.requests ?? []} onAnswer={actions.answer} />}
 
       <Segmented<"tippen" | "tabelle">
         size="lg"

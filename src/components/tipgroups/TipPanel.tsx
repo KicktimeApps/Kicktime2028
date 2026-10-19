@@ -316,11 +316,12 @@ function CopyTips({ ctx, tips }: { ctx: TipContext; tips: Record<string, Predict
   const { matches } = useTournament();
   const now = useNow();
   const groups = useAppStore((s) => (ctx.kind === "demo" ? s.demoGroups : s.tipGroups));
+  // (tipGroups enthält nur angenommene Runden; Vorschau-Runden filtern wir hier.)
   const groupTips = useAppStore((s) => s.groupTips);
   const [busy, setBusy] = useState<string | null>(null);
   const open = matches.filter((m) => m.home && m.away && canPredict(m, now) && !tips[m.id]);
   const sources = groups
-    .filter((g) => g.id !== ctx.id)
+    .filter((g) => g.id !== ctx.id && !("pending" in g && g.pending))
     .map((g) => ({
       g,
       list: open
