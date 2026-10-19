@@ -149,11 +149,15 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
   const tips = useContextTips(ctx);
   const [filter, setFilter] = useState<Filter>("open");
 
+  // In einer Runde zählen alle Spiele – dort gibt es keinen Filter „Meine Teams“
+  // und alle offenen Spiele stehen zum Tippen da.
+  const inRound = ctx.kind !== "solo";
   const tippable = useMemo(() => {
     const list = matches.filter((m) => canPredict(m, now) && m.home && m.away);
+    if (inRound) return list;
     const filtered = filter === "mine" ? list.filter((m) => recommend(m, prefs).mine) : list;
     return filtered.slice(0, 12);
-  }, [matches, now, filter, prefs]);
+  }, [matches, now, filter, prefs, inRound]);
   const openCount = useMemo(
     () => matches.filter((m) => canPredict(m, now) && m.home && m.away && !tips[m.id]).length,
     [matches, now, tips],
@@ -193,16 +197,18 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
                 : undefined
             }
             action={
-              <Segmented<Filter>
-                size="sm"
-                className="w-40"
-                value={filter}
-                onChange={setFilter}
-                options={[
-                  { value: "open", label: "Alle" },
-                  { value: "mine", label: "Meine Teams" },
-                ]}
-              />
+              !inRound && (
+                <Segmented<Filter>
+                  size="sm"
+                  className="w-40"
+                  value={filter}
+                  onChange={setFilter}
+                  options={[
+                    { value: "open", label: "Alle" },
+                    { value: "mine", label: "Meine Teams" },
+                  ]}
+                />
+              )
             }
           >
             {tippable.length === 0 ? (
