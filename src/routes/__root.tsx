@@ -91,6 +91,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // rutscht unter die Statusleiste und wird dort weichgezeichnet. Ohne die
       // Tags gilt das Manifest (display: standalone) – wie bei KickTime 2026.
       { name: "theme-color", content: "#0b1122" },
+      // Vorschlag für den Namen auf dem Home-Bildschirm (iPhone)
+      { name: "apple-mobile-web-app-title", content: `KickTime ${TOURNAMENT.year}` },
+      { name: "application-name", content: `KickTime ${TOURNAMENT.year}` },
       { property: "og:site_name", content: `KickTime ${TOURNAMENT.year}` },
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },
