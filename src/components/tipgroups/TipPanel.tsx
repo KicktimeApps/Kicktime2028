@@ -150,12 +150,12 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
   return (
     <>
       {showStats && <Stats tips={tips} />}
-      <ChampionTipCard context={ctx} />
       {!anyTeams ? (
         <EmptyState
           icon={<Target />}
           title="Tippen startet nach der Auslosung"
           text="Sobald die Paarungen feststehen, kannst du hier jedes Spiel bis zum Anpfiff tippen."
+          className="mb-6"
         />
       ) : (
         <>
@@ -163,6 +163,11 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
           <MatchdayTips ctx={ctx} matches={matches} tips={tips} />
         </>
       )}
+      {/* Bonustipp unter den Spielen – oben stehen die Spieltage im Mittelpunkt. */}
+      <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        Bonustipp
+      </h2>
+      <ChampionTipCard context={ctx} />
     </>
   );
 }
