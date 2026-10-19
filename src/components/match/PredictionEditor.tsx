@@ -231,43 +231,45 @@ export function PredictionEditor({
         </button>
       )}
 
-      <div className="mt-2 flex min-h-6 items-center justify-between text-[12.5px] text-muted-foreground">
-        {result ? (
-          <span
-            className={cn(
-              "font-semibold",
-              result.points > 0 ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            <Target className="mr-1 inline h-3.5 w-3.5" />
-            {RESULT_LABEL[result.result]} · +{result.points} Punkte
-          </span>
-        ) : open ? (
-          <span className={cn(dirty && "font-semibold text-gold")}>
-            {dirty ? "Noch nicht gespeichert" : saved ? "Änderbar bis Anpfiff" : "Mit + tippen"}
-          </span>
-        ) : saved ? (
-          <span>Tipp abgegeben · wird nach Spielende gewertet</span>
-        ) : null}
-        {saved && open && !dirty && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={async () => {
-              const before = { home: saved.home, away: saved.away };
-              if (!(await persist(null))) return;
-              toast("Tipp gelöscht", {
-                duration: 6000,
-                description: `${a.name} ${before.home}:${before.away} ${b.name}`,
-                action: { label: "Rückgängig", onClick: () => void persist(before) },
-              });
-            }}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:text-foreground"
-          >
-            <Trash2 className="h-3 w-3" /> Löschen
-          </button>
-        )}
-      </div>
+      {(result || saved || dirty) && (
+        <div className="mt-2 flex min-h-6 items-center justify-between text-[12.5px] text-muted-foreground">
+          {result ? (
+            <span
+              className={cn(
+                "font-semibold",
+                result.points > 0 ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Target className="mr-1 inline h-3.5 w-3.5" />
+              {RESULT_LABEL[result.result]} · +{result.points} Punkte
+            </span>
+          ) : open ? (
+            <span className={cn(dirty && "font-semibold text-gold")}>
+              {dirty ? "Noch nicht gespeichert" : "Änderbar bis Anpfiff"}
+            </span>
+          ) : saved ? (
+            <span>Tipp abgegeben · wird nach Spielende gewertet</span>
+          ) : null}
+          {saved && open && !dirty && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => {
+                const before = { home: saved.home, away: saved.away };
+                if (!(await persist(null))) return;
+                toast("Tipp gelöscht", {
+                  duration: 6000,
+                  description: `${a.name} ${before.home}:${before.away} ${b.name}`,
+                  action: { label: "Rückgängig", onClick: () => void persist(before) },
+                });
+              }}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:text-foreground"
+            >
+              <Trash2 className="h-3 w-3" /> Löschen
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
