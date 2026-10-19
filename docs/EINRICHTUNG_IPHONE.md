@@ -195,6 +195,7 @@ ohne sie weiter (mit dem alten Verhalten), aber mit Update sind sie sicherer und
 | Tipps pro Runde      | `supabase/migrations/20261019120000_tipps_pro_runde.sql`     | –                              |
 | Beitrittsanfragen    | `supabase/migrations/20261019180000_beitrittsanfragen.sql`   | –                              |
 | Push bei Anfrage     | `supabase/migrations/20261020090000_anfrage_push.sql`        | `admin`, `send-push-reminders` |
+| Push-Absicherung     | `supabase/migrations/20261020120000_push_absicherung.sql`    | –                              |
 
 Edge Function neu einfügen: **Edge Functions** → Funktion öffnen → **Code** → alles ersetzen
 → **Deploy**. Danach prüfen, dass „Verify JWT“ aus ist.
