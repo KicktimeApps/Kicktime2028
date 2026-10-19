@@ -95,8 +95,18 @@ export const joinGroup = (code: string, player: string) =>
     p_player: player,
   });
 
-export const leaveGroup = (groupId: string) => rpc<null>("kt_tip_leave", { p_group: groupId });
-export const deleteGroup = (groupId: string) => rpc<null>("kt_tip_delete", { p_group: groupId });
+/** Selbst verlassene/gelöschte Runden – deren Verschwinden ist kein „Rauswurf“. */
+const leftByMe = new Set<string>();
+export const wasLeftByMe = (groupId: string) => leftByMe.has(groupId);
+
+export const leaveGroup = (groupId: string) => {
+  leftByMe.add(groupId);
+  return rpc<null>("kt_tip_leave", { p_group: groupId });
+};
+export const deleteGroup = (groupId: string) => {
+  leftByMe.add(groupId);
+  return rpc<null>("kt_tip_delete", { p_group: groupId });
+};
 export const kickMember = (groupId: string, memberId: string) =>
   rpc<null>("kt_tip_kick", { p_group: groupId, p_member: memberId });
 export const renameMe = (groupId: string, player: string) =>

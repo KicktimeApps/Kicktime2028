@@ -14,6 +14,7 @@ import { SPLASH_MS, SplashScreen } from "@/components/layout/SplashScreen";
 import { MatchSheet } from "@/components/match/MatchSheet";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { TeamSheet } from "@/components/team/TeamSheet";
+import { GroupNotice } from "@/components/tipgroups/GroupNotice";
 import { ChampionCelebration } from "@/components/tournament/ChampionCelebration";
 import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
@@ -206,6 +207,7 @@ function App() {
       <MatchSheet />
       <TeamSheet />
       <ChampionCelebration />
+      <GroupNotice />
     </AppShell>
   );
 }

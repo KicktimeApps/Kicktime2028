@@ -96,6 +96,15 @@ function GroupPage() {
     }
   }, [group]);
   const demoGroup = useAppStore((s) => s.demoGroups.find((g) => g.code === code));
+  // War man eben noch drin (verlassen, entfernt, Anfrage abgelehnt, Runde
+  // gelöscht)? Dann zurück zur Tipps-Seite statt zur Einladung.
+  const navigate = useNavigate();
+  const wasIn = useRef(false);
+  const inNow = demo ? !!demoGroup : !!group;
+  useEffect(() => {
+    if (inNow) wasIn.current = true;
+    else if (wasIn.current && (demo || !isLoading)) navigate({ to: "/tipps", replace: true });
+  }, [inNow, demo, isLoading, navigate]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -192,9 +201,9 @@ function PendingView({
         action="Zurückziehen"
         onConfirm={async () => {
           await onWithdraw();
-          await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
+          navigate({ to: "/tipps", replace: true });
           toast("Anfrage zurückgezogen");
-          navigate({ to: "/tipps" });
+          await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
         }}
       >
         <button
@@ -309,7 +318,14 @@ function ServerBoard({ groupId }: { groupId: string }) {
     queryFn: () => loadBoard(groupId),
     // Oft nachsehen, damit neue Anfragen und Mitglieder gleich erscheinen.
     refetchInterval: 10_000,
+    // Verweigert der Server (nicht mehr Mitglied), nicht erst mehrfach probieren.
+    retry: (count, err) => !(err instanceof TipError) && count < 2,
   });
+  // Tabelle verweigert (z. B. gerade entfernt) → Rundenliste sofort neu laden;
+  // die Seite springt dann zur Tipps-Seite und der Hinweis erscheint.
+  useEffect(() => {
+    if (error) void qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
+  }, [error, qc]);
   const cachedTips = useAppStore((s) => s.groupTips[groupId]);
   const cachedChampion = useAppStore((s) => s.groupChampion[groupId]);
   // Eigene Tipps dieser Runde vom Server in den Zwischenspeicher übernehmen.
@@ -339,8 +355,8 @@ function ServerBoard({ groupId }: { groupId: string }) {
     );
   }
   const afterLeave = async () => {
+    navigate({ to: "/tipps", replace: true });
     await qc.invalidateQueries({ queryKey: TIP_GROUPS_KEY });
-    navigate({ to: "/tipps" });
   };
   return (
     <BoardView
@@ -390,8 +406,8 @@ function DemoBoard({ group: g }: { group: DemoGroup }) {
   const myChampion = useAppStore((s) => s.groupChampion[g.id]) ?? null;
   const data = useMemo(() => demoBoard(matches, g), [matches, g]);
   const leave = async () => {
+    navigate({ to: "/tipps", replace: true });
     removeGroup(g.id);
-    navigate({ to: "/tipps" });
   };
   return (
     <BoardView

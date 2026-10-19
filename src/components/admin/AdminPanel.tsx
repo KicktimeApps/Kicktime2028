@@ -233,6 +233,7 @@ function DeleteAllGroups({ pin }: { pin: string }) {
       }
       serverCount = res.data.count;
       store.setTipGroups([]);
+      store.setSeenGroups([]);
       await qc.invalidateQueries();
     }
     setBusy(false);
