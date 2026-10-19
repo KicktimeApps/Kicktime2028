@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useSpoiler } from "./useSpoiler";
 import {
   saveTip,
+  tipsOf,
   useContextTips,
   useTipContext,
   useTipContexts,
@@ -63,8 +64,11 @@ function Stepper({
 }
 
 /** Zeigt, wofür getippt wird – bei mehreren Runden zum Umschalten. */
-export function TipContextBar({ className }: { className?: string }) {
+export function TipContextBar({ className, matchId }: { className?: string; matchId?: string }) {
   const contexts = useTipContexts();
+  const tipped = useAppStore((s) =>
+    matchId ? contexts.map((c) => !!tipsOf(s, c)[matchId]).join() : "",
+  ).split(",");
   const ctx = useTipContext();
   const setTipContext = useAppStore((s) => s.setTipContext);
   if (contexts.length <= 1) {
@@ -87,10 +91,11 @@ export function TipContextBar({ className }: { className?: string }) {
   return (
     <div className={className}>
       <div className="mb-1.5 text-[13px] text-muted-foreground">
-        <Users className="mr-1 inline h-3.5 w-3.5" /> Du tippst für:
+        <Users className="mr-1 inline h-3.5 w-3.5" /> Jede Runde wird einzeln getippt. Du tippst
+        für:
       </div>
       <div role="tablist" aria-label="Tipprunde wählen" className="flex flex-wrap gap-1.5">
-        {contexts.map((c) => (
+        {contexts.map((c, i) => (
           <button
             key={c.id}
             type="button"
@@ -105,6 +110,9 @@ export function TipContextBar({ className }: { className?: string }) {
             )}
           >
             {c.label}
+            {tipped[i] === "true" && (
+              <Check className="ml-1 inline h-3.5 w-3.5" aria-label="getippt" />
+            )}
           </button>
         ))}
       </div>
@@ -187,7 +195,7 @@ export function PredictionEditor({
 
   return (
     <div>
-      {showContext && <TipContextBar className="mb-3" />}
+      {showContext && <TipContextBar className="mb-3" matchId={m.id} />}
       {open ? (
         <div className="flex items-center justify-center gap-4">
           <Stepper

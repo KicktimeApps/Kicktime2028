@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Check,
@@ -26,6 +26,7 @@ import {
   createGroup,
   importTips,
   joinGroup,
+  loadBoard,
   normalizeCode,
   setGroupChampion,
   TipError,
@@ -369,8 +370,10 @@ export function GroupFormDrawer({
 function useOpenWithoutTip(tips: Record<string, unknown> | undefined): number | null {
   const { matches } = useTournament();
   const now = useNow();
-  if (!tips) return null;
-  return matches.filter((m) => m.home && m.away && canPredict(m, now) && !tips[m.id]).length;
+  const open = matches.filter((m) => m.home && m.away && canPredict(m, now));
+  // Noch nichts zu tippen (z. B. vor der Auslosung): keine Anzeige.
+  if (!tips || open.length === 0) return null;
+  return open.filter((m) => !tips[m.id]).length;
 }
 
 function RoundCard({
@@ -412,11 +415,16 @@ function RoundCard({
           {owner && <Crown className="h-4 w-4 shrink-0 text-gold" aria-label="von dir erstellt" />}
         </span>
         <span className="block text-[13px] text-muted-foreground">{sub}</span>
-        {open !== null && open > 0 && (
-          <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[12px] font-semibold text-gold">
-            {open} {open === 1 ? "Spiel" : "Spiele"} noch ohne Tipp
-          </span>
-        )}
+        {open !== null &&
+          (open > 0 ? (
+            <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[12px] font-semibold text-gold">
+              {open} {open === 1 ? "Spiel" : "Spiele"} noch ohne Tipp
+            </span>
+          ) : (
+            <span className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-primary">
+              <Check className="h-3.5 w-3.5" /> Alles getippt
+            </span>
+          ))}
       </span>
       <ChevronRight className="h-5 w-5 shrink-0 text-primary" />
     </Link>
@@ -433,6 +441,22 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   const demoTips = useAppStore((s) => s.demoPredictions);
   const { data: groups, isLoading, isError, error } = useMyGroups();
   const [form, setForm] = useState<"create" | "join" | null>(null);
+  // Eigene Tipps aller Runden laden, damit jede Karte „noch ohne Tipp“ zeigen kann.
+  useQueries({
+    queries: (variant === "hub" && !demo ? (groups ?? []) : []).map((g) => ({
+      queryKey: ["tip-board", g.id],
+      queryFn: async () => {
+        const board = await loadBoard(g.id);
+        const me = board.members.find((m) => m.isMe);
+        if (me) {
+          useAppStore.getState().setGroupTips(g.id, me.tips);
+          useAppStore.getState().setGroupChampion(g.id, me.champion);
+        }
+        return board;
+      },
+      staleTime: 60_000,
+    })),
+  });
 
   // Ohne Server bzw. bevor die Tipprunde dort eingerichtet ist: ausblenden.
   if (!demo && (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)))
@@ -471,6 +495,12 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
         </div>
       ) : (
         <div className="mb-6 space-y-2.5">
+          {!demo && groups && groups.length > 1 && (
+            <p className="mb-1 rounded-2xl border border-primary/30 bg-primary/8 px-4 py-3 text-[14px]">
+              Du bist in <strong>{groups.length} Runden</strong>. Jede Runde hat eigene Tipps –
+              tippe in jeder Runde einzeln. Bereits getippte Spiele kannst du dort übernehmen.
+            </p>
+          )}
           {demo ? (
             <>
               <RoundCard

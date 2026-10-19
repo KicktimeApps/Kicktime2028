@@ -1,4 +1,5 @@
-import { CheckCircle2, Eye, Target, Trophy } from "lucide-react";
+import { CheckCircle2, ChevronDown, Copy, Eye, Loader2, Target, Trophy } from "lucide-react";
+import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Section } from "@/components/common/Section";
@@ -16,11 +17,12 @@ import {
   type PredictionResult,
 } from "@/domain/predictions";
 import { recommend } from "@/domain/recommend";
-import { formatDayShort, formatTime } from "@/domain/time";
+import { formatDayLong, formatDayShort, formatTime, localParts, relativeDay } from "@/domain/time";
 import type { MatchView } from "@/domain/types";
 import { usePrefs } from "@/hooks/usePrefs";
 import { useContextTips, type TipContext } from "@/lib/tips";
 import { cn } from "@/lib/utils";
+import { importTips, TipError } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
 import { useNow, useTournament } from "@/store/match-store";
 import { useUi } from "@/store/ui-store";
@@ -33,7 +35,7 @@ const RESULT_COLOR: Record<PredictionResult, string> = {
   miss: "bg-muted-foreground/30",
 };
 
-function MatchHead({ m }: { m: MatchView }) {
+function MatchHead({ m, day = true }: { m: MatchView; day?: boolean }) {
   const prefs = usePrefs();
   const openMatch = useUi((s) => s.openMatch);
   const a = teamDisplay(m.home, m.slotHome);
@@ -41,8 +43,8 @@ function MatchHead({ m }: { m: MatchView }) {
   return (
     <button type="button" onClick={() => openMatch(m.id)} className="block w-full text-left">
       <span className="block text-[13px] text-muted-foreground tabular">
-        {formatDayShort(m.kickoffUtc, prefs.timeZone)} · {formatTime(m.kickoffUtc, prefs.timeZone)}{" "}
-        Uhr
+        {day && `${formatDayShort(m.kickoffUtc, prefs.timeZone)} · `}
+        {formatTime(m.kickoffUtc, prefs.timeZone)} Uhr
       </span>
       <span className="mt-1 flex items-center gap-2">
         <Flag flag={a.flag} size="sm" />
@@ -148,6 +150,7 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
   const prefs = usePrefs();
   const tips = useContextTips(ctx);
   const [filter, setFilter] = useState<Filter>("open");
+  const [allRated, setAllRated] = useState(false);
 
   // In einer Runde zählen alle Spiele – dort gibt es keinen Filter „Meine Teams“
   // und alle offenen Spiele stehen zum Tippen da.
@@ -188,6 +191,7 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
         />
       ) : (
         <>
+          {ctx.kind === "group" && <CopyTips ctx={ctx} tips={tips} />}
           <Section
             title="Spiele tippen"
             icon={<Target />}
@@ -218,12 +222,22 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
                 text="Alle anstehenden Spiele sind getippt oder noch ohne Paarung."
               />
             ) : (
-              <div className="grid gap-2.5 lg:grid-cols-2">
-                {tippable.map((m) => (
-                  <div key={m.id} className="rounded-2xl border border-border bg-card px-4 py-3">
-                    <MatchHead m={m} />
-                    <div className="mt-2.5">
-                      <PredictionEditor match={m} context={ctx} showContext={false} />
+              <div className="space-y-5">
+                {byDay(tippable, now, prefs.timeZone).map((d) => (
+                  <div key={d.key}>
+                    <h3 className="mb-2 text-[15px] font-bold">{d.label}</h3>
+                    <div className="grid gap-2.5 lg:grid-cols-2">
+                      {d.items.map((m) => (
+                        <div
+                          key={m.id}
+                          className="rounded-2xl border border-border bg-card px-4 py-3"
+                        >
+                          <MatchHead m={m} day={false} />
+                          <div className="mt-2.5">
+                            <PredictionEditor match={m} context={ctx} showContext={false} />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -254,14 +268,115 @@ export function TipPanel({ ctx, showStats = true }: { ctx: TipContext; showStats
           {rated.length > 0 && (
             <Section title="Ausgewertet" icon={<Trophy />} count={rated.length}>
               <div className="space-y-2">
-                {rated.map((m) => (
+                {(allRated ? rated : rated.slice(0, 3)).map((m) => (
                   <RatedRow key={m.id} m={m} tip={tips[m.id]} />
                 ))}
               </div>
+              {rated.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setAllRated((v) => !v)}
+                  className="mt-2 inline-flex h-10 items-center gap-1 text-[14px] font-medium text-primary"
+                >
+                  {allRated ? "Weniger anzeigen" : `Alle ${rated.length} anzeigen`}
+                  <ChevronDown className={cn("h-4 w-4", allRated && "rotate-180")} />
+                </button>
+              )}
             </Section>
           )}
         </>
       )}
     </>
   );
+}
+
+/** Offene Spiele nach Tagen – mit „Heute“/„Morgen“ als Überschrift. */
+function byDay(list: MatchView[], now: number, tz: string) {
+  const days: { key: string; label: string; items: MatchView[] }[] = [];
+  for (const m of list) {
+    const key = localParts(m.kickoffUtc, tz).dayKey;
+    let d = days.find((x) => x.key === key);
+    if (!d) {
+      const rel = relativeDay(m.kickoffUtc, now, tz);
+      const long = formatDayLong(m.kickoffUtc, tz);
+      d = { key, label: rel ? `${rel}, ${long}` : long, items: [] };
+      days.push(d);
+    }
+    d.items.push(m);
+  }
+  return days;
+}
+
+/**
+ * Wer in mehreren Runden ist, muss jede einzeln tippen. Damit das nicht
+ * mühsam wird: offene Tipps aus einer anderen Runde mit einem Knopf
+ * übernehmen (vorhandene Tipps hier bleiben unverändert).
+ */
+function CopyTips({ ctx, tips }: { ctx: TipContext; tips: Record<string, Prediction> }) {
+  const { matches } = useTournament();
+  const now = useNow();
+  const groups = useAppStore((s) => s.tipGroups);
+  const groupTips = useAppStore((s) => s.groupTips);
+  const [busy, setBusy] = useState<string | null>(null);
+  const open = matches.filter((m) => m.home && m.away && canPredict(m, now) && !tips[m.id]);
+  const sources = groups
+    .filter((g) => g.id !== ctx.id)
+    .map((g) => ({
+      g,
+      list: open
+        .filter((m) => groupTips[g.id]?.[m.id])
+        .map((m) => ({ match_id: m.id, ...pick(groupTips[g.id][m.id]) })),
+    }))
+    .filter((x) => x.list.length > 0)
+    .slice(0, 3);
+  if (sources.length === 0) return null;
+  return (
+    <div className="mb-6 rounded-2xl border border-border bg-card p-4">
+      <p className="flex items-center gap-2 text-[15px] font-semibold">
+        <Copy className="h-4 w-4 text-primary" /> Schon in einer anderen Runde getippt?
+      </p>
+      <p className="mt-1 text-[13.5px] text-muted-foreground">
+        Jede Runde wird einzeln getippt. Du kannst deine Tipps von dort übernehmen und danach hier
+        noch ändern.
+      </p>
+      <div className="mt-3 space-y-2">
+        {sources.map(({ g, list }) => (
+          <button
+            key={g.id}
+            type="button"
+            disabled={busy !== null}
+            onClick={async () => {
+              setBusy(g.id);
+              try {
+                await importTips(ctx.id, list);
+                const store = useAppStore.getState();
+                const now2 = Date.now();
+                store.setGroupTips(ctx.id, {
+                  ...Object.fromEntries(
+                    list.map((t) => [t.match_id, { ...pick(t), createdAt: now2 }]),
+                  ),
+                  ...(store.groupTips[ctx.id] ?? {}),
+                });
+                toast.success(`${list.length} ${list.length === 1 ? "Tipp" : "Tipps"} übernommen`, {
+                  description: `aus „${g.name}“ für „${ctx.label}“`,
+                });
+              } catch (err) {
+                toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
+              } finally {
+                setBusy(null);
+              }
+            }}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 text-[15px] font-semibold text-primary disabled:opacity-50"
+          >
+            {busy === g.id && <Loader2 className="h-4 w-4 animate-spin" />}
+            {list.length} {list.length === 1 ? "Tipp" : "Tipps"} aus „{g.name}“ übernehmen
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function pick(t: { home: number; away: number }) {
+  return { home: t.home, away: t.away };
 }
