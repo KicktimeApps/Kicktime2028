@@ -1,11 +1,8 @@
-import { CalendarClock, Clock3, Eye, Star, Tv } from "lucide-react";
-import type { ReactNode } from "react";
-import { Chip } from "@/components/common/Chip";
+import { Clock3, Eye, Star, Tv } from "lucide-react";
 import { LiveDot } from "@/components/common/LiveDot";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
-import { REASON_LABEL, type Reason } from "@/domain/recommend";
-import { formatDayShort, formatTime, relativeDay, type Fit } from "@/domain/time";
+import { formatDayShort, formatTime, relativeDay } from "@/domain/time";
 import type { MatchView } from "@/domain/types";
 import { cn } from "@/lib/utils";
 import { useAppStore, useTimeZone } from "@/store/app-store";
@@ -18,25 +15,19 @@ import { phaseLabel } from "./phase";
 import { useSpoiler } from "./useSpoiler";
 
 /**
- * Einheitliche Spielkarte – kompakt für Listen, mit Gründen/Aktionen für
- * die persönlichen Empfehlungen.
+ * Einheitliche Spielkarte für alle Listen: Zeit, Teams, Ergebnis und eine
+ * schmale Zeile mit Runde, Sender, Erinnern und Vormerken.
  */
 export function MatchCard({
   match: m,
   showDate = false,
-  reasons,
-  fit,
   actions = true,
   className,
-  footer,
 }: {
   match: MatchView;
   showDate?: boolean;
-  reasons?: Reason[];
-  fit?: Fit;
   actions?: boolean;
   className?: string;
-  footer?: ReactNode;
 }) {
   const tz = useTimeZone();
   const now = useNow();
@@ -188,44 +179,17 @@ export function MatchCard({
       )}
 
       {/* Meta-Zeile */}
-      <div className="flex items-center gap-2 border-t border-border/60 px-3.5 py-2">
+      <div className="flex items-center gap-2 border-t border-border/60 px-3.5 py-0.5">
         <div className="flex min-w-0 flex-1 items-center gap-x-2.5 text-[12.5px] text-muted-foreground">
           <span className="shrink-0 font-medium text-foreground/80">
             {m.stage === "group" ? `Gruppe ${m.group}` : STAGE_LABEL[m.stage]}
           </span>
-          <span className="shrink-0">{m.venue.city}</span>
           <span className="flex min-w-0 items-center gap-1">
             <Tv className="h-3 w-3 shrink-0" /> <span className="truncate">{tv.label}</span>
           </span>
         </div>
         {actions && <MatchActions match={m} />}
       </div>
-
-      {(reasons?.length || fit) && (
-        <div className="flex flex-wrap gap-1.5 px-3.5 pb-2.5">
-          {fit === "full" && (
-            <Chip tone="primary" icon={<CalendarClock />}>
-              Passt in deine Zeit
-            </Chip>
-          )}
-          {fit === "partial" && (
-            <Chip tone="outline" icon={<CalendarClock />}>
-              Teilweise in deiner Zeit
-            </Chip>
-          )}
-          {fit === "none" && (
-            <Chip tone="outline" icon={<CalendarClock />}>
-              Außerhalb deiner Zeit
-            </Chip>
-          )}
-          {reasons?.map((r) => (
-            <Chip key={r} tone={r === "favorite" ? "gold" : "neutral"}>
-              {REASON_LABEL[r]}
-            </Chip>
-          ))}
-        </div>
-      )}
-      {footer}
     </article>
   );
 }

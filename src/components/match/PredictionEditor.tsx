@@ -203,7 +203,7 @@ export function PredictionEditor({
         </div>
       )}
 
-      {open && (
+      {open && draft && (
         <button
           type="button"
           disabled={!dirty || busy}
@@ -227,7 +227,7 @@ export function PredictionEditor({
           ) : saved ? (
             <Check className="h-4 w-4" />
           ) : null}
-          {dirty ? "Tipp speichern" : saved ? "Gespeichert" : "Erst tippen, dann speichern"}
+          {dirty ? "Tipp speichern" : "Gespeichert"}
         </button>
       )}
 
@@ -244,7 +244,7 @@ export function PredictionEditor({
           </span>
         ) : open ? (
           <span className={cn(dirty && "font-semibold text-gold")}>
-            {dirty ? "Noch nicht gespeichert" : saved ? "Änderbar bis Anpfiff" : "Noch kein Tipp"}
+            {dirty ? "Noch nicht gespeichert" : saved ? "Änderbar bis Anpfiff" : "Mit + tippen"}
           </span>
         ) : saved ? (
           <span>Tipp abgegeben · wird nach Spielende gewertet</span>

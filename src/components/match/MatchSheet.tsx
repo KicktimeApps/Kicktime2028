@@ -1,7 +1,7 @@
 import {
   CalendarPlus,
+  ChevronDown,
   Clock3,
-  ExternalLink,
   Info,
   MapPin,
   Plane,
@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Chip } from "@/components/common/Chip";
 import { LiveDot } from "@/components/common/LiveDot";
 import { Flag } from "@/components/team/Flag";
 import { GroupTableCard } from "@/components/tournament/GroupTableCard";
@@ -187,24 +186,21 @@ function SheetBody({ matchId }: { matchId: string }) {
         {team(b, m.slotAway)}
       </div>
 
-      {/* Schnellinfos + Aktionen */}
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
-        {m.status === "scheduled" && (
-          <Chip tone={fit === "full" ? "primary" : "outline"}>
-            {fit === "full"
-              ? "Passt in deine Zeit"
+      {/* Schnellinfo als eine leise Zeile */}
+      <p className="mt-4 text-center text-[13px] text-muted-foreground">
+        {[
+          m.status === "scheduled" &&
+            (fit === "full"
+              ? "✓ Passt in deine Zeit"
               : fit === "partial"
                 ? "Teilweise in deiner Zeit"
-                : "Außerhalb deiner Zeit"}
-          </Chip>
-        )}
-        {!m.kickoffConfirmed && (
-          <Chip tone="outline" icon={<Clock3 />}>
-            Uhrzeit vorläufig
-          </Chip>
-        )}
-        {tz !== m.venue.timeZone && <Chip tone="outline">Ortszeit {ukTime}</Chip>}
-      </div>
+                : "Außerhalb deiner Zeit"),
+          !m.kickoffConfirmed && "Uhrzeit vorläufig",
+          tz !== m.venue.timeZone && `Ortszeit ${ukTime}`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
       <div className="mt-3 flex items-center justify-center gap-1">
         <MatchActions match={m} />
         <button
@@ -234,9 +230,7 @@ function SheetBody({ matchId }: { matchId: string }) {
       </div>
 
       <div className="mt-5 space-y-3">
-        <Block icon={<Tv />} title="Im TV">
-          <TvBlock tv={tv} />
-        </Block>
+        <TvBlock tv={tv} />
 
         <Block icon={<Target />} title="Dein Tipp">
           <PredictionEditor match={m} />
@@ -251,13 +245,21 @@ function SheetBody({ matchId }: { matchId: string }) {
           />
         )}
 
-        <Block icon={<MapPin />} title="Spielort">
-          <div className="text-[15px] font-semibold">{m.venue.name}</div>
-          <div className="text-[13px] text-muted-foreground">
-            {m.venue.city}, {COUNTRY_LABEL[m.venue.country]}
-            {m.venue.uefaName !== m.venue.name && ` · bei der EM: „${m.venue.uefaName}“`}
-          </div>
-          <dl className="mt-3 grid gap-2 text-[13px]">
+        <details className="group rounded-2xl border border-border bg-card px-4 py-3">
+          <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-semibold">{m.venue.name}</span>
+              <span className="block text-[13px] text-muted-foreground">
+                {m.venue.city}, {COUNTRY_LABEL[m.venue.country]}
+              </span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <dl className="mt-3 grid gap-2 border-t border-border/60 pt-3 text-[13px]">
+            {m.venue.uefaName !== m.venue.name && (
+              <div className="text-muted-foreground">Bei der EM: „{m.venue.uefaName}“</div>
+            )}
             <div className="flex gap-2">
               <Users className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <dd>{m.venue.capacity.toLocaleString("de-DE")} Plätze</dd>
@@ -275,7 +277,7 @@ function SheetBody({ matchId }: { matchId: string }) {
               <dd>{m.venue.climate}</dd>
             </div>
           </dl>
-        </Block>
+        </details>
 
         {!m.kickoffConfirmed && (
           <p className="flex gap-2 rounded-xl bg-subtle px-3 py-2.5 text-[12.5px] text-muted-foreground">
@@ -290,30 +292,21 @@ function SheetBody({ matchId }: { matchId: string }) {
 }
 
 function TvBlock({ tv }: { tv: ReturnType<typeof getTvInfo> }) {
-  const link = (name: string) => (
-    <a
-      key={name}
-      href={BROADCASTER_URLS[name]}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-subtle px-3.5 text-[14px] font-semibold hover:border-primary/50"
-    >
-      <Play className="h-3.5 w-3.5 fill-current text-primary" /> {name}
-      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-    </a>
-  );
   return (
-    <div>
-      <div className="flex flex-wrap gap-2">{broadcastersOf(tv).map(link)}</div>
-      <p className="mt-2.5 text-[12.5px] leading-relaxed text-muted-foreground">
-        {tv.freeTv
-          ? `Free-TV bei ${tv.freeTv}, außerdem bei MagentaTV.`
-          : tv.magentaExclusive
-            ? "Dieses Spiel läuft exklusiv bei MagentaTV."
-            : tv.freeTvLikely
-              ? "Sicher im Free-TV – ob ARD oder ZDF, wird noch festgelegt. Außerdem bei MagentaTV."
-              : "MagentaTV zeigt alle 51 Spiele. ARD und ZDF übertragen 34 Spiele im Free-TV – die Zuteilung folgt."}
-      </p>
-    </div>
+    <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">
+      <Tv className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="mr-auto text-[14px] font-semibold">Im TV</span>
+      {broadcastersOf(tv).map((name) => (
+        <a
+          key={name}
+          href={BROADCASTER_URLS[name]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-subtle px-3.5 text-[14px] font-semibold hover:border-primary/50"
+        >
+          <Play className="h-3.5 w-3.5 fill-current text-primary" /> {name}
+        </a>
+      ))}
+    </section>
   );
 }

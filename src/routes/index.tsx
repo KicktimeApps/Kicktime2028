@@ -148,26 +148,23 @@ function HeroShell({ children, className }: { children: React.ReactNode; classNa
 
 /* ------------------------------------------------------------------ */
 
-const PILLS: { id: PillId; label: string; dot: string; hint: string; empty: string }[] = [
+const PILLS: { id: PillId; label: string; hint: string; empty: string }[] = [
   {
     id: "perfect",
     label: "Perfekt",
-    dot: "bg-primary",
-    hint: "Spiele deiner Teams, die in deine Zeit passen – einfach einschalten.",
+    hint: "Deine Teams, passend zu deiner Zeit.",
     empty: "Gerade kein Spiel deiner Teams in deiner Zeit.",
   },
   {
     id: "outside",
     label: "Außerhalb",
-    dot: "bg-gold",
-    hint: "Spiele deiner Teams außerhalb deiner Zeit – Erinnerung stellen oder aufnehmen.",
+    hint: "Deine Teams außerhalb deiner Zeit – Erinnerung stellen?",
     empty: "Alle Spiele deiner Teams passen in deine Zeit.",
   },
   {
     id: "results",
     label: "Ergebnisse",
-    dot: "bg-muted-foreground",
-    hint: "So haben deine Teams gespielt – neueste zuerst.",
+    hint: "So haben deine Teams gespielt.",
     empty: "Deine Teams haben noch nicht gespielt.",
   },
 ];
@@ -191,9 +188,12 @@ function Drawn({ started }: { started: boolean }) {
     <>
       <LiveBar matches={live} />
 
-      {!started && !next ? (
+      {/* Vor dem Anpfiff der Countdown; danach zeigen die Pillen alles – ohne
+          das nächste Spiel doppelt aufzuführen. Nur kurz vor Anpfiff ein
+          schmaler Hinweis mit Sender zum Einschalten. */}
+      {!started ? (
         <OpenerHero now={now} matches={matches} />
-      ) : next ? (
+      ) : next && Date.parse(next.kickoffUtc) - now <= 30 * 60_000 ? (
         <NextHero match={next} now={now} />
       ) : null}
 
@@ -209,7 +209,7 @@ function Drawn({ started }: { started: boolean }) {
       <div
         role="tablist"
         aria-label="Deine Spiele"
-        className="flex flex-wrap gap-1 min-[380px]:gap-1.5"
+        className="grid grid-cols-3 gap-1 rounded-full border border-border bg-card p-1"
       >
         {PILLS.map((p) => {
           const active = p.id === pill;
@@ -221,21 +221,11 @@ function Drawn({ started }: { started: boolean }) {
               aria-selected={active}
               onClick={() => setPill(p.id)}
               className={cn(
-                "flex h-10 flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2 text-[13px] font-semibold transition-colors min-[380px]:gap-1.5 min-[380px]:px-3 min-[380px]:text-[14px]",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-foreground hover:border-muted-foreground/40",
+                "flex h-9 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-1 text-[13px] font-semibold transition-colors min-[380px]:text-[14px]",
+                active ? "bg-primary text-primary-foreground" : "text-foreground",
               )}
             >
-              {!active && (
-                <span
-                  className={cn(
-                    "hidden h-1.5 w-1.5 shrink-0 rounded-full min-[380px]:block",
-                    p.dot,
-                  )}
-                />
-              )}
-              <span>{p.label}</span>
+              <span className="truncate">{p.label}</span>
               <span
                 className={cn(
                   "shrink-0 text-[12px] tabular",
@@ -248,14 +238,14 @@ function Drawn({ started }: { started: boolean }) {
           );
         })}
       </div>
-      <p className="mb-4 mt-2.5 text-[14px] text-muted-foreground">{meta.hint}</p>
+      <p className="mb-4 mt-2 px-1 text-[13px] text-muted-foreground">{meta.hint}</p>
 
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-[15px] text-muted-foreground">
           {meta.empty}
         </div>
       ) : (
-        <DayGroups matches={list} showFit={pill === "perfect"} />
+        <DayGroups matches={list} />
       )}
 
       {pill !== "results" && mine.length > 0 && (
@@ -277,7 +267,7 @@ function Drawn({ started }: { started: boolean }) {
 }
 
 /** Spiele nach Tagen gruppiert, mit „Heute“/„Morgen“ als Überschrift. */
-function DayGroups({ matches, showFit }: { matches: MatchView[]; showFit: boolean }) {
+function DayGroups({ matches }: { matches: MatchView[] }) {
   const prefs = usePrefs();
   const tz = prefs.timeZone;
   const now = useNow();
@@ -310,10 +300,7 @@ function DayGroups({ matches, showFit }: { matches: MatchView[]; showFit: boolea
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
                 className="min-w-0"
               >
-                <MatchCard
-                  match={m}
-                  fit={showFit ? fitFor(m.kickoffUtc, tz, prefs.availability) : undefined}
-                />
+                <MatchCard match={m} />
               </motion.div>
             ))}
           </div>
