@@ -5,9 +5,16 @@
  * Die PIN liegt nur als Secret ADMIN_PIN auf dem Server. Brute-Force-Schutz:
  * nach 5 Fehlversuchen pro IP (bzw. 30 insgesamt) ist der Zugang 15 Minuten gesperrt.
  *
- * Aktionen: verify | set | clear | stats | feedback | fixtures | delete_tip_groups
+ * Aktionen:
+ *  verify | set | clear | clear_overrides | stats | feedback | feedback_delete | fixtures
+ *  config | set_source | test_source | clear_cache | reset_results | set_announcement | broadcast
+ *  groups | group | group_delete | member_remove | member_unban | owner_transfer | delete_tip_groups
+ *
+ * Für „broadcast“ (Push an alle) dieselben Secrets wie send-push-reminders:
+ * VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import webpush from "npm:web-push@3.6.7";
 
 // ---------- Helfer (bewusst in dieser Datei, damit sie sich einzeln ins Dashboard kopieren lässt) ----------
 
@@ -128,6 +135,15 @@ Deno.serve(async (req) => {
 
   const matchId = String(body.matchId ?? "");
   const validId = /^m\d{2}$/.test(matchId);
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const groupId = String(body.groupId ?? "");
+  const memberId = String(body.memberId ?? "");
+  const rpc = async (fn: string, args?: Record<string, unknown>) => {
+    const { data, error } = await db.rpc(fn, args);
+    return error
+      ? json({ error: "Fehlgeschlagen – SQL-Update „Admin-Ausbau“ ausgeführt?" }, 500)
+      : json({ ok: true, data });
+  };
 
   switch (body.action) {
     case "verify":
@@ -206,7 +222,9 @@ Deno.serve(async (req) => {
         upcoming: upcoming.count ?? 0,
         sent24h: sent24h.count ?? 0,
       };
-      return json({ online, day, week, total, topTeams, push });
+      // Ausführliche Statistik (SQL-Update „Admin-Ausbau“), sonst nur die Grundwerte.
+      const { data: ext } = await db.rpc("kt_admin_stats");
+      return json({ online, day, week, total, topTeams, push, ext: ext ?? null });
     }
 
     // Anstoßzeiten für die Tipprunden-Sperre (kt_fixtures) aus der App übernehmen.
@@ -231,7 +249,7 @@ Deno.serve(async (req) => {
     case "feedback": {
       const { data } = await db
         .from("app_feedback")
-        .select("rating, message, created_at, app_version")
+        .select("id, rating, message, created_at, app_version")
         .order("created_at", { ascending: false })
         .limit(50);
       return json({ rows: data ?? [] });
@@ -250,6 +268,227 @@ Deno.serve(async (req) => {
         ? json({ error: "Löschen fehlgeschlagen" }, 500)
         : json({ ok: true, count: count ?? 0 });
     }
+
+    case "feedback_delete": {
+      const q = db.from("app_feedback").delete();
+      const { error } =
+        body.id === "all" ? await q.not("id", "is", null) : await q.eq("id", Number(body.id));
+      return error ? json({ error: "Löschen fehlgeschlagen" }, 500) : json({ ok: true });
+    }
+
+    case "clear_overrides": {
+      const { error, count } = await db
+        .from("match_overrides")
+        .delete({ count: "exact" })
+        .not("match_id", "is", null);
+      return error ? json({ error: "Löschen fehlgeschlagen" }, 500) : json({ ok: true, count });
+    }
+
+    // ---- Live-Quelle & Einstellungen ----
+
+    case "config": {
+      const { data, error } = await db.from("app_config").select("key, value, updated_at");
+      if (error) return json({ error: "SQL-Update „Admin-Ausbau“ fehlt noch" }, 500);
+      const get = (k: string) => data?.find((r: { key: string }) => r.key === k) ?? null;
+      const { data: cache } = await db.from("live_cache").select("id, fetched_at");
+      const { count: stored } = await db
+        .from("match_results")
+        .select("external_id", { count: "exact", head: true });
+      return json({
+        liveSource: get("live_source")?.value ?? null,
+        defaults: {
+          league: Deno.env.get("OPENLIGA_LEAGUE") ?? "em",
+          season: Deno.env.get("OPENLIGA_SEASON") ?? "2028",
+        },
+        announcement: get("announcement")?.value ?? null,
+        cache: cache ?? [],
+        storedResults: stored ?? 0,
+      });
+    }
+
+    case "set_source":
+    case "test_source": {
+      const league = String(body.league ?? "")
+        .trim()
+        .toLowerCase();
+      const season = String(body.season ?? "").trim();
+      const suffix = String(body.suffix ?? "").trim();
+      if (
+        !/^[a-z0-9_]{1,30}$/.test(league) ||
+        !/^\d{4}$/.test(season) ||
+        !/^(\d{1,3})?$/.test(suffix)
+      )
+        return json(
+          { error: "Liga (Buchstaben/Zahlen), Saison (4 Ziffern), Endung (Zahl) prüfen" },
+          400,
+        );
+      const url = `https://api.openligadb.de/getmatchdata/${league}/${season}${suffix ? `/${suffix}` : ""}`;
+      if (body.action === "set_source") {
+        const value = { league, season, suffix, paused: body.paused === true };
+        const { error } = await db
+          .from("app_config")
+          .upsert({ key: "live_source", value, updated_at: new Date().toISOString() });
+        return error ? json({ error: "Speichern fehlgeschlagen" }, 500) : json({ ok: true, url });
+      }
+      try {
+        const res = await fetch(url, {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) return json({ ok: true, url, status: res.status, count: 0 });
+        const raw = await res.json();
+        const list = Array.isArray(raw) ? raw : [];
+        type M = {
+          matchDateTimeUTC?: string;
+          matchIsFinished?: boolean;
+          team1?: { teamName?: string };
+          team2?: { teamName?: string };
+        };
+        const times = list
+          .map((m: M) => Date.parse(String(m.matchDateTimeUTC)))
+          .filter((t: number) => !Number.isNaN(t))
+          .sort((a: number, b: number) => a - b);
+        return json({
+          ok: true,
+          url,
+          status: res.status,
+          count: list.length,
+          finished: list.filter((m: M) => m.matchIsFinished).length,
+          from: times.length ? new Date(times[0]).toISOString() : null,
+          to: times.length ? new Date(times[times.length - 1]).toISOString() : null,
+          sample: list
+            .slice(0, 3)
+            .map((m: M) => `${m.team1?.teamName ?? "?"} – ${m.team2?.teamName ?? "?"}`),
+        });
+      } catch (err) {
+        return json({ ok: true, url, status: 0, count: 0, error: String(err) });
+      }
+    }
+
+    case "clear_cache": {
+      const { error } = await db.from("live_cache").delete().not("id", "is", null);
+      return error ? json({ error: "Löschen fehlgeschlagen" }, 500) : json({ ok: true });
+    }
+
+    // Gespeicherte Endergebnisse verwerfen (z. B. nach einem Test mit einer anderen Liga).
+    case "reset_results": {
+      const { error, count } = await db
+        .from("match_results")
+        .delete({ count: "exact" })
+        .not("external_id", "is", null);
+      await db.from("live_cache").delete().not("id", "is", null);
+      return error ? json({ error: "Löschen fehlgeschlagen" }, 500) : json({ ok: true, count });
+    }
+
+    case "set_announcement": {
+      const text = String(body.text ?? "")
+        .trim()
+        .slice(0, 280);
+      if (!text) {
+        const { error } = await db.from("app_config").delete().eq("key", "announcement");
+        return error ? json({ error: "Löschen fehlgeschlagen" }, 500) : json({ ok: true });
+      }
+      const until =
+        body.until && !Number.isNaN(Date.parse(String(body.until)))
+          ? new Date(String(body.until)).toISOString()
+          : null;
+      const value = {
+        id: Date.now(),
+        text,
+        tone: ["info", "warn", "success"].includes(body.tone) ? body.tone : "info",
+        until,
+      };
+      const { error } = await db
+        .from("app_config")
+        .upsert({ key: "announcement", value, updated_at: new Date().toISOString() });
+      return error ? json({ error: "Speichern fehlgeschlagen" }, 500) : json({ ok: true, value });
+    }
+
+    // Push an alle Abonnenten – oder nur an ein Gerät (Test).
+    case "broadcast": {
+      const title = String(body.title ?? "")
+        .trim()
+        .slice(0, 60);
+      const text = String(body.body ?? "")
+        .trim()
+        .slice(0, 180);
+      const url = /^\/[\w\-/?=&.]*$/.test(String(body.url ?? "")) ? String(body.url) : "/";
+      if (!title || !text) return json({ error: "Titel und Text angeben" }, 400);
+      try {
+        webpush.setVapidDetails(
+          env("VAPID_SUBJECT", "mailto:kontakt@kicktime.app"),
+          env("VAPID_PUBLIC_KEY"),
+          env("VAPID_PRIVATE_KEY"),
+        );
+      } catch {
+        return json({ error: "VAPID-Secrets fehlen" }, 500);
+      }
+      let q = db.from("push_subscriptions").select("device_id, endpoint, p256dh, auth");
+      if (body.onlyDevice) {
+        if (!UUID.test(String(body.onlyDevice))) return json({ error: "Ungültiges Gerät" }, 400);
+        q = q.eq("device_id", String(body.onlyDevice));
+      }
+      const { data: subs, error } = await q.limit(5000);
+      if (error) return json({ error: "Abos nicht lesbar" }, 500);
+      type Sub = { device_id: string; endpoint: string; p256dh: string; auth: string };
+      const queue = [...((subs ?? []) as Sub[])];
+      const payload = JSON.stringify({ title, body: text, url, tag: `admin-${Date.now()}` });
+      let sent = 0;
+      let failed = 0;
+      const expired: string[] = [];
+      await Promise.all(
+        Array.from({ length: Math.min(10, queue.length) }, async () => {
+          for (let s = queue.shift(); s; s = queue.shift()) {
+            try {
+              await webpush.sendNotification(
+                { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+                payload,
+                { TTL: 6 * 3600, urgency: "normal" },
+              );
+              sent++;
+            } catch (err) {
+              const status = (err as { statusCode?: number }).statusCode;
+              if (status === 404 || status === 410) expired.push(s.device_id);
+              else failed++;
+            }
+          }
+        }),
+      );
+      if (expired.length > 0) await db.from("push_subscriptions").delete().in("device_id", expired);
+      return json({ ok: true, total: subs?.length ?? 0, sent, failed, cleaned: expired.length });
+    }
+
+    // ---- Tipprunden verwalten ----
+
+    case "groups":
+      return rpc("kt_admin_groups");
+
+    case "group":
+      if (!UUID.test(groupId)) return json({ error: "Ungültige Runde" }, 400);
+      return rpc("kt_admin_group", { p_group: groupId });
+
+    case "group_delete":
+      if (!UUID.test(groupId)) return json({ error: "Ungültige Runde" }, 400);
+      return rpc("kt_admin_delete_group", { p_group: groupId });
+
+    case "member_remove":
+      if (!UUID.test(groupId) || !UUID.test(memberId))
+        return json({ error: "Ungültige Daten" }, 400);
+      return rpc("kt_admin_remove_member", {
+        p_group: groupId,
+        p_member: memberId,
+        p_ban: body.ban === true,
+      });
+
+    case "member_unban":
+      if (!UUID.test(groupId) || !UUID.test(memberId))
+        return json({ error: "Ungültige Daten" }, 400);
+      return rpc("kt_admin_unban", { p_group: groupId, p_member: memberId });
+
+    case "owner_transfer":
+      if (!UUID.test(groupId) || !UUID.test(memberId))
+        return json({ error: "Ungültige Daten" }, 400);
+      return rpc("kt_admin_transfer", { p_group: groupId, p_member: memberId });
 
     default:
       return json({ error: "Unbekannte Aktion" }, 400);

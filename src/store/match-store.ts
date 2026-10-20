@@ -11,6 +11,10 @@ export type LiveMeta = {
   lastFetchAt: number | null;
   lastError: string | null;
   unmatched: number;
+  /** Zuletzt abgefragte Adresse der Live-Quelle (für den Admin-Bereich). */
+  apiUrl?: string | null;
+  /** Antwort des Servers: hit | miss | stale | paused. */
+  cache?: string | null;
 };
 
 type Inputs = {

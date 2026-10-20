@@ -9,6 +9,7 @@ import { LIVE_SOURCE, TOURNAMENT } from "@/tournament/config";
 import { FIXTURES } from "@/tournament/schedule";
 import { useMatchStore } from "@/store/match-store";
 import { logError } from "@/lib/error-log";
+import { refreshAnnouncement } from "./announcement";
 import { getSupabase, isBackendConfigured } from "./supabase";
 
 /**
@@ -37,24 +38,29 @@ type BackendFixture = {
   minute?: number;
 };
 
-async function fetchFromBackend(force = false): Promise<LiveFixture[]> {
+type Fetched = { fixtures: LiveFixture[]; url: string | null; cache: string | null };
+
+async function fetchFromBackend(force = false): Promise<Fetched> {
   const sb = await getSupabase();
   if (!sb) throw new Error("Backend nicht konfiguriert");
   const { data, error } = await sb.functions.invoke<{
     fixtures?: BackendFixture[];
+    url?: string;
+    cache?: string;
     error?: string;
   }>("live-scores", { body: { force } });
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.error);
-  return data?.fixtures ?? [];
+  return { fixtures: data?.fixtures ?? [], url: data?.url ?? null, cache: data?.cache ?? null };
 }
 
-async function fetchFromOpenLiga(): Promise<LiveFixture[]> {
+async function fetchFromOpenLiga(): Promise<Fetched> {
   const res = await fetch(OPENLIGA_URL, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`OpenLigaDB ${res.status}`);
   const raw = (await res.json()) as OpenLigaMatch[];
   const now = Date.now();
-  return Array.isArray(raw) ? raw.map((m) => fromOpenLiga(m, now)) : [];
+  const fixtures = Array.isArray(raw) ? raw.map((m) => fromOpenLiga(m, now)) : [];
+  return { fixtures, url: OPENLIGA_URL, cache: null };
 }
 
 type OverrideRow = {
@@ -156,7 +162,9 @@ export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
     const store = useMatchStore.getState();
     const backend = isBackendConfigured();
     try {
-      const fixtures = backend ? await fetchFromBackend(opts.force) : await fetchFromOpenLiga();
+      const { fixtures, url, cache } = backend
+        ? await fetchFromBackend(opts.force)
+        : await fetchFromOpenLiga();
       const teams = new Map(
         store.tournament.matches.map((m) => [m.number, { home: m.home, away: m.away }]),
       );
@@ -172,6 +180,8 @@ export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
         lastFetchAt: Date.now(),
         lastError: null,
         unmatched: unmatched.length,
+        apiUrl: url,
+        cache,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -182,6 +192,7 @@ export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
     if (backend) {
       const overrides = await fetchOverrides().catch(() => null);
       if (overrides) useMatchStore.getState().setAdminResults(overrides);
+      await refreshAnnouncement();
     }
     saveLiveCache();
   })().finally(() => {

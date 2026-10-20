@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { AnnouncementBanner } from "./AnnouncementBanner";
 import { DemoBanner } from "./DemoBanner";
 import { LogoMark, Wordmark } from "./Logo";
 import { NAV_ITEMS } from "./nav";
@@ -69,6 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="app-rise mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 md:px-8 md:pb-12 md:pt-8">
           <OfflineBanner />
+          <AnnouncementBanner />
           {children}
         </main>
 

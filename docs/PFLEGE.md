@@ -88,8 +88,9 @@ Halbfinale, Finale) oder „MagentaTV“ (Free-TV noch offen).
 
 - OpenLigaDB hat die EURO 2024 unter `em/2024` geführt, für 2028 ist `em/2028` voreingestellt.
   Testen mit: `https://api.openligadb.de/getmatchdata/em/2028`. Falls OpenLigaDB ein anderes
-  Kürzel nutzt, `VITE_OPENLIGA_LEAGUE`/`VITE_OPENLIGA_SEASON` (Frontend) bzw. die Secrets
-  `OPENLIGA_LEAGUE`/`OPENLIGA_SEASON` (Edge Function) setzen.
+  Kürzel nutzt: **Admin-Bereich → Live-Daten → API-Quelle** (Liga, Saison, optional Endung),
+  erst „Testen“, dann „Speichern“ – gilt sofort für alle. Alternativ die Secrets
+  `OPENLIGA_LEAGUE`/`OPENLIGA_SEASON` (Edge Function) bzw. `VITE_OPENLIGA_*` (ohne Backend).
 - OpenLigaDB wird von der Community gepflegt. Fehlerhafte Einträge (etwa Testteams wie
   „SV Großefehn“ bei der EM 2024) ignoriert KickTime. Falsche Spielstände korrigierst du im
   **Admin-Bereich → Korrektur**. OpenLigaDB gibt grundsätzlich vor; eine Korrektur überbrückt
@@ -99,14 +100,15 @@ Halbfinale, Finale) oder „MagentaTV“ (Free-TV noch offen).
 - Elfmeterschießen: OpenLigaDB führt das Ergebnis „nach Elfmeterschießen“ nicht immer
   einheitlich (mal mit, mal ohne die Tore aus dem Spiel). Der **Sieger** wird in beiden Fällen
   richtig erkannt; sollte die angezeigte Elfmeterzahl nicht stimmen, im Admin-Bereich korrigieren.
-- Im Admin-Bereich → System siehst du Quelle, letzten Abruf und die Zahl der Spiele, die die App
-  nicht zuordnen konnte.
+- Im Admin-Bereich → Live-Daten siehst du Quelle, abgefragte Adresse, letzten Abruf und die Zahl
+  der Spiele, die die App nicht zuordnen konnte. Liefert die Quelle Unsinn, dort „Live-Abruf
+  anhalten“ – dann gelten nur gespeicherter Stand und Korrekturen.
 
 ## 6. Checkliste vor dem Turnier (Mai/Juni 2028)
 
 - [ ] `QUALIFIED`, `DRAW` und `CONFIRMED_KICKOFFS` vollständig
 - [ ] TV-Zuteilung eingetragen
-- [ ] OpenLigaDB-Kürzel geprüft, im Admin → System „Nicht zugeordnet: 0“
+- [ ] OpenLigaDB-Kürzel geprüft, im Admin → Live-Daten „Nicht zugeordnet: 0“
 - [ ] Supabase: Migration, Edge Functions und Secrets aktuell, Cron-Job aktiv
 - [ ] Push-Test: Erinnerung für ein Spiel stellen, Nachricht kommt an
 - [ ] Impressums-Link (`VITE_LEGAL_URL`) zeigt auf die richtige Seite
@@ -126,6 +128,30 @@ Der Server nimmt Tipps nur bis zum Anpfiff an. Dafür kennt er die Anstoßzeiten
 `kt_fixtures`). Sobald offizielle Zeiten in `src/tournament/draw.ts` stehen (oder
 OpenLigaDB sie liefert), die Zeiten abgleichen – eine der beiden Möglichkeiten:
 
-- **Admin-Bereich → System → „Anstoßzeiten für Tipprunden abgleichen“** (übernimmt die Zeiten,
+- **Admin-Bereich → Live-Daten → „Anstoßzeiten abgleichen“** (übernimmt die Zeiten,
   die die App gerade anzeigt), oder
 - `npm run fixtures:sql` und die Ausgabe im Supabase SQL-Editor ausführen.
+
+## Admin-Bereich
+
+Öffnen: Einstellungen → fünfmal auf die Versionsnummer tippen, PIN eingeben (Secret `ADMIN_PIN`).
+Die PIN bleibt 30 Minuten gemerkt, solange die App offen ist.
+
+| Bereich      | Was du dort machst                                                                                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Übersicht    | Ampel für Live-Daten, Nutzer, offene Anfragen, Korrekturen, Hinweis, Fehler                                                                                                 |
+| Live-Daten   | API-Quelle (Liga/Saison/Endung) ändern und testen, Abruf anhalten, sofort neu laden, Anstoßzeiten abgleichen, Zwischenspeicher leeren, gespeicherte Ergebnisse zurücksetzen |
+| Korrektur    | Spielstände überbrücken, alle Korrekturen auf einmal entfernen                                                                                                              |
+| Tipprunden   | Alle Runden mit Mitgliedern, Mitglieder entfernen/sperren/entsperren, Ersteller übertragen, einzelne oder alle Runden löschen                                               |
+| Mitteilungen | Hinweis-Banner für alle (mit Ablaufzeit), Push an alle bzw. Test an dich                                                                                                    |
+| Statistik    | Nutzer heute/7/30 Tage, Verlauf pro Tag, Geräte, Browser, Versionen, installiert/Push, Feedback löschen                                                                     |
+| System       | Geräte-Infos, Fehlerprotokoll, Admin sperren                                                                                                                                |
+
+Die Statistik zählt jedes Gerät, das die App wirklich benutzt – mit oder ohne Push. Bots,
+Link-Vorschauen und automatisierte Browser zählen nicht; gemeldet wird erst nach der ersten
+Bedienung (Tippen, Scrollen) oder 20 Sekunden Sichtbarkeit. Der Tagesverlauf wird 180 Tage
+aufbewahrt.
+
+Einrichtung (einmalig): SQL-Update `20261021090000_admin_ausbau.sql` ausführen, dann die Edge
+Functions `admin` und `live-scores` neu deployen. „Push an alle“ nutzt dieselben
+VAPID-Secrets wie `send-push-reminders`.

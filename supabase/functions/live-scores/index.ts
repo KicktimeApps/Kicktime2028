@@ -6,9 +6,10 @@
  * beendetes Spiel wird nie wieder durch spätere (evtl. fehlerhafte) Daten
  * überschrieben.
  *
- * POST { force?: boolean } → { fixtures: LiveFixture[], cache: "hit"|"miss"|"stale" }
+ * POST { force?: boolean } → { fixtures: LiveFixture[], cache: "hit"|"miss"|"stale"|"paused", url }
  *
- * Secrets (optional): OPENLIGA_LEAGUE (Standard "em"), OPENLIGA_SEASON ("2028")
+ * Quelle: im Admin-Bereich einstellbar (app_config „live_source“: Liga, Saison,
+ * API-Endung, Pause). Sonst Secrets OPENLIGA_LEAGUE ("em") / OPENLIGA_SEASON ("2028").
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
@@ -151,11 +152,10 @@ Deno.serve(async (req) => {
     if (force && Date.now() - lastForce < FORCE_MIN_INTERVAL) force = false;
     if (force) lastForce = Date.now();
 
-    const league = env("OPENLIGA_LEAGUE", "em");
-    const season = env("OPENLIGA_SEASON", "2028");
-    const url = `https://api.openligadb.de/getmatchdata/${league}/${season}`;
     const db = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
-    const cacheId = `${league}-${season}`;
+    const src = await liveSource(db);
+    const url = `https://api.openligadb.de/getmatchdata/${src.league}/${src.season}${src.suffix ? `/${src.suffix}` : ""}`;
+    const cacheId = `${src.league}-${src.season}${src.suffix ? `-${src.suffix}` : ""}`;
 
     const { data: cached } = await db
       .from("live_cache")
@@ -166,8 +166,12 @@ Deno.serve(async (req) => {
     const now = Date.now();
     const anyLive = cachedList.some((f) => f.status === "live");
     const ttl = anyLive ? LIVE_TTL : IDLE_TTL;
+    if (src.paused) {
+      // Abruf angehalten (Admin): nur gespeicherter Stand + Korrekturen.
+      return json({ fixtures: await mergeStored(db, cachedList), cache: "paused", url });
+    }
     if (cached && !force && now - Date.parse(cached.fetched_at) < ttl) {
-      return json({ fixtures: await mergeStored(db, cachedList), cache: "hit" });
+      return json({ fixtures: await mergeStored(db, cachedList), cache: "hit", url });
     }
 
     let fresh: LiveFixture[];
@@ -181,6 +185,7 @@ Deno.serve(async (req) => {
       return json({
         fixtures: await mergeStored(db, cachedList),
         cache: "stale",
+        url,
         warning: String(err),
       });
     }
@@ -189,7 +194,7 @@ Deno.serve(async (req) => {
       .from("live_cache")
       .upsert({ id: cacheId, payload: fresh, fetched_at: new Date(now).toISOString() });
     await persistFinished(db, fresh);
-    return json({ fixtures: await mergeStored(db, fresh), cache: "miss" });
+    return json({ fixtures: await mergeStored(db, fresh), cache: "miss", url });
   } catch (err) {
     console.error("[live-scores]", err);
     return json({ error: "Interner Fehler" }, 500);
@@ -198,6 +203,31 @@ Deno.serve(async (req) => {
 
 // deno-lint-ignore no-explicit-any
 type Db = any;
+
+type Source = { league: string; season: string; suffix: string; paused: boolean };
+
+/** Live-Quelle: Admin-Einstellung (app_config), sonst Secrets bzw. Standard. */
+async function liveSource(db: Db): Promise<Source> {
+  const fallback: Source = {
+    league: env("OPENLIGA_LEAGUE", "em"),
+    season: env("OPENLIGA_SEASON", "2028"),
+    suffix: "",
+    paused: false,
+  };
+  const { data, error } = await db
+    .from("app_config")
+    .select("value")
+    .eq("key", "live_source")
+    .maybeSingle();
+  if (error || !data?.value) return fallback; // SQL-Update fehlt oder nichts eingestellt
+  const v = data.value as Partial<Source>;
+  return {
+    league: /^[a-z0-9_]{1,30}$/i.test(String(v.league)) ? String(v.league) : fallback.league,
+    season: /^\d{4}$/.test(String(v.season)) ? String(v.season) : fallback.season,
+    suffix: /^\d{1,3}$/.test(String(v.suffix ?? "")) ? String(v.suffix) : "",
+    paused: v.paused === true,
+  };
+}
 
 /** Beendete Spiele dauerhaft speichern – aber nie ein bereits beendetes überschreiben. */
 async function persistFinished(db: Db, list: LiveFixture[]) {
