@@ -13,8 +13,8 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 2. **Im Repo `phantom-35/kicktime2026` (App der WM 2026) niemals etwas ändern** – nur lesen.
 3. **Keine Geheimnisse in Repos:** VAPID-Private-Key, `ADMIN_PIN`, Supabase-`service_role`-Key,
    `CRON_SECRET`, Access-Tokens. Nie Tokens im Chat erfragen.
-4. **Supabase nie ohne ausdrückliches „ausführen“ verändern** (falls ein Zugang besteht): vorher
-   genau zeigen, welches SQL-Update bzw. welche Edge Function angewendet wird. Lesen ist ok.
+4. **Supabase nie ohne ausdrückliches „ausführen“ verändern:** vorher genau zeigen, welches
+   SQL-Update bzw. welche Edge Function angewendet wird. Lesen (Abfragen, Logs, Hinweise) ist ok.
 5. **Version bei jeder Änderung an der App anpassen** – in `package.json` **und**
    `src/lib/version.ts` (gleiche Nummer). Reine Doku-Änderungen (wie diese Datei) ohne Sprung. Neue Funktion → Minor (2.4.0 → 2.5.0), Fehlerkorrektur → Patch
    (2.4.0 → 2.4.1). Großer Umbau nur nach Absprache Major.
@@ -95,6 +95,20 @@ Zusätzlich je nach Änderung:
 - Bei größeren Umbauten zusätzlich eine Fehler-Durchsicht (Code-Review) über alle Änderungen.
 
 ## 5. Supabase-Migrationen
+
+**Zugang:** Es gibt einen Supabase-Connector (MCP-Tools `mcp__Supabase__*`). Das richtige Projekt
+ist **`kicktime-2028`, ID `ddtxgvjxpkucdwexhsjs`** (Region eu-west-1) – passt zu `supabaseUrl` in
+`src/public-config.ts`. Im selben Konto liegen auch „Kick Time 2026“ (`bbdnnohujyvickhegbuf`,
+**nicht anfassen**), „DayOS“ und „CIRCA“ (fremde Projekte, nicht anfassen).
+
+- Vor Änderungen den Ist-Stand lesen (z. B. ob Funktionen/Spalten schon existieren,
+  `pg_proc.proconfig`, deployte Function mit dem Repo vergleichen).
+- SQL-Updates mit `apply_migration` (Name = Dateiname ohne Endung), Functions mit
+  `deploy_edge_function` (Inhalt exakt aus dem Repo, `verify_jwt: false` wie bisher) – beides erst
+  nach „ausführen“. Danach `get_advisors` (security) prüfen.
+- Erwartete Hinweise von Supabase: „RLS ohne Regeln“ und „anon darf `kt_*` ausführen“ sind
+  gewollt (Tabellen gesperrt, Zugriff nur über geprüfte RPCs). Admin-/Server-Funktionen dürfen
+  dort **nie** auftauchen. `rls_auto_enable` ist ein Event-Trigger von Supabase selbst.
 
 - Neue Änderungen **immer als neue Datei** `supabase/migrations/YYYYMMDDHHMMSS_name.sql`, nie
   alte Migrationen ändern (der Betreiber hat sie evtl. schon ausgeführt).
