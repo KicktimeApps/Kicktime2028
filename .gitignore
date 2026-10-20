@@ -41,3 +41,6 @@ dist-ssr
 node_modules/
 dist/
 .wrangler/
+
+# Test-Screenshots
+shots/

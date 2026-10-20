@@ -27,7 +27,7 @@ export function PushStep() {
         </p>
       </div>
 
-      <ul className="mb-5 space-y-2">
+      <ul className="mb-7 space-y-4">
         {[
           {
             icon: <Clock />,
@@ -40,40 +40,40 @@ export function PushStep() {
             text: "Wenn jemand deiner Runde beitreten möchte.",
           },
         ].map((f) => (
-          <li
-            key={f.title}
-            className="flex items-start gap-3 rounded-2xl border border-border bg-card p-3.5"
-          >
-            <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary [&_svg]:h-4 [&_svg]:w-4">
+          <li key={f.title} className="flex items-start gap-3">
+            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary [&_svg]:h-[18px] [&_svg]:w-[18px]">
               {f.icon}
             </span>
-            <span>
-              <span className="block text-[15px] font-semibold">{f.title}</span>
-              <span className="block text-[13.5px] text-muted-foreground">{f.text}</span>
-            </span>
+            <div>
+              <div className="text-[15px] font-semibold">{f.title}</div>
+              <div className="text-[13.5px] text-muted-foreground">{f.text}</div>
+            </div>
           </li>
         ))}
       </ul>
 
       {enabled ? (
-        <>
-          <div className="flex items-center gap-3 rounded-2xl border border-primary/40 bg-primary/10 p-4">
+        <div className="rounded-2xl border border-primary/40 bg-primary/10">
+          <div className="flex items-center gap-3 p-4">
             <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <Check className="h-4 w-4" />
             </span>
             <span className="text-[15px] font-semibold">Mitteilungen sind an</span>
           </div>
-          <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card p-4">
-            <span className="flex-1 text-[14.5px]">
-              Automatisch für alle Spiele meiner Favoriten
+          <label className="flex cursor-pointer items-center gap-3 border-t border-primary/20 px-4 py-3.5">
+            <span className="flex-1">
+              <span className="block text-[14.5px] font-medium">Alle Spiele meiner Favoriten</span>
+              <span className="block text-[12.5px] text-muted-foreground">
+                Ohne Glocke automatisch erinnern
+              </span>
             </span>
             <Switch
               checked={autoFavorites}
               onCheckedChange={setAutoFavorites}
-              aria-label="Automatisch für Favoriten"
+              aria-label="Automatisch für alle Spiele meiner Favoriten"
             />
           </label>
-        </>
+        </div>
       ) : (
         <>
           <button
