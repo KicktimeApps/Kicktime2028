@@ -783,7 +783,7 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
           }
         }}
       >
-        KickTime {TOURNAMENT.year} · Version {APP_VERSION} · Phantom Studios
+        KickTime {TOURNAMENT.year} · Version {APP_VERSION} · PhanDev Studios
         <br />
         Privates Fan-Projekt ohne Verbindung zur UEFA
       </button>
