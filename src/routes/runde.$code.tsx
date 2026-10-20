@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
+  Ban,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   Settings,
   Share2,
   Trash2,
+  Undo2,
   UserMinus,
   UserPlus,
   X,
@@ -54,6 +56,7 @@ import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
 import {
   answerRequest,
+  bannedMembers,
   deleteGroup,
   inviteUrl,
   kickMember,
@@ -62,6 +65,7 @@ import {
   normalizeCode,
   renameMe,
   TipError,
+  unbanMember,
   type TipBoard,
   type TipMember,
   type TipRequest,
@@ -272,7 +276,8 @@ function RequestsCard({
 /* ------------------------------------------------------------------ */
 
 type BoardActions = {
-  kick: (m: TipMember) => Promise<void>;
+  /** `ban`: sperren statt nur entfernen. */
+  kick: (m: TipMember, ban: boolean) => Promise<void>;
   leave: () => Promise<void>;
   remove: () => Promise<void>;
   rename: (name: string) => Promise<void>;
@@ -339,9 +344,10 @@ function ServerBoard({ groupId }: { groupId: string }) {
       }
       context={{ kind: "group", id: groupId, label: data.group.name }}
       actions={{
-        kick: async (m) => {
-          await kickMember(groupId, m.id);
+        kick: async (m, ban) => {
+          await kickMember(groupId, m.id, ban);
           await refetch();
+          if (ban) await qc.invalidateQueries({ queryKey: ["tip-banned", groupId] });
         },
         leave: async () => {
           await leaveGroup(groupId);
@@ -687,13 +693,11 @@ function RoundSettings({
                       {m.isOwner && <Crown className="h-4 w-4 shrink-0 text-gold" />}
                     </span>
                     {!m.isMe && (
-                      <Confirm
-                        title={`${m.name} entfernen?`}
-                        text="Die Person verschwindet aus der Tabelle und kann mit dem Code nicht wieder beitreten."
-                        action="Entfernen"
-                        onConfirm={async () => {
-                          await actions.kick(m);
-                          toast(`${m.name} wurde entfernt`);
+                      <KickChoice
+                        name={m.name}
+                        onKick={async (ban) => {
+                          await actions.kick(m, ban);
+                          toast(ban ? `${m.name} wurde gesperrt` : `${m.name} wurde entfernt`);
                         }}
                       >
                         <button
@@ -703,11 +707,12 @@ function RoundSettings({
                         >
                           <UserMinus className="h-4 w-4" /> Entfernen
                         </button>
-                      </Confirm>
+                      </KickChoice>
                     )}
                   </li>
                 ))}
               </ul>
+              {open && <BannedList groupId={g.id} />}
             </>
           )}
 
@@ -763,6 +768,113 @@ function RoundSettings({
         </div>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+/** Entfernen (darf wieder anfragen) oder sperren (kein Wiederbeitritt). */
+function KickChoice({
+  name,
+  onKick,
+  children,
+}: {
+  name: string;
+  onKick: (ban: boolean) => Promise<void>;
+  children: React.ReactNode;
+}) {
+  const run = (ban: boolean) =>
+    onKick(ban).catch((err) =>
+      toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt."),
+    );
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{name} entfernen?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-2 text-left">
+              <p>
+                <strong className="text-foreground">Entfernen:</strong> {name} verschwindet aus der
+                Tabelle, die Tipps sind weg. Mit dem Code kann {name} wieder anfragen.
+              </p>
+              <p>
+                <strong className="text-foreground">Sperren:</strong> wie Entfernen, aber {name}{" "}
+                kommt nicht wieder rein – bis du in den Einstellungen entsperrst.
+              </p>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2 sm:gap-2">
+          <AlertDialogCancel className="mt-0">Abbrechen</AlertDialogCancel>
+          <AlertDialogAction
+            className="border border-destructive/40 bg-transparent text-destructive hover:bg-destructive/10"
+            onClick={() => run(false)}
+          >
+            Entfernen
+          </AlertDialogAction>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => run(true)}
+          >
+            Sperren
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/** Vom Ersteller Gesperrte – mit „Entsperren“. Ohne Gesperrte unsichtbar. */
+function BannedList({ groupId }: { groupId: string }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);
+  const { data } = useQuery({
+    queryKey: ["tip-banned", groupId],
+    queryFn: () => bannedMembers(groupId),
+    // Fehlt das Server-Update, einfach nichts anzeigen.
+    retry: false,
+  });
+  if (!data?.length) return null;
+  return (
+    <>
+      <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        Gesperrt ({data.length})
+      </h3>
+      <ul className="mb-5 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+        {data.map((b) => (
+          <li key={b.id} className="flex min-h-14 items-center gap-2 px-4 py-2">
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] text-muted-foreground">
+              <Ban className="h-4 w-4 shrink-0" />
+              <span className="truncate">{b.name}</span>
+            </span>
+            <button
+              type="button"
+              disabled={busy === b.id}
+              onClick={async () => {
+                setBusy(b.id);
+                try {
+                  await unbanMember(groupId, b.id);
+                  toast(`${b.name} ist entsperrt und kann mit dem Code wieder anfragen`);
+                  await qc.invalidateQueries({ queryKey: ["tip-banned", groupId] });
+                } catch (err) {
+                  toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
+                } finally {
+                  setBusy(null);
+                }
+              }}
+              className="inline-flex h-10 items-center gap-1 rounded-full border border-border px-3 text-[13.5px] font-semibold disabled:opacity-50"
+            >
+              {busy === b.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Undo2 className="h-4 w-4" />
+              )}
+              Entsperren
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

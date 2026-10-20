@@ -152,8 +152,13 @@ Link-Vorschauen und automatisierte Browser zählen nicht; gemeldet wird erst nac
 Bedienung (Tippen, Scrollen) oder 20 Sekunden Sichtbarkeit. Der Tagesverlauf wird 180 Tage
 aufbewahrt.
 
-Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql` und
-`20261021120000_sperre_hinweis.sql` ausführen, dann die Edge Functions `admin` und
+Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql`,
+`20261021120000_sperre_hinweis.sql` und `20261021150000_kicken_sperren.sql` ausführen, dann die Edge Functions `admin` und
 `live-scores` neu deployen. Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
-Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“. „Push an alle“ nutzt dieselben
+Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“.
+
+Der Ersteller einer Runde wählt beim Rauswerfen zwischen **Entfernen** (darf mit dem Code wieder
+anfragen) und **Sperren** (kommt nicht wieder rein). Seine Sperren hebt er in den
+Runden-Einstellungen unter „Gesperrt“ wieder auf; Sperren aus dem Admin-Bereich kann nur der
+Admin aufheben. „Push an alle“ nutzt dieselben
 VAPID-Secrets wie `send-push-reminders`.

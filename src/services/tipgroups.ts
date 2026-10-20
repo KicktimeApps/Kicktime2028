@@ -107,8 +107,29 @@ export const deleteGroup = (groupId: string) => {
   leftByMe.add(groupId);
   return rpc<null>("kt_tip_delete", { p_group: groupId });
 };
-export const kickMember = (groupId: string, memberId: string) =>
-  rpc<null>("kt_tip_kick", { p_group: groupId, p_member: memberId });
+/**
+ * Mitglied rauswerfen: `ban` = sperren (kein Wiederbeitritt, bis entsperrt),
+ * sonst nur entfernen (darf mit dem Code wieder anfragen).
+ */
+export async function kickMember(groupId: string, memberId: string, ban: boolean): Promise<void> {
+  try {
+    await rpc<null>("kt_tip_remove", { p_group: groupId, p_member: memberId, p_ban: ban });
+  } catch (err) {
+    // SQL-Update „Entfernen oder Sperren“ fehlt: dann kann der Server nur sperren.
+    if (!(err instanceof TipError && err.notInstalled)) throw err;
+    if (!ban) throw new TipError("Nur entfernen geht erst nach dem nächsten Server-Update.");
+    await rpc<null>("kt_tip_kick", { p_group: groupId, p_member: memberId });
+  }
+}
+
+/** Vom Ersteller gesperrte Mitglieder (nur für den Ersteller). */
+export const bannedMembers = (groupId: string) =>
+  rpc<{ id: string; name: string }[] | null>("kt_tip_banned", { p_group: groupId }).then(
+    (l) => l ?? [],
+  );
+
+export const unbanMember = (groupId: string, memberId: string) =>
+  rpc<null>("kt_tip_unban", { p_group: groupId, p_member: memberId });
 export const renameMe = (groupId: string, player: string) =>
   rpc<null>("kt_tip_rename", { p_group: groupId, p_player: player });
 
@@ -118,10 +139,12 @@ export const answerRequest = (groupId: string, memberId: string, accept: boolean
 
 export const myGroups = () => rpc<TipGroup[]>("kt_tip_my_groups", {});
 
-/** Runden, aus denen der Betreiber dieses Gerät gesperrt hat (leer ohne SQL-Update). */
-export async function myBans(): Promise<{ id: string; name: string }[]> {
+export type MyBan = { id: string; name: string; by?: "owner" | "admin" };
+
+/** Runden, aus denen dieses Gerät gesperrt wurde (leer ohne SQL-Update). */
+export async function myBans(): Promise<MyBan[]> {
   try {
-    return (await rpc<{ id: string; name: string }[] | null>("kt_tip_my_bans", {})) ?? [];
+    return (await rpc<MyBan[] | null>("kt_tip_my_bans", {})) ?? [];
   } catch {
     return [];
   }

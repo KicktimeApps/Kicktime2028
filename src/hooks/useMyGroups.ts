@@ -30,11 +30,12 @@ export function useMyGroups() {
         (g) => !list.some((x) => x.id === g.id) && !wasLeftByMe(g.id),
       );
       if (gone) {
-        // Vom Betreiber gesperrt? Dann deutlich anders als „entfernt“.
-        const banned = !gone.pending && (await myBans()).some((b) => b.id === gone.id);
+        // Gesperrt? Dann deutlich anders als „entfernt“.
+        const ban = gone.pending ? undefined : (await myBans()).find((b) => b.id === gone.id);
         store.setGroupNotice({
           name: gone.name,
-          reason: banned ? "banned" : gone.pending ? "rejected" : "removed",
+          reason: ban ? "banned" : gone.pending ? "rejected" : "removed",
+          by: ban?.by,
         });
       }
       store.setSeenGroups(list.map((g) => ({ id: g.id, name: g.name, pending: !!g.pending })));

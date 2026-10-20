@@ -43,9 +43,11 @@ export function GroupNotice() {
       <p className="mt-3 max-w-sm text-[16px] text-muted-foreground">
         {banned ? (
           <>
-            Du wurdest aus <strong className="text-foreground">„{notice.name}“</strong> gesperrt. Du
-            kannst dieser Runde nicht wieder beitreten, auch nicht mit dem Code. Deine Tipps dort
-            zählen nicht mehr.
+            {notice.by === "owner" ? "Der Ersteller hat dich aus " : "Du wurdest aus "}
+            <strong className="text-foreground">„{notice.name}“</strong> gesperrt. Du kannst nicht
+            wieder beitreten, auch nicht mit dem Code
+            {notice.by === "owner" ? " – erst, wenn er dich wieder entsperrt" : ""}. Deine Tipps
+            dort zählen nicht mehr.
           </>
         ) : rejected ? (
           <>
@@ -56,6 +58,7 @@ export function GroupNotice() {
           <>
             Du bist nicht mehr in <strong className="text-foreground">„{notice.name}“</strong>. Der
             Ersteller hat dich entfernt oder die Runde gelöscht. Deine Tipps dort zählen nicht mehr.
+            Gibt es die Runde noch, kannst du mit dem Code wieder anfragen.
           </>
         )}
       </p>
