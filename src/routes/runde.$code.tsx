@@ -907,7 +907,7 @@ function RenameDrawer({
       <FormSheetContent>
         <form
           key={String(open)}
-          className="space-y-4 pr-8"
+          className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -923,7 +923,7 @@ function RenameDrawer({
             }
           }}
         >
-          <FormSheetTitle className="font-display text-2xl font-bold uppercase">
+          <FormSheetTitle className="pr-10 font-display text-2xl font-bold uppercase">
             Namen ändern
           </FormSheetTitle>
           <FormSheetDescription className="sr-only">

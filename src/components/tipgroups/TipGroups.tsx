@@ -324,13 +324,13 @@ export function GroupFormDrawer({
     <FormSheet open={open} onOpenChange={onOpenChange}>
       <FormSheetContent>
         <form
-          className="space-y-4 pr-8"
+          className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
             if (valid && !busy) void submit();
           }}
         >
-          <FormSheetTitle className="font-display text-2xl font-bold uppercase">
+          <FormSheetTitle className="pr-10 font-display text-2xl font-bold uppercase">
             {mode === "create" ? "Tipprunde erstellen" : "Tipprunde beitreten"}
           </FormSheetTitle>
           <FormSheetDescription className="text-[14px] text-muted-foreground">
