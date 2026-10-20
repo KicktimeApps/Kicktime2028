@@ -118,7 +118,7 @@ export function MessagesSection({ pin }: { pin: string }) {
           onChange={setTone}
           options={TONES}
         />
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-1 block text-[12px] text-muted-foreground">
             Automatisch ausblenden ab (optional)
           </span>
@@ -126,7 +126,8 @@ export function MessagesSection({ pin }: { pin: string }) {
             type="datetime-local"
             value={until}
             onChange={(e) => setUntil(e.target.value)}
-            className="h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
+            // iOS gibt Datumsfeldern eine eigene Mindestbreite – ohne appearance/min-w ragen sie über den Rand.
+            className="block h-10 w-full min-w-0 max-w-full appearance-none rounded-xl border border-border bg-subtle px-3 text-left text-[14px] outline-none focus:border-primary [&::-webkit-date-and-time-value]:text-left"
           />
         </label>
         <div className="grid grid-cols-2 gap-2">

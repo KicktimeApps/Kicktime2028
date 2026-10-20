@@ -8,13 +8,15 @@ import { TeamPicker } from "@/components/team/TeamPicker";
 import { Switch } from "@/components/ui/switch";
 import { formatDate } from "@/domain/time";
 import { shouldOfferInstall, useInstallPrompt } from "@/lib/install";
+import { shouldOfferPush } from "@/lib/reminders";
 import { cn } from "@/lib/utils";
 import { useAppStore, useTimeZone } from "@/store/app-store";
 import { TOURNAMENT } from "@/tournament/config";
 import { getNation } from "@/tournament/nations";
 import { InstallStep } from "./InstallStep";
+import { PushStep } from "./PushStep";
 
-type StepId = "welcome" | "install" | "teams" | "time" | "done";
+type StepId = "welcome" | "install" | "teams" | "time" | "push" | "done";
 
 export function OnboardingFlow() {
   // Installieren nur im Browser auf Handy/Tablet – und gleich am Anfang, weil die
@@ -24,13 +26,23 @@ export function OnboardingFlow() {
     ...(shouldOfferInstall() ? (["install"] as const) : []),
     "teams",
     "time",
+    ...(shouldOfferPush() ? (["push"] as const) : []),
     "done",
   ]);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const installPrompt = useInstallPrompt();
+  const pushEnabled = useAppStore((s) => s.pushEnabled);
   const current = steps[step];
   const last = step === steps.length - 1;
+  // Schritte, bei denen der große Knopf im Inhalt die Hauptaktion ist – unten
+  // steht dann nur klein „ohne … weiter“.
+  const skipLabel =
+    current === "install" && installPrompt !== "installed"
+      ? "Ohne Installieren weiter"
+      : current === "push" && !pushEnabled
+        ? "Ohne Mitteilungen weiter"
+        : null;
   const favorites = useAppStore((s) => s.favorites);
   const interesting = useAppStore((s) => s.interesting);
   const complete = useAppStore((s) => s.completeOnboarding);
@@ -94,12 +106,13 @@ export function OnboardingFlow() {
               </>
             )}
             {current === "time" && <TimeStep />}
+            {current === "push" && <PushStep />}
             {current === "done" && <Done />}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {current === "install" && installPrompt !== "installed" && (
+      {skipLabel && (
         <div className="safe-bottom fixed inset-x-0 bottom-0 border-t border-border/70 bg-background/90 backdrop-blur-md">
           <div className="mx-auto flex max-w-xl justify-center px-5 py-3">
             <button
@@ -107,13 +120,13 @@ export function OnboardingFlow() {
               onClick={() => go(step + 1)}
               className="inline-flex h-11 items-center gap-1.5 px-3 text-[13.5px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
-              Ohne Installieren weiter <ArrowRight className="h-3.5 w-3.5" />
+              {skipLabel} <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       )}
 
-      {step > 0 && (current !== "install" || installPrompt === "installed") && (
+      {step > 0 && !skipLabel && (
         <div className="safe-bottom fixed inset-x-0 bottom-0 border-t border-border/70 bg-background/90 backdrop-blur-md">
           <div className="mx-auto flex max-w-xl items-center gap-3 px-5 py-3">
             {current === "teams" && (
@@ -128,7 +141,9 @@ export function OnboardingFlow() {
                 Später jederzeit änderbar
               </span>
             )}
-            {(current === "done" || current === "install") && <span className="flex-1" />}
+            {(current === "done" || current === "install" || current === "push") && (
+              <span className="flex-1" />
+            )}
             <button
               type="button"
               disabled={current === "teams" && teamCount === 0}

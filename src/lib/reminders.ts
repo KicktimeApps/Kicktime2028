@@ -45,3 +45,16 @@ export async function enableReminders(): Promise<boolean> {
   });
   return true;
 }
+
+/**
+ * Nur anbieten, wenn der Browser Mitteilungen kann und sie noch nicht aktiv
+ * sind. Auf dem iPhone geht das nur in der installierten App – im Browser
+ * (Installieren übersprungen) entfällt der Schritt, die Einstellungen erklären es.
+ */
+export function shouldOfferPush(): boolean {
+  if (typeof window === "undefined") return false;
+  const support = detectPushSupport();
+  if (support === "unsupported" || support === "ios-needs-pwa" || support === "denied")
+    return false;
+  return !useAppStore.getState().pushEnabled;
+}
