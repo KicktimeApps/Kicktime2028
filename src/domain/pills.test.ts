@@ -25,7 +25,7 @@ describe("buildPills", () => {
     expect(pills.perfect.length).toBeGreaterThan(0);
   });
 
-  it("„Perfekt“ nur mit Spielen in deiner Zeit, „Außerhalb“ nur außerhalb", () => {
+  it("„Passt mir“ nur mit Spielen in deiner Zeit, „Andere Zeit“ nur außerhalb", () => {
     for (const m of pills.perfect)
       expect(fitFor(m.kickoffUtc, prefs.timeZone, prefs.availability)).not.toBe("none");
     for (const m of pills.outside)

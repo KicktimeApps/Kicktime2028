@@ -38,7 +38,7 @@ function MarkButton({
       ) : (
         <Check className="h-3.5 w-3.5" />
       )}
-      <span>{kind === "favorite" ? "Favorit" : "Auch"}</span>
+      <span>{kind === "favorite" ? "Favorit" : "Folgen"}</span>
     </button>
   );
 }

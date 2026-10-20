@@ -1,5 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, CalendarClock, EyeOff, Sparkles, Star, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BellRing,
+  CalendarClock,
+  EyeOff,
+  Sparkles,
+  Star,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { LogoMark, Wordmark } from "@/components/layout/Logo";
 import { WeekEditor } from "@/components/settings/WeekEditor";
@@ -100,7 +109,7 @@ export function OnboardingFlow() {
                 <StepTitle
                   icon={<Users />}
                   title="Deine Teams"
-                  text="Wem drückst du die Daumen? Favoriten stehen bei dir ganz oben, interessante Teams fließen in deine Empfehlungen ein. Die 24 Endrunden-Teams stehen erst im März 2028 fest – markiere ruhig mehrere."
+                  text="Wem drückst du die Daumen? Favoriten stehen bei dir ganz oben, Teams, denen du folgst, fließen in deine Empfehlungen ein. Die 24 Endrunden-Teams stehen erst im März 2028 fest – markiere ruhig mehrere."
                 />
                 <TeamPicker />
               </>
@@ -255,6 +264,8 @@ function Done() {
   const spoiler = useAppStore((s) => s.spoilerProtection);
   const setSpoiler = useAppStore((s) => s.setSpoiler);
   const teams = [...favorites, ...interesting].map((c) => getNation(c)).filter((n) => !!n);
+  // Mitteilungen gingen hier nicht (iPhone im Browser) – dann sagen, wie es doch klappt.
+  const [needsHomeScreen] = useState(() => !shouldOfferPush() && shouldOfferInstall());
   return (
     <>
       <StepTitle
@@ -289,6 +300,18 @@ function Done() {
         </div>
         <Switch checked={spoiler} onCheckedChange={setSpoiler} aria-label="Spoilerschutz" />
       </label>
+      {needsHomeScreen && (
+        <div className="mt-3 flex items-center gap-4 rounded-2xl border border-border bg-card p-4">
+          <BellRing className="h-5 w-5 shrink-0 text-primary" />
+          <div className="flex-1">
+            <div className="text-[15px] font-semibold">Erinnerungen vor Anpfiff</div>
+            <div className="text-[13px] text-muted-foreground">
+              Gibt es nur in der App vom Home-Bildschirm. Füge KickTime dort hinzu und schalte sie
+              dort unter Profil → Erinnerungen ein.
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

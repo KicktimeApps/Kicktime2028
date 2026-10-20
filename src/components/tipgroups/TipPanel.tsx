@@ -24,7 +24,7 @@ function Stats({ tips }: { tips: Record<string, Prediction> }) {
     <div className="mb-6 grid grid-cols-3 divide-x divide-border/70 rounded-2xl border border-border bg-card py-3">
       {[
         { label: "Punkte", value: summary.points, accent: true },
-        { label: "Quote", value: summary.rated ? `${Math.round(summary.hitRate * 100)}%` : "–" },
+        { label: "Treffer", value: summary.rated ? `${Math.round(summary.hitRate * 100)}%` : "–" },
         { label: "Getippt", value: summary.total },
       ].map((s) => (
         <div key={s.label} className="text-center">

@@ -151,13 +151,13 @@ function HeroShell({ children, className }: { children: React.ReactNode; classNa
 const PILLS: { id: PillId; label: string; hint: string; empty: string }[] = [
   {
     id: "perfect",
-    label: "Perfekt",
+    label: "Passt mir",
     hint: "Deine Teams, passend zu deiner Zeit.",
     empty: "Gerade kein Spiel deiner Teams in deiner Zeit.",
   },
   {
     id: "outside",
-    label: "Außerhalb",
+    label: "Andere Zeit",
     hint: "Deine Teams außerhalb deiner Zeit – Erinnerung stellen?",
     empty: "Alle Spiele deiner Teams passen in deine Zeit.",
   },

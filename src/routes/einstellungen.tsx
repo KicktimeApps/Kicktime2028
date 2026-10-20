@@ -233,7 +233,7 @@ const SECTION_META: Record<Section, { title: string; intro?: string }> = {
   teams: {
     title: "Deine Teams",
     intro:
-      "„Favorit“: dein Herzensteam – steht ganz oben und bekommt automatisch Erinnerungen. „Auch“: interessiert dich ebenfalls.",
+      "„Favorit“: dein Herzensteam – steht ganz oben und bekommt automatisch Erinnerungen. „Folgen“: interessiert dich ebenfalls.",
   },
   zeit: { title: "Deine Zeit", intro: "Wann kannst du in der Regel Fußball schauen?" },
   erinnerungen: { title: "Erinnerungen" },

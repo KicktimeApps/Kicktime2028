@@ -171,7 +171,7 @@ export function ChampionTipCard({ context }: { context?: TipContext } = {}) {
         <span className="shrink-0 text-[14px] font-semibold leading-tight">
           Europa&shy;meister
           <span className="block text-[11.5px] font-normal text-muted-foreground">
-            {locked ? "fest" : `+${CHAMPION_BONUS} Punkte`}
+            {locked ? "gesperrt" : `+${CHAMPION_BONUS} Punkte`}
           </span>
         </span>
         {locked ? (
