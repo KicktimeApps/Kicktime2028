@@ -152,6 +152,8 @@ Link-Vorschauen und automatisierte Browser zählen nicht; gemeldet wird erst nac
 Bedienung (Tippen, Scrollen) oder 20 Sekunden Sichtbarkeit. Der Tagesverlauf wird 180 Tage
 aufbewahrt.
 
-Einrichtung (einmalig): SQL-Update `20261021090000_admin_ausbau.sql` ausführen, dann die Edge
-Functions `admin` und `live-scores` neu deployen. „Push an alle“ nutzt dieselben
+Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql` und
+`20261021120000_sperre_hinweis.sql` ausführen, dann die Edge Functions `admin` und
+`live-scores` neu deployen. Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
+Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“. „Push an alle“ nutzt dieselben
 VAPID-Secrets wie `send-push-reminders`.

@@ -1,13 +1,14 @@
 import { useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { UserX } from "lucide-react";
+import { Ban, UserX } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useMyGroups } from "@/hooks/useMyGroups";
 import { useAppStore } from "@/store/app-store";
 
 /**
  * Einmaliger Hinweis über den ganzen Bildschirm, wenn man aus einer Runde
- * entfernt wurde, die Runde gelöscht oder die Anfrage abgelehnt wurde.
+ * entfernt oder (vom Betreiber) gesperrt wurde, die Runde gelöscht oder die
+ * Anfrage abgelehnt wurde.
  * Hält dafür (und für neue Anfragen) die eigenen Runden aktuell.
  */
 export function GroupNotice() {
@@ -17,6 +18,8 @@ export function GroupNotice() {
   const navigate = useNavigate();
   if (!notice || typeof document === "undefined") return null;
   const rejected = notice.reason === "rejected";
+  const banned = notice.reason === "banned";
+  const Icon = banned ? Ban : UserX;
   // Direkt an <body>: Eltern mit Animation/transform würden „fixed“ sonst
   // auf ihren Bereich beschränken.
   return createPortal(
@@ -29,16 +32,22 @@ export function GroupNotice() {
       className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-background px-6 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-center"
     >
       <span className="flex h-20 w-20 items-center justify-center rounded-full bg-destructive/12 text-destructive">
-        <UserX className="h-10 w-10" />
+        <Icon className="h-10 w-10" />
       </span>
       <h1
         id="group-notice-title"
         className="mt-6 font-display text-[30px] font-bold uppercase leading-tight"
       >
-        {rejected ? "Anfrage abgelehnt" : "Nicht mehr dabei"}
+        {banned ? "Gesperrt" : rejected ? "Anfrage abgelehnt" : "Nicht mehr dabei"}
       </h1>
       <p className="mt-3 max-w-sm text-[16px] text-muted-foreground">
-        {rejected ? (
+        {banned ? (
+          <>
+            Du wurdest aus <strong className="text-foreground">„{notice.name}“</strong> gesperrt. Du
+            kannst dieser Runde nicht wieder beitreten, auch nicht mit dem Code. Deine Tipps dort
+            zählen nicht mehr.
+          </>
+        ) : rejected ? (
           <>
             Der Ersteller von <strong className="text-foreground">„{notice.name}“</strong> hat deine
             Anfrage abgelehnt. Mit dem Code kannst du es später noch einmal versuchen.

@@ -43,7 +43,7 @@ export type TipBoard = {
 /** Serverfehler → verständlicher deutscher Text. */
 const MESSAGES: [string, string][] = [
   ["group not found", "Diese Tipprunde gibt es nicht. Bitte den Code prüfen."],
-  ["banned", "Du wurdest aus dieser Tipprunde entfernt."],
+  ["banned", "Du kannst dieser Tipprunde nicht mehr beitreten."],
   ["name taken", "Diesen Namen gibt es in der Runde schon. Bitte einen anderen wählen."],
   ["name invalid", "Der Name muss 2 bis 20 Zeichen lang sein."],
   ["group name invalid", "Der Name der Runde muss 2 bis 40 Zeichen lang sein."],
@@ -117,6 +117,15 @@ export const answerRequest = (groupId: string, memberId: string, accept: boolean
   rpc<null>("kt_tip_answer", { p_group: groupId, p_member: memberId, p_accept: accept });
 
 export const myGroups = () => rpc<TipGroup[]>("kt_tip_my_groups", {});
+
+/** Runden, aus denen der Betreiber dieses Gerät gesperrt hat (leer ohne SQL-Update). */
+export async function myBans(): Promise<{ id: string; name: string }[]> {
+  try {
+    return (await rpc<{ id: string; name: string }[] | null>("kt_tip_my_bans", {})) ?? [];
+  } catch {
+    return [];
+  }
+}
 export const loadBoard = (groupId: string) => rpc<TipBoard>("kt_tip_board", { p_group: groupId });
 
 /** Einen Tipp in einer Runde speichern (der Server prüft den Anpfiff). */

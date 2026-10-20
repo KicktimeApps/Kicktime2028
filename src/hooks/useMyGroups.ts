@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { isBackendConfigured } from "@/services/supabase";
-import { myGroups, TipError, wasLeftByMe, type TipGroup } from "@/services/tipgroups";
+import { myBans, myGroups, TipError, wasLeftByMe, type TipGroup } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
 
 export const TIP_GROUPS_KEY = ["tip-groups"] as const;
@@ -29,8 +29,14 @@ export function useMyGroups() {
       const gone = store.seenGroups.find(
         (g) => !list.some((x) => x.id === g.id) && !wasLeftByMe(g.id),
       );
-      if (gone)
-        store.setGroupNotice({ name: gone.name, reason: gone.pending ? "rejected" : "removed" });
+      if (gone) {
+        // Vom Betreiber gesperrt? Dann deutlich anders als „entfernt“.
+        const banned = !gone.pending && (await myBans()).some((b) => b.id === gone.id);
+        store.setGroupNotice({
+          name: gone.name,
+          reason: banned ? "banned" : gone.pending ? "rejected" : "removed",
+        });
+      }
       store.setSeenGroups(list.map((g) => ({ id: g.id, name: g.name, pending: !!g.pending })));
       // Getippt wird nur in Runden, in denen man angenommen ist.
       setTipGroups(

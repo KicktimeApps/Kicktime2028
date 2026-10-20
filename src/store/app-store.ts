@@ -58,7 +58,7 @@ type State = {
   /** Zuletzt gesehene eigene Runden inkl. Anfragen – zum Erkennen von Rauswurf/Ablehnung. */
   seenGroups: { id: string; name: string; pending: boolean }[];
   /** Einmaliger Hinweis: aus einer Runde entfernt bzw. Anfrage abgelehnt. */
-  groupNotice: { name: string; reason: "removed" | "rejected" } | null;
+  groupNotice: { name: string; reason: "removed" | "rejected" | "banned" } | null;
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -93,7 +93,7 @@ type Actions = {
   setGroupTips: (groupId: string, tips: Record<string, { home: number; away: number }>) => void;
   setGroupChampion: (groupId: string, code: string | null) => void;
   setSeenGroups: (list: { id: string; name: string; pending: boolean }[]) => void;
-  setGroupNotice: (n: { name: string; reason: "removed" | "rejected" } | null) => void;
+  setGroupNotice: (n: { name: string; reason: "removed" | "rejected" | "banned" } | null) => void;
   setPushEnabled: (v: boolean) => void;
   setAutoAlarmFavorites: (v: boolean) => void;
   setAlarm: (matchId: string, v: boolean | null) => void;
