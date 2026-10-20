@@ -141,9 +141,13 @@ Deno.serve(async (req) => {
   const memberId = String(body.memberId ?? "");
   const rpc = async (fn: string, args?: Record<string, unknown>) => {
     const { data, error } = await db.rpc(fn, args);
-    return error
-      ? json({ error: "Fehlgeschlagen – SQL-Update „Admin-Ausbau“ ausgeführt?" }, 500)
-      : json({ ok: true, data });
+    if (!error) return json({ ok: true, data });
+    // Funktion fehlt → SQL-Update; „not found“ → schon erledigt/weg; sonst echte Meldung.
+    if (error.code === "PGRST202" || /does not exist|could not find/i.test(error.message))
+      return json({ error: "Server-Funktion fehlt – SQL-Updates ausgeführt?" }, 500);
+    if (error.message.includes("not found"))
+      return json({ error: "Nicht (mehr) vorhanden – vielleicht schon erledigt." }, 404);
+    return json({ error: `Fehlgeschlagen: ${error.message}` }, 500);
   };
 
   switch (body.action) {
@@ -183,6 +187,38 @@ Deno.serve(async (req) => {
 
     case "stats": {
       const since = (ms: number) => new Date(Date.now() - ms).toISOString();
+      // Push-Zustand: anstehende und in 24 h verschickte Erinnerungen.
+      const head = { count: "exact" as const, head: true };
+      const pushCounts = () =>
+        Promise.all([
+          db
+            .from("match_alarms")
+            .select("device_id", head)
+            .gt("kickoff_utc", new Date().toISOString()),
+          db
+            .from("match_alarms")
+            .select("device_id", head)
+            .gte("notified_for", since(86_400_000))
+            .lte("notified_for", new Date(Date.now() + 3_600_000).toISOString()),
+        ]);
+      // Ausführliche Statistik (SQL-Update „Admin-Ausbau“) enthält schon alles Übrige.
+      const { data: ext } = await db.rpc("kt_admin_stats");
+      if (ext) {
+        const [upcoming, sent24h] = await pushCounts();
+        return json({
+          online: ext.online,
+          day: ext.day,
+          week: ext.week,
+          total: ext.total,
+          topTeams: ext.topTeams,
+          push: {
+            subscriptions: ext.subscriptions,
+            upcoming: upcoming.count ?? 0,
+            sent24h: sent24h.count ?? 0,
+          },
+          ext,
+        });
+      }
       const count = async (from?: string) => {
         let q = db.from("app_pings").select("client_id", { count: "exact", head: true });
         if (from) q = q.gte("last_ping", from);
@@ -206,26 +242,16 @@ Deno.serve(async (req) => {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 6)
         .map(([team, count]) => ({ team, count }));
-      // Push-Zustand: Abos, anstehende Erinnerungen, in 24 h verschickte.
-      const head = { count: "exact" as const, head: true };
-      const nowIso = new Date().toISOString();
-      const [subs, upcoming, sent24h] = await Promise.all([
+      const [subs, [upcoming, sent24h]] = await Promise.all([
         db.from("push_subscriptions").select("device_id", head),
-        db.from("match_alarms").select("device_id", head).gt("kickoff_utc", nowIso),
-        db
-          .from("match_alarms")
-          .select("device_id", head)
-          .gte("notified_for", since(86_400_000))
-          .lte("notified_for", new Date(Date.now() + 3_600_000).toISOString()),
+        pushCounts(),
       ]);
       const push = {
         subscriptions: subs.count ?? 0,
         upcoming: upcoming.count ?? 0,
         sent24h: sent24h.count ?? 0,
       };
-      // Ausführliche Statistik (SQL-Update „Admin-Ausbau“), sonst nur die Grundwerte.
-      const { data: ext } = await db.rpc("kt_admin_stats");
-      return json({ online, day, week, total, topTeams, push, ext: ext ?? null });
+      return json({ online, day, week, total, topTeams, push, ext: null });
     }
 
     // Anstoßzeiten für die Tipprunden-Sperre (kt_fixtures) aus der App übernehmen.

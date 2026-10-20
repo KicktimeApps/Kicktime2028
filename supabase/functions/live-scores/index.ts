@@ -206,8 +206,20 @@ type Db = any;
 
 type Source = { league: string; season: string; suffix: string; paused: boolean };
 
-/** Live-Quelle: Admin-Einstellung (app_config), sonst Secrets bzw. Standard. */
+let sourceCache: { at: number; value: Source } | null = null;
+
+/**
+ * Live-Quelle: Admin-Einstellung (app_config), sonst Secrets bzw. Standard.
+ * 30 Sekunden im Speicher – bei Spielen fragen viele Geräte jede Minute.
+ */
 async function liveSource(db: Db): Promise<Source> {
+  if (sourceCache && Date.now() - sourceCache.at < 30_000) return sourceCache.value;
+  const value = await readSource(db);
+  sourceCache = { at: Date.now(), value };
+  return value;
+}
+
+async function readSource(db: Db): Promise<Source> {
   const fallback: Source = {
     league: env("OPENLIGA_LEAGUE", "em"),
     season: env("OPENLIGA_SEASON", "2028"),

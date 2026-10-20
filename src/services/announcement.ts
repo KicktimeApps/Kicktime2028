@@ -40,7 +40,12 @@ export const useAnnouncement = create<{
   },
 }));
 
-export async function refreshAnnouncement(): Promise<void> {
+let lastFetch = 0;
+
+/** Höchstens alle 5 Minuten (Live-Abrufe laufen bei Spielen jede Minute). */
+export async function refreshAnnouncement(force = false): Promise<void> {
+  if (!force && Date.now() - lastFetch < 5 * 60_000) return;
+  lastFetch = Date.now();
   const sb = await getSupabase();
   if (!sb) return;
   const { data, error } = await sb

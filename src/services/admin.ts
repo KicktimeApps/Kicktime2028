@@ -14,7 +14,16 @@ async function invoke<T>(
   if (!sb) return { ok: false, error: "Kein Backend konfiguriert" };
   try {
     const { data, error } = await sb.functions.invoke("admin", { body });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      // Bei 4xx/5xx steckt die verständliche Meldung im Antwort-Text.
+      const res = (error as { context?: Response }).context;
+      const detail = await res
+        ?.clone()
+        .json()
+        .then((b: { error?: string }) => b?.error)
+        .catch(() => undefined);
+      return { ok: false, error: detail ?? error.message };
+    }
     if (data && typeof data === "object" && "error" in data)
       return { ok: false, error: String(data.error) };
     return { ok: true, data: data as T };

@@ -151,52 +151,71 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Parallel, aber begrenzt (10 gleichzeitig) und mit Zeitlimit pro Durchlauf.
-    const queue = [...list];
-    await Promise.all(
-      Array.from({ length: Math.min(10, queue.length) }, async () => {
-        for (let row = queue.shift(); row; row = queue.shift()) await sendOne(row);
-      }),
-    );
+    // Parallel, aber begrenzt (10 gleichzeitig).
+    const parallel = async <T>(rows: T[], send: (row: T) => Promise<void>) => {
+      const queue = [...rows];
+      await Promise.all(
+        Array.from({ length: Math.min(10, queue.length) }, async () => {
+          for (let row = queue.shift(); row; row = queue.shift()) await send(row);
+        }),
+      );
+    };
+    await parallel(list, sendOne);
+
+    /**
+     * Nachricht an ein Gerät; abgelaufene Abos merken. Gibt bei vorübergehenden
+     * Fehlern (Zeitüberschreitung, 429, 5xx) false zurück.
+     */
+    const sendMessage = async (row: TipPush, label: string): Promise<boolean | "gone"> => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+          JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
+          { TTL: 86_400, urgency: "normal" },
+        );
+        return true;
+      } catch (err) {
+        const status = (err as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          expired.add(row.device_id);
+          return "gone";
+        }
+        console.warn(`[push] ${label} fehlgeschlagen`, status);
+        return !(!status || status === 429 || status >= 500) ? "gone" : false;
+      }
+    };
+
     // Tipprunden-Nachrichten (SQL-Update „Push bei Beitrittsanfrage“).
     let tipSent = 0;
     const { data: tipRows, error: tipErr } = await db.rpc("kt_claim_tip_push");
-    if (!tipErr) {
-      for (const row of (tipRows ?? []) as TipPush[]) {
-        try {
-          await webpush.sendNotification(
-            { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
-            JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
-            { TTL: 86_400, urgency: "normal" },
-          );
-          tipSent++;
-        } catch (err) {
-          const status = (err as { statusCode?: number }).statusCode;
-          if (status === 404 || status === 410) expired.add(row.device_id);
-          else console.warn("[push] Tipprunden-Nachricht fehlgeschlagen", status);
-        }
-      }
-    }
+    if (!tipErr)
+      await parallel((tipRows ?? []) as TipPush[], async (row) => {
+        if ((await sendMessage(row, "Tipprunden-Nachricht")) === true) tipSent++;
+      });
 
     // Einzel-Mitteilungen (Sperren, Entsperrungsanträge, neuer Ersteller).
+    // Vorübergehender Fehler → zurück in die Warteschlange, nächster Lauf versucht es erneut.
     let directSent = 0;
+    const retry: (TipPush & { created_at?: string })[] = [];
     const { data: directRows, error: directErr } = await db.rpc("kt_claim_direct_push");
-    if (!directErr) {
-      for (const row of (directRows ?? []) as TipPush[]) {
-        try {
-          await webpush.sendNotification(
-            { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
-            JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
-            { TTL: 86_400, urgency: "normal" },
-          );
-          directSent++;
-        } catch (err) {
-          const status = (err as { statusCode?: number }).statusCode;
-          if (status === 404 || status === 410) expired.add(row.device_id);
-          else console.warn("[push] Einzel-Mitteilung fehlgeschlagen", status);
-        }
-      }
-    }
+    if (!directErr)
+      await parallel((directRows ?? []) as (TipPush & { created_at?: string })[], async (row) => {
+        const res = await sendMessage(row, "Einzel-Mitteilung");
+        if (res === true) directSent++;
+        else if (res === false) retry.push(row);
+      });
+    if (retry.length > 0)
+      await db.from("kt_push_queue").insert(
+        retry.map((r) => ({
+          device_id: r.device_id,
+          title: r.title,
+          body: r.body,
+          url: r.url,
+          tag: r.tag,
+          // ursprünglicher Zeitpunkt: nach einem Tag verfällt die Nachricht trotzdem
+          ...(r.created_at ? { created_at: r.created_at } : {}),
+        })),
+      );
 
     if (expired.size > 0)
       await db

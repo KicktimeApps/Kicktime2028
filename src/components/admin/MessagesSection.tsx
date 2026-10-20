@@ -66,7 +66,7 @@ export function MessagesSection({ pin }: { pin: string }) {
     );
     if (ok) {
       await load();
-      await refreshAnnouncement();
+      await refreshAnnouncement(true);
     }
   };
 

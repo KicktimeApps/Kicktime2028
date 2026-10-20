@@ -46,6 +46,21 @@ describe("appealState", () => {
     const list = [1, 2, 3].map((id) => a({ id, status: "rejected", decidedAt: old }));
     expect(appealState(status(list), { scope: "global" }, now).kind).toBe("limit");
   });
+  it("nach angenommenem Antrag (frühere Sperre) fängt es von vorn an", () => {
+    const old = new Date(now - 30 * day).toISOString();
+    const list = [
+      ...[1, 2].map((id) => a({ id, status: "rejected", decidedAt: old })),
+      a({ id: 3, status: "accepted", decidedAt: old }),
+    ];
+    expect(appealState(status(list), { scope: "global" }, now).kind).toBe("none");
+    expect(
+      appealState(status([...list, a({ id: 4, status: "open" })]), { scope: "global" }, now).kind,
+    ).toBe("open");
+  });
+  it("Runde per Code (beim Beitreten)", () => {
+    const list = [a({ scope: "group", groupId: "g1", groupCode: "K7PX2M" })];
+    expect(appealState(status(list), { scope: "group", code: "K7PX2M" }, now).kind).toBe("open");
+  });
   it("trennt Runde, eigene Anträge und Anträge für Mitglieder", () => {
     const list = [
       a({ scope: "group", groupId: "g1" }),

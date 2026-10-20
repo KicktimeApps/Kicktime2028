@@ -381,7 +381,7 @@ export function GroupFormDrawer({
             </p>
           )}
           {bannedCode && (
-            <AppealBlock appealKey={{ scope: "group", groupId: "" }} code={bannedCode} />
+            <AppealBlock appealKey={{ scope: "group", code: bannedCode }} code={bannedCode} />
           )}
           <button
             type="submit"

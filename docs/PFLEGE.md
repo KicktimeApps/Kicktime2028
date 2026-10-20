@@ -154,7 +154,8 @@ aufbewahrt.
 
 Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql`,
 `20261021120000_sperre_hinweis.sql`, `20261021150000_kicken_sperren.sql` und
-`20261022090000_entsperrung.sql` und `20261022120000_entsperrt_hinweis.sql` ausführen, dann die Edge Functions `admin`,
+`20261022090000_entsperrung.sql`, `20261022120000_entsperrt_hinweis.sql` und
+`20261022150000_korrekturen_sperren.sql` ausführen, dann die Edge Functions `admin`,
 `live-scores` und `send-push-reminders` neu deployen. Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
 Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“.
 
