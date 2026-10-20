@@ -134,6 +134,101 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
 }
 
 /* ------------------------------------------------------------------ */
+/* ESPN (Zweitquelle, kostenlos, ohne Schlüssel)                       */
+/* ------------------------------------------------------------------ */
+
+type EspnCompetitor = {
+  homeAway?: string;
+  score?: string | number;
+  shootoutScore?: number | string | null;
+  team?: { displayName?: string; name?: string; location?: string } | null;
+};
+export type EspnEvent = {
+  id: string | number;
+  date?: string;
+  status?: { displayClock?: string; type?: { name?: string; state?: string } };
+  competitions?: {
+    venue?: { fullName?: string; address?: { city?: string } } | null;
+    competitors?: EspnCompetitor[];
+  }[];
+};
+
+const ESPN_PHASE: Record<string, LivePhase> = {
+  STATUS_FIRST_HALF: "first",
+  STATUS_HALFTIME: "half",
+  STATUS_SECOND_HALF: "second",
+  STATUS_END_OF_REGULATION: "extra",
+  STATUS_OVERTIME: "extra",
+  STATUS_FIRST_HALF_EXTRA_TIME: "extra",
+  STATUS_HALFTIME_ET: "extra",
+  STATUS_SECOND_HALF_EXTRA_TIME: "extra",
+  STATUS_END_OF_EXTRATIME: "extra",
+  STATUS_SHOOTOUT: "penalties",
+};
+
+/**
+ * ESPN-Spiel → LiveFixture. ESPN meldet Tore meist schneller als OpenLigaDB,
+ * ist aber eine inoffizielle Schnittstelle – darum nur Zweitquelle
+ * (siehe mergeLiveResults). Spiegelbild in supabase/functions/live-scores.
+ */
+export function fromEspn(e: EspnEvent, now: number): LiveFixture {
+  const kickoff = e.date ? Date.parse(e.date) : NaN;
+  const comp = e.competitions?.[0];
+  const teams = comp?.competitors ?? [];
+  const home = teams.find((t) => t.homeAway === "home") ?? teams[0];
+  const away = teams.find((t) => t.homeAway === "away") ?? teams[1];
+  const num = (v: unknown) => {
+    const n = typeof v === "number" ? v : parseInt(String(v ?? ""), 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  const name = e.status?.type?.name ?? "";
+  const state = e.status?.type?.state;
+  let status: MatchStatus = "scheduled";
+  // Abgesagt/verlegt/abgebrochen: lieber nichts melden als etwas Falsches.
+  if (/CANCEL|POSTPONED|ABANDON|DELAYED|SUSPENDED/.test(name)) status = "scheduled";
+  else if (state === "post") status = "finished";
+  else if (state === "in") status = "live";
+  if (!Number.isNaN(kickoff) && kickoff > now) status = "scheduled";
+
+  const h = num(home?.score);
+  const a = num(away?.score);
+  let score: Score | undefined;
+  let penalties: Score | undefined;
+  if (status !== "scheduled") {
+    score = { home: h ?? 0, away: a ?? 0 };
+    const ph = num(home?.shootoutScore);
+    const pa = num(away?.shootoutScore);
+    if (ph != null && pa != null && (ph > 0 || pa > 0)) penalties = { home: ph, away: pa };
+  }
+  let phase: LivePhase | undefined;
+  let minute: number | undefined;
+  if (status === "live") {
+    phase = ESPN_PHASE[name];
+    const clock = num(e.status?.displayClock);
+    if (clock != null && clock > 0) minute = clock;
+    else if (!Number.isNaN(kickoff)) minute = Math.max(1, Math.floor((now - kickoff) / 60_000));
+    phase ??= minute != null && minute > 45 ? "second" : "first";
+  }
+  const teamName = (t?: EspnCompetitor) =>
+    t?.team?.displayName ?? t?.team?.location ?? t?.team?.name ?? null;
+  return {
+    externalId: `espn-${e.id}`,
+    kickoffUtc: Number.isNaN(kickoff)
+      ? undefined
+      : new Date(kickoff).toISOString().replace(".000Z", "Z"),
+    city: comp?.venue?.address?.city ?? null,
+    stadium: comp?.venue?.fullName ?? null,
+    homeName: teamName(home),
+    awayName: teamName(away),
+    status,
+    score,
+    penalties,
+    phase,
+    minute,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Zuordnung externes Spiel → Spielnummer                              */
 /* ------------------------------------------------------------------ */
 
@@ -270,4 +365,34 @@ export function applyLiveFixtures(
     }
   }
   return { results, patches, unmatched };
+}
+
+const STATUS_RANK: Record<MatchStatus, number> = { scheduled: 0, live: 1, finished: 2 };
+
+/**
+ * Führt Hauptquelle (OpenLigaDB) und Zweitquelle (ESPN) zusammen:
+ *  - Meldet nur eine Quelle etwas, gilt diese.
+ *  - Ist eine Quelle weiter (live statt geplant, beendet statt live), gilt sie –
+ *    so springt die App nicht zurück, wenn OpenLigaDB hinterherhängt.
+ *  - Beide live → Zweitquelle (aktueller Spielstand/Minute).
+ *  - Beide beendet → Hauptquelle (wird auch dauerhaft gespeichert).
+ * Teams/Anstoßzeiten: Hauptquelle zuerst, Zweitquelle füllt nur Lücken.
+ */
+export function mergeLiveResults(
+  primary: LiveApplyResult,
+  backup: LiveApplyResult,
+): LiveApplyResult {
+  const results = { ...primary.results };
+  for (const [id, b] of Object.entries(backup.results)) {
+    const p = results[id];
+    if (
+      !p ||
+      STATUS_RANK[b.status] > STATUS_RANK[p.status] ||
+      (b.status === "live" && p.status === "live")
+    )
+      results[id] = b;
+  }
+  const patches = { ...primary.patches };
+  for (const [id, b] of Object.entries(backup.patches)) patches[id] = { ...b, ...patches[id] };
+  return { results, patches, unmatched: primary.unmatched };
 }

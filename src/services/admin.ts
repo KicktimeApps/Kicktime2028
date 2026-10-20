@@ -84,10 +84,11 @@ export const fetchStats = (pin: string) => invoke<Stats>({ action: "stats", pin 
 
 export type FeedbackRow = {
   id?: number;
-  rating: number;
+  rating: number | null;
   message: string | null;
   created_at: string;
   app_version: string | null;
+  category?: string | null;
 };
 export const fetchFeedback = (pin: string) =>
   invoke<{ rows: FeedbackRow[] }>({ action: "feedback", pin });
@@ -110,11 +111,18 @@ export const clearAllOverrides = (pin: string) =>
 
 /* ---------- Live-Quelle & Einstellungen ---------- */
 
-export type LiveSource = { league: string; season: string; suffix: string; paused: boolean };
+export type LiveSource = {
+  league: string;
+  season: string;
+  suffix: string;
+  paused: boolean;
+  /** ESPN-Liga der Zweitquelle, leer = aus (fehlt bei älteren Einträgen → Standard). */
+  backup?: string;
+};
 
 export type AdminConfig = {
   liveSource: LiveSource | null;
-  defaults: { league: string; season: string };
+  defaults: { league: string; season: string; backup?: string };
   announcement: Announcement | null;
   cache: { id: string; fetched_at: string }[];
   storedResults: number;
@@ -134,7 +142,7 @@ export type SourceTest = {
   sample?: string[];
   error?: string;
 };
-export const testLiveSource = (pin: string, src: Omit<LiveSource, "paused">) =>
+export const testLiveSource = (pin: string, src: Omit<LiveSource, "paused" | "backup">) =>
   invoke<SourceTest>({ action: "test_source", pin, ...src });
 
 export const clearLiveCache = (pin: string) => invoke({ action: "clear_cache", pin });

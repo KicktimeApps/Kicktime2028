@@ -36,6 +36,13 @@ const BROWSER: Record<string, string> = {
 const pct = (part: number, whole: number) =>
   whole > 0 ? `${Math.round((part / whole) * 100)} %` : "–";
 
+const CATEGORY_LABEL: Record<string, string> = {
+  idee: "💡 Idee",
+  fehler: "🐞 Fehler",
+  lob: "💚 Lob",
+  sonstiges: "💬 Sonstiges",
+};
+
 export function StatsSection({ pin }: { pin: string }) {
   const { busy, run } = useAction();
   const [stats, setStats] = useState<Stats | null>(null);
@@ -100,7 +107,12 @@ export function StatsSection({ pin }: { pin: string }) {
           {feedback.map((f, i) => (
             <li key={f.id ?? i} className="flex gap-2 rounded-lg bg-subtle px-2.5 py-1.5">
               <div className="min-w-0 flex-1">
-                {f.rating > 0 ? "👍" : f.rating < 0 ? "👎" : "😐"}{" "}
+                {f.category && (
+                  <span className="mr-1 rounded-md bg-background px-1.5 py-0.5 text-[11px] font-semibold">
+                    {CATEGORY_LABEL[f.category] ?? f.category}
+                  </span>
+                )}
+                {f.rating == null ? "" : f.rating > 0 ? "👍 " : f.rating < 0 ? "👎 " : "😐 "}
                 {f.message ?? <span className="text-muted-foreground">ohne Text</span>}
                 <span className="block text-[11px] text-muted-foreground">
                   {new Date(f.created_at).toLocaleString("de-DE")} · v{f.app_version}

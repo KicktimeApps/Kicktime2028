@@ -55,7 +55,9 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 - **Backend:** Supabase. Alle schreibenden Zugriffe der App laufen über `SECURITY DEFINER`-RPCs
   (`kt_*`); Tabellen sind per RLS gesperrt. Edge Functions in `supabase/functions/`:
   - `live-scores` – OpenLigaDB abrufen, cachen, beendete Spiele sichern. Quelle per Admin
-    einstellbar (`app_config` „live_source“).
+    einstellbar (`app_config` „live_source“). Meldet außerdem die ESPN-Liga der Zweitquelle;
+    ESPN ruft die App selbst ab (ESPN sperrt Rechenzentren), nur an EM-Spieltagen, und führt
+    beide Quellen in `mergeLiveResults` zusammen.
   - `admin` – alle Admin-Aktionen, PIN-geprüft (Secret `ADMIN_PIN`, Brute-Force-Sperre).
   - `send-push-reminders` – per Cron (Header `x-cron-secret`): Erinnerungen, Tipprunden-
     Nachrichten, Einzel-Mitteilungen (`kt_push_queue`).

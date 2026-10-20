@@ -100,6 +100,16 @@ Halbfinale, Finale) oder „MagentaTV“ (Free-TV noch offen).
 - Elfmeterschießen: OpenLigaDB führt das Ergebnis „nach Elfmeterschießen“ nicht immer
   einheitlich (mal mit, mal ohne die Tore aus dem Spiel). Der **Sieger** wird in beiden Fällen
   richtig erkannt; sollte die angezeigte Elfmeterzahl nicht stimmen, im Admin-Bereich korrigieren.
+- **Zweitquelle ESPN** (kostenlos, ohne Anmeldung): An Tagen mit EM-Spiel fragt die App
+  zusätzlich ESPN nach den Spielen des Tages (`uefa.euro`). ESPN meldet Tore meist schneller.
+  Pro Spiel gilt die Quelle, die „weiter“ ist (live statt geplant, beendet statt live); laufen
+  beide, zählt ESPN, sind beide beendet, zählt OpenLigaDB. Dauerhaft gespeichert werden nur
+  OpenLigaDB-Endergebnisse. Die App fragt ESPN **direkt** (nicht über Supabase), weil ESPN
+  Anfragen aus Rechenzentren sperrt – deshalb steht ESPN auch in der Datenschutzerklärung.
+  Ein-/ausschalten bzw. Liga ändern: **Admin-Bereich → Live-Daten → API-Quellen →
+  Zweitquelle ESPN** (gilt für alle). Mit einer anderen Liga, z. B. `ger.1` (Bundesliga), fragt
+  die App jeden Tag – gut zum Ausprobieren, die Spiele werden aber nicht zugeordnet. ESPN ist
+  eine inoffizielle Schnittstelle; fällt sie aus, läuft alles mit OpenLigaDB weiter.
 - Im Admin-Bereich → Live-Daten siehst du Quelle, abgefragte Adresse, letzten Abruf und die Zahl
   der Spiele, die die App nicht zuordnen konnte. Liefert die Quelle Unsinn, dort „Live-Abruf
   anhalten“ – dann gelten nur gespeicherter Stand und Korrekturen.
@@ -162,6 +172,9 @@ Danach die Absicherungen `20261022180000_suchpfad_hilfsfunktionen.sql` (wird von
 überholt, schadet aber nicht), `20261022200000_hilfsfunktionen_absichern.sql` und
 `20261022220000_suchpfad_aufrufer.sql` ausführen – dafür muss keine Edge Function neu deployt
 werden.
+
+Feedback mit Kategorie (Idee, Fehler, Lob, Sonstiges): `20261023090000_feedback_kategorie.sql`
+ausführen, danach die Edge Functions `admin` und `live-scores` (meldet die ESPN-Liga) neu deployen.
 
 Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
 Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“.

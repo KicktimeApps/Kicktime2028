@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
     case "feedback": {
       const { data } = await db
         .from("app_feedback")
-        .select("id, rating, message, created_at, app_version")
+        .select("id, rating, message, created_at, app_version, category")
         .order("created_at", { ascending: false })
         .limit(50);
       return json({ rows: data ?? [] });
@@ -326,6 +326,7 @@ Deno.serve(async (req) => {
         defaults: {
           league: Deno.env.get("OPENLIGA_LEAGUE") ?? "em",
           season: Deno.env.get("OPENLIGA_SEASON") ?? "2028",
+          backup: "uefa.euro",
         },
         announcement: get("announcement")?.value ?? null,
         cache: cache ?? [],
@@ -340,18 +341,26 @@ Deno.serve(async (req) => {
         .toLowerCase();
       const season = String(body.season ?? "").trim();
       const suffix = String(body.suffix ?? "").trim();
+      // Zweitquelle ESPN: Liga-Kürzel wie „uefa.euro“, leer = aus.
+      const backup = String(body.backup ?? "")
+        .trim()
+        .toLowerCase();
       if (
         !/^[a-z0-9_]{1,30}$/.test(league) ||
         !/^\d{4}$/.test(season) ||
-        !/^(\d{1,3})?$/.test(suffix)
+        !/^(\d{1,3})?$/.test(suffix) ||
+        !/^([a-z0-9]{2,12}(\.[a-z0-9_]{1,20})?)?$/.test(backup)
       )
         return json(
-          { error: "Liga (Buchstaben/Zahlen), Saison (4 Ziffern), Endung (Zahl) prüfen" },
+          {
+            error:
+              "Liga (Buchstaben/Zahlen), Saison (4 Ziffern), Endung (Zahl) und ESPN-Liga (z. B. uefa.euro) prüfen",
+          },
           400,
         );
       const url = `https://api.openligadb.de/getmatchdata/${league}/${season}${suffix ? `/${suffix}` : ""}`;
       if (body.action === "set_source") {
-        const value = { league, season, suffix, paused: body.paused === true };
+        const value = { league, season, suffix, paused: body.paused === true, backup };
         const { error } = await db
           .from("app_config")
           .upsert({ key: "live_source", value, updated_at: new Date().toISOString() });

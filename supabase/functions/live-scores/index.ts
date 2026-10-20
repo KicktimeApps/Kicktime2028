@@ -10,6 +10,11 @@
  *
  * Quelle: im Admin-Bereich einstellbar (app_config „live_source“: Liga, Saison,
  * API-Endung, Pause). Sonst Secrets OPENLIGA_LEAGUE ("em") / OPENLIGA_SEASON ("2028").
+ *
+ * Zweitquelle ESPN: Die Antwort nennt nur die eingestellte ESPN-Liga (`espn`,
+ * Standard „uefa.euro“, leer = aus). Abrufen muss die App selbst – ESPN sperrt
+ * Anfragen aus Rechenzentren (403), erlaubt aber Browser (CORS). Gespeichert
+ * werden nur Endergebnisse der Hauptquelle.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
@@ -168,10 +173,16 @@ Deno.serve(async (req) => {
     const ttl = anyLive ? LIVE_TTL : IDLE_TTL;
     if (src.paused) {
       // Abruf angehalten (Admin): nur gespeicherter Stand + Korrekturen.
-      return json({ fixtures: await mergeStored(db, cachedList), cache: "paused", url });
+      return json({
+        fixtures: await mergeStored(db, cachedList),
+        espn: "",
+        cache: "paused",
+        url,
+      });
     }
+    const espn = src.backup;
     if (cached && !force && now - Date.parse(cached.fetched_at) < ttl) {
-      return json({ fixtures: await mergeStored(db, cachedList), cache: "hit", url });
+      return json({ fixtures: await mergeStored(db, cachedList), espn, cache: "hit", url });
     }
 
     let fresh: LiveFixture[];
@@ -184,6 +195,7 @@ Deno.serve(async (req) => {
       // Upstream gestört → letzter Stand
       return json({
         fixtures: await mergeStored(db, cachedList),
+        espn,
         cache: "stale",
         url,
         warning: String(err),
@@ -194,7 +206,7 @@ Deno.serve(async (req) => {
       .from("live_cache")
       .upsert({ id: cacheId, payload: fresh, fetched_at: new Date(now).toISOString() });
     await persistFinished(db, fresh);
-    return json({ fixtures: await mergeStored(db, fresh), cache: "miss", url });
+    return json({ fixtures: await mergeStored(db, fresh), espn, cache: "miss", url });
   } catch (err) {
     console.error("[live-scores]", err);
     return json({ error: "Interner Fehler" }, 500);
@@ -204,7 +216,17 @@ Deno.serve(async (req) => {
 // deno-lint-ignore no-explicit-any
 type Db = any;
 
-type Source = { league: string; season: string; suffix: string; paused: boolean };
+type Source = {
+  league: string;
+  season: string;
+  suffix: string;
+  paused: boolean;
+  /** ESPN-Liga der Zweitquelle, leer = aus. */
+  backup: string;
+};
+
+const ESPN_DEFAULT = "uefa.euro";
+const ESPN_LEAGUE = /^[a-z0-9]{2,12}(\.[a-z0-9_]{1,20})?$/;
 
 let sourceCache: { at: number; value: Source } | null = null;
 
@@ -225,6 +247,7 @@ async function readSource(db: Db): Promise<Source> {
     season: env("OPENLIGA_SEASON", "2028"),
     suffix: "",
     paused: false,
+    backup: ESPN_DEFAULT,
   };
   const { data, error } = await db
     .from("app_config")
@@ -238,6 +261,13 @@ async function readSource(db: Db): Promise<Source> {
     season: /^\d{4}$/.test(String(v.season)) ? String(v.season) : fallback.season,
     suffix: /^\d{1,3}$/.test(String(v.suffix ?? "")) ? String(v.suffix) : "",
     paused: v.paused === true,
+    // Älterer Eintrag ohne Feld → Standard; leer → ausgeschaltet.
+    backup:
+      v.backup === undefined
+        ? ESPN_DEFAULT
+        : ESPN_LEAGUE.test(String(v.backup))
+          ? String(v.backup)
+          : "",
   };
 }
 

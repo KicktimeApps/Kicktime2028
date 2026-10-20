@@ -1,6 +1,9 @@
 import {
   applyLiveFixtures,
+  fromEspn,
   fromOpenLiga,
+  mergeLiveResults,
+  type EspnEvent,
   type LiveFixture,
   type OpenLigaMatch,
 } from "@/domain/live";
@@ -38,20 +41,33 @@ type BackendFixture = {
   minute?: number;
 };
 
-type Fetched = { fixtures: LiveFixture[]; url: string | null; cache: string | null };
+type Fetched = {
+  fixtures: LiveFixture[];
+  /** ESPN-Liga der Zweitquelle (vom Server eingestellt), leer = aus. */
+  espn: string;
+  url: string | null;
+  cache: string | null;
+};
 
 async function fetchFromBackend(force = false): Promise<Fetched> {
   const sb = await getSupabase();
   if (!sb) throw new Error("Backend nicht konfiguriert");
   const { data, error } = await sb.functions.invoke<{
     fixtures?: BackendFixture[];
+    espn?: string;
     url?: string;
     cache?: string;
     error?: string;
   }>("live-scores", { body: { force } });
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.error);
-  return { fixtures: data?.fixtures ?? [], url: data?.url ?? null, cache: data?.cache ?? null };
+  return {
+    fixtures: data?.fixtures ?? [],
+    // Älterer Server ohne Feld → Standard.
+    espn: typeof data?.espn === "string" ? data.espn : ESPN_DEFAULT,
+    url: data?.url ?? null,
+    cache: data?.cache ?? null,
+  };
 }
 
 async function fetchFromOpenLiga(): Promise<Fetched> {
@@ -60,7 +76,38 @@ async function fetchFromOpenLiga(): Promise<Fetched> {
   const raw = (await res.json()) as OpenLigaMatch[];
   const now = Date.now();
   const fixtures = Array.isArray(raw) ? raw.map((m) => fromOpenLiga(m, now)) : [];
-  return { fixtures, url: OPENLIGA_URL, cache: null };
+  return { fixtures, espn: ESPN_DEFAULT, url: OPENLIGA_URL, cache: null };
+}
+
+const ESPN_DEFAULT = "uefa.euro";
+/** Zuletzt vom Server gemeldete ESPN-Liga – so laufen beide Abrufe gleichzeitig. */
+let espnLeague = ESPN_DEFAULT;
+const ymd = (t: number) => new Date(t).toISOString().slice(0, 10).replace(/-/g, "");
+
+/**
+ * Zweitquelle ESPN – direkt aus dem Browser, weil ESPN Anfragen aus
+ * Rechenzentren (also auch vom Server) sperrt. Nur an Tagen mit EM-Spiel
+ * (UTC; alle Spiele enden vor Mitternacht), bei einer anderen Test-Liga immer.
+ * Fehler sind egal: dann eben nur OpenLigaDB.
+ */
+async function fetchEspn(league: string, now: number): Promise<LiveFixture[]> {
+  if (!/^[a-z0-9]{2,12}(\.[a-z0-9_]{1,20})?$/.test(league)) return [];
+  const today = ymd(now);
+  const matchDay = useMatchStore
+    .getState()
+    .tournament.matches.some((m) => ymd(Date.parse(m.kickoffUtc)) === today);
+  if (league === ESPN_DEFAULT && !matchDay) return [];
+  try {
+    const res = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${today}`,
+      { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8_000) },
+    );
+    if (!res.ok) return [];
+    const raw = (await res.json()) as { events?: EspnEvent[] };
+    return Array.isArray(raw?.events) ? raw.events.map((e) => fromEspn(e, now)) : [];
+  } catch {
+    return [];
+  }
 }
 
 type OverrideRow = {
@@ -162,17 +209,21 @@ export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
     const store = useMatchStore.getState();
     const backend = isBackendConfigured();
     try {
-      const { fixtures, url, cache } = backend
+      const now = Date.now();
+      const asked = espnLeague;
+      const espnRun = fetchEspn(asked, now);
+      const { fixtures, espn, url, cache } = backend
         ? await fetchFromBackend(opts.force)
         : await fetchFromOpenLiga();
+      espnLeague = espn;
+      // Ausgeschaltet → verwerfen; Liga geändert → gleich mit der neuen fragen.
+      const backup = !espn ? [] : espn === asked ? await espnRun : await fetchEspn(espn, now);
       const teams = new Map(
         store.tournament.matches.map((m) => [m.number, { home: m.home, away: m.away }]),
       );
-      const { results, patches, unmatched } = applyLiveFixtures(
-        fixtures,
-        FIXTURES,
-        teams,
-        Date.now(),
+      const { results, patches, unmatched } = mergeLiveResults(
+        applyLiveFixtures(fixtures, FIXTURES, teams, now),
+        applyLiveFixtures(backup, FIXTURES, teams, now),
       );
       useMatchStore.getState().setApiData(results, patches);
       useMatchStore.getState().setLiveMeta({

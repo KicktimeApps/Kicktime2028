@@ -17,6 +17,8 @@ import { useMatchStore } from "@/store/match-store";
 import { ActionButton, Card, ConfirmButton, Info } from "./shared";
 import { fmtTime, useAction } from "./use-action";
 
+const ESPN_DEFAULT = "uefa.euro";
+
 const CACHE_LABEL: Record<string, string> = {
   hit: "Zwischenspeicher",
   miss: "frisch geladen",
@@ -28,8 +30,16 @@ export function LiveSection({ pin }: { pin: string }) {
   const live = useMatchStore((s) => s.live);
   const { busy, run } = useAction();
   const [config, setConfig] = useState<AdminConfig | null>(null);
-  const [form, setForm] = useState({ league: "", season: "", suffix: "", paused: false });
+  const [form, setForm] = useState({
+    league: "",
+    season: "",
+    suffix: "",
+    paused: false,
+    backup: ESPN_DEFAULT,
+  });
   const [test, setTest] = useState<SourceTest | null>(null);
+  // Eigener Schalter-Zustand, damit das Feld beim Leeren nicht verschwindet.
+  const [espnOn, setEspnOn] = useState(true);
 
   const load = useCallback(async () => {
     const data = await run("config", () => fetchConfig(pin));
@@ -41,7 +51,9 @@ export function LiveSection({ pin }: { pin: string }) {
       season: src.season,
       suffix: src.suffix ?? "",
       paused: !!src.paused,
+      backup: src.backup ?? ESPN_DEFAULT,
     });
+    setEspnOn((src.backup ?? ESPN_DEFAULT) !== "");
   }, [pin, run]);
   useEffect(() => {
     void load();
@@ -55,7 +67,8 @@ export function LiveSection({ pin }: { pin: string }) {
     (saved.league !== form.league ||
       saved.season !== form.season ||
       (saved.suffix ?? "") !== form.suffix ||
-      !!saved.paused !== form.paused);
+      !!saved.paused !== form.paused ||
+      (saved.backup ?? ESPN_DEFAULT) !== form.backup);
 
   const reload = () =>
     run(
@@ -117,7 +130,7 @@ export function LiveSection({ pin }: { pin: string }) {
       </Card>
 
       <Card
-        title="API-Quelle (OpenLigaDB)"
+        title="API-Quellen"
         text="Liga-Kürzel, Saison und optional eine Endung (z. B. Spieltag-Nummer). Leer = ganze Saison. Gilt sofort für alle."
       >
         <div className="grid grid-cols-[1fr_1fr_0.8fr] gap-2">
@@ -144,6 +157,32 @@ export function LiveSection({ pin }: { pin: string }) {
         </div>
         <div className="break-all rounded-xl bg-subtle px-3 py-2 font-mono text-[11.5px]">
           {url}
+        </div>
+        <div className="space-y-2 rounded-xl border border-border px-3 py-2.5">
+          <label className="flex cursor-pointer items-center gap-3">
+            <div className="flex-1">
+              <div className="font-semibold">Zweitquelle ESPN</div>
+              <div className="text-[12px] text-muted-foreground">
+                Kostenlos, meist schneller bei Toren. OpenLigaDB bleibt die Hauptquelle.
+              </div>
+            </div>
+            <Switch
+              checked={espnOn}
+              onCheckedChange={(v) => {
+                setEspnOn(v);
+                setForm({ ...form, backup: v ? ESPN_DEFAULT : "" });
+              }}
+              aria-label="Zweitquelle ESPN"
+            />
+          </label>
+          {espnOn && (
+            <Field
+              label="ESPN-Liga"
+              value={form.backup}
+              onChange={(v) => setForm({ ...form, backup: v.toLowerCase() })}
+              placeholder={ESPN_DEFAULT}
+            />
+          )}
         </div>
         <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border px-3 py-2.5">
           <div className="flex-1">
@@ -196,7 +235,10 @@ export function LiveSection({ pin }: { pin: string }) {
           <button
             type="button"
             className="text-[12px] text-muted-foreground underline-offset-2 hover:underline"
-            onClick={() => setForm({ ...config.defaults, suffix: "", paused: false })}
+            onClick={() => (
+              setEspnOn(true),
+              setForm({ ...config.defaults, suffix: "", paused: false, backup: ESPN_DEFAULT })
+            )}
           >
             Auf Standard zurücksetzen ({config.defaults.league}/{config.defaults.season})
           </button>

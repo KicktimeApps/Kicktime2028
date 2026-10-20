@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_DRAW } from "@/demo/demo";
 import { FIXTURES, matchId } from "@/tournament/schedule";
-import { applyLiveFixtures, fromOpenLiga, matchFixture, type LiveFixture } from "./live";
+import {
+  applyLiveFixtures,
+  fromEspn,
+  fromOpenLiga,
+  matchFixture,
+  mergeLiveResults,
+  type LiveFixture,
+} from "./live";
 import { resolveTournament } from "./resolve";
 
 const teamsOf = (draw: Record<string, string>) => {
@@ -193,5 +200,103 @@ describe("Robustheit der Live-Daten", () => {
     const f = live({ city: "Cardiff", score: { home: 0, away: 0 }, phase: "extra" });
     const { results } = applyLiveFixtures([f], FIXTURES, new Map(), now);
     expect(results[matchId(def.number)].phase).toBe("second");
+  });
+});
+
+describe("Zweitquelle ESPN", () => {
+  const event = (over: Record<string, unknown> = {}) => ({
+    id: 703945,
+    date: "2024-07-14T19:00Z",
+    status: { displayClock: "67'", type: { name: "STATUS_SECOND_HALF", state: "in" } },
+    competitions: [
+      {
+        venue: { fullName: "Olympiastadion Berlin", address: { city: "Berlin" } },
+        competitors: [
+          { homeAway: "home", score: "2", team: { displayName: "Spain" } },
+          { homeAway: "away", score: "1", team: { displayName: "England" } },
+        ],
+      },
+    ],
+    ...over,
+  });
+  const now = Date.parse("2024-07-14T20:10:00Z");
+
+  it("live mit Minute und Phase", () => {
+    expect(fromEspn(event(), now)).toMatchObject({
+      externalId: "espn-703945",
+      kickoffUtc: "2024-07-14T19:00:00Z",
+      homeName: "Spain",
+      awayName: "England",
+      status: "live",
+      score: { home: 2, away: 1 },
+      phase: "second",
+      minute: 67,
+      city: "Berlin",
+    });
+  });
+
+  it("Elfmeterschießen getrennt vom Spielstand", () => {
+    const f = fromEspn(
+      event({
+        status: { type: { name: "STATUS_FINAL_PEN", state: "post" } },
+        competitions: [
+          {
+            competitors: [
+              { homeAway: "home", score: "1", shootoutScore: 5, team: { displayName: "England" } },
+              {
+                homeAway: "away",
+                score: "1",
+                shootoutScore: 3,
+                team: { displayName: "Switzerland" },
+              },
+            ],
+          },
+        ],
+      }),
+      now + 3 * 3_600_000,
+    );
+    expect(f).toMatchObject({ status: "finished", score: { home: 1, away: 1 } });
+    expect(f.penalties).toEqual({ home: 5, away: 3 });
+  });
+
+  it("verlegte Spiele und Spiele in der Zukunft melden nichts", () => {
+    const postponed = event({ status: { type: { name: "STATUS_POSTPONED", state: "post" } } });
+    expect(fromEspn(postponed, now).status).toBe("scheduled");
+    expect(fromEspn(event(), Date.parse("2024-07-14T18:00:00Z")).status).toBe("scheduled");
+  });
+});
+
+describe("mergeLiveResults", () => {
+  const def = FIXTURES[0];
+  const t = Date.parse(def.kickoffUtc);
+  const f = (over: Partial<LiveFixture>): LiveFixture => ({
+    externalId: "x",
+    kickoffUtc: def.kickoffUtc,
+    city: "Cardiff",
+    status: "live",
+    score: { home: 0, away: 0 },
+    ...over,
+  });
+  const apply = (list: LiveFixture[]) =>
+    applyLiveFixtures(list, FIXTURES, new Map(), t + 30 * 60_000);
+  const id = matchId(def.number);
+
+  it("Zweitquelle ist schneller: live statt geplant, beendet statt live", () => {
+    const p = apply([f({ status: "scheduled", score: undefined })]);
+    const b = apply([f({ externalId: "espn-1", score: { home: 1, away: 0 } })]);
+    expect(mergeLiveResults(p, b).results[id]).toMatchObject({ score: { home: 1, away: 0 } });
+    const p2 = apply([f({ score: { home: 1, away: 0 } })]);
+    const b2 = apply([
+      f({ externalId: "espn-1", status: "finished", score: { home: 2, away: 0 } }),
+    ]);
+    expect(mergeLiveResults(p2, b2).results[id]).toMatchObject({ status: "finished" });
+  });
+
+  it("beide beendet → Hauptquelle; Hauptquelle weiter → Hauptquelle", () => {
+    const p = apply([f({ status: "finished", score: { home: 1, away: 1 } })]);
+    const b = apply([f({ externalId: "espn-1", status: "finished", score: { home: 2, away: 1 } })]);
+    expect(mergeLiveResults(p, b).results[id].score).toEqual({ home: 1, away: 1 });
+    const b2 = apply([f({ externalId: "espn-1", score: { home: 0, away: 0 } })]);
+    expect(mergeLiveResults(p, b2).results[id].status).toBe("finished");
   });
 });
