@@ -16,7 +16,9 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 4. **Supabase nie ohne ausdrückliches „ausführen“ verändern:** vorher genau zeigen, welches
    SQL-Update bzw. welche Edge Function angewendet wird. Lesen (Abfragen, Logs, Hinweise) ist ok.
 5. **Version bei jeder Änderung an der App anpassen** – in `package.json` **und**
-   `src/lib/version.ts` (gleiche Nummer). Reine Doku-Änderungen (wie diese Datei) ohne Sprung. Neue Funktion → Minor (2.4.0 → 2.5.0), Fehlerkorrektur → Patch
+   `src/lib/version.ts` (gleiche Nummer). Dazu zählen auch Server-Änderungen (SQL-Updates, Edge
+   Functions), damit man an der Nummer sieht, welcher Stand läuft. Nur reine Doku-Änderungen ohne
+   Sprung. Neue Funktion → Minor (2.4.0 → 2.5.0), Fehlerkorrektur/Absicherung → Patch
    (2.4.0 → 2.4.1). Großer Umbau nur nach Absprache Major.
 6. **Vor jedem Commit alle Prüfungen** (Abschnitt 4). Nie etwas committen, das nicht grün ist.
 7. **Nur committen, was ins Repo gehört.** Test-Screenshots, Skripte, Logs gehören in ein
@@ -98,8 +100,8 @@ Zusätzlich je nach Änderung:
 
 **Zugang:** Es gibt einen Supabase-Connector (MCP-Tools `mcp__Supabase__*`). Das richtige Projekt
 ist **`kicktime-2028`, ID `ddtxgvjxpkucdwexhsjs`** (Region eu-west-1) – passt zu `supabaseUrl` in
-`src/public-config.ts`. Im selben Konto liegen auch „Kick Time 2026“ (`bbdnnohujyvickhegbuf`,
-**nicht anfassen**), „DayOS“ und „CIRCA“ (fremde Projekte, nicht anfassen).
+`src/public-config.ts`. **Nur dieses Projekt benutzen**; alle anderen Projekte im Konto (auch das
+der WM 2026) nicht anfassen, auch nicht lesend.
 
 - Vor Änderungen den Ist-Stand lesen (z. B. ob Funktionen/Spalten schon existieren,
   `pg_proc.proconfig`, deployte Function mit dem Repo vergleichen).
@@ -117,11 +119,17 @@ ist **`kicktime-2028`, ID `ddtxgvjxpkucdwexhsjs`** (Region eu-west-1) – passt 
 - Idempotent (`create or replace`, `if not exists`, `drop … if exists`).
 - Rechte am Ende explizit: Admin-/Server-Funktionen `revoke … from public, anon,
 authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon, authenticated`.
-- Der Betreiber führt Migrationen **selbst** im SQL-Editor aus und deployt Functions selbst –
-  nach jeder Änderung die genaue Reihenfolge nennen. App-Code muss **rückwärtskompatibel**
+- **Wer führt aus?** Normalerweise der Assistent über den Connector – aber nur nach
+  „ausführen“. Sagt der Betreiber, dass er es selbst macht (SQL-Editor/Dashboard), dann die
+  genaue Reihenfolge nennen und **nicht** zusätzlich selbst ausführen. Vor dem Ausführen immer
+  prüfen, ob das Update schon drin ist (nie doppelt). App-Code muss **rückwärtskompatibel**
   sein, solange ein Update noch nicht ausgeführt ist (Fehler abfangen, Fallback).
-- Reihenfolge bisher: `20261018000000_kicktime_2028` → … → `20261022150000_korrekturen_sperren`
-  (siehe Ordner, alphabetisch = chronologisch).
+- Interne Hilfsfunktionen (`kt_tip_clean_name`, `kt_tip_new_code`, `kt_tip_opener_started`) sind
+  für die App gesperrt und laufen mit `search_path = ''`. Wer sie per `create or replace` ändert,
+  muss `set search_path = ''` und `public.`-Tabellennamen beibehalten; Aufrufer müssen
+  `SECURITY DEFINER` mit Besitzer `postgres` sein.
+- Reihenfolge: alle Dateien in `supabase/migrations/` alphabetisch (= chronologisch). Neue
+  Updates im Kopf auf die jeweils **neueste vorhandene Datei** verweisen („nach …“).
 
 ## 6. Fachliches, das man wissen muss
 
