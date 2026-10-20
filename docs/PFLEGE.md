@@ -153,11 +153,17 @@ Bedienung (Tippen, Scrollen) oder 20 Sekunden Sichtbarkeit. Der Tagesverlauf wir
 aufbewahrt.
 
 Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql`,
-`20261021120000_sperre_hinweis.sql`, `20261021150000_kicken_sperren.sql` und
+`20261021120000_sperre_hinweis.sql`, `20261021150000_kicken_sperren.sql`,
 `20261022090000_entsperrung.sql`, `20261022120000_entsperrt_hinweis.sql` und
-`20261022150000_korrekturen_sperren.sql`, `20261022180000_suchpfad_hilfsfunktionen.sql` und
-`20261022200000_hilfsfunktionen_absichern.sql` ausführen, dann die Edge Functions `admin`,
-`live-scores` und `send-push-reminders` neu deployen. Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
+`20261022150000_korrekturen_sperren.sql` ausführen, dann die Edge Functions `admin`,
+`live-scores` und `send-push-reminders` neu deployen.
+
+Danach die Absicherungen `20261022180000_suchpfad_hilfsfunktionen.sql` (wird von der nächsten
+überholt, schadet aber nicht), `20261022200000_hilfsfunktionen_absichern.sql` und
+`20261022220000_suchpfad_aufrufer.sql` ausführen – dafür muss keine Edge Function neu deployt
+werden.
+
+Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
 Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“.
 
 Der Ersteller einer Runde wählt beim Rauswerfen zwischen **Entfernen** (darf mit dem Code wieder

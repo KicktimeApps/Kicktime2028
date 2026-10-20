@@ -126,8 +126,13 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   sein, solange ein Update noch nicht ausgeführt ist (Fehler abfangen, Fallback).
 - Interne Hilfsfunktionen (`kt_tip_clean_name`, `kt_tip_new_code`, `kt_tip_opener_started`) sind
   für die App gesperrt und laufen mit `search_path = ''`. Wer sie per `create or replace` ändert,
-  muss `set search_path = ''` und `public.`-Tabellennamen beibehalten; Aufrufer müssen
-  `SECURITY DEFINER` mit Besitzer `postgres` sein.
+  muss `set search_path = ''` und `public.`-Tabellennamen beibehalten. Ausführen darf sie nur
+  ihr Besitzer (derzeit `postgres`, auch nicht `service_role`) – Aufrufer müssen also
+  `SECURITY DEFINER` mit demselben Besitzer sein.
+- Jede neue oder geänderte `SECURITY DEFINER`-Funktion bekommt
+  `set search_path = public, pg_temp` (sonst könnte eine selbst angelegte Temp-Tabelle echte
+  Tabellen überdecken). Prüfen: in `pg_proc.proconfig` darf keine `kt_*`-Funktion ohne
+  `pg_temp` am Ende stehen.
 - Reihenfolge: alle Dateien in `supabase/migrations/` alphabetisch (= chronologisch). Neue
   Updates im Kopf auf die jeweils **neueste vorhandene Datei** verweisen („nach …“).
 
