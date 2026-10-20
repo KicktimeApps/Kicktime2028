@@ -14,7 +14,15 @@ import { useMatchStore } from "@/store/match-store";
 import type { AdminSection } from "./AdminPanel";
 
 /** Auf einen Blick: Läuft alles? Was ist offen? Antippen springt in den Bereich. */
-export function OverviewSection({ pin, go }: { pin: string; go: (s: AdminSection) => void }) {
+export function OverviewSection({
+  pin,
+  go,
+  openRequests,
+}: {
+  pin: string;
+  go: (s: AdminSection) => void;
+  openRequests: number;
+}) {
   const live = useMatchStore((s) => s.live);
   const overrides = useMatchStore((s) => Object.keys(s.adminResults).length);
   const errors = useSyncExternalStore(subscribeErrors, getErrors, getErrors);
@@ -68,6 +76,13 @@ export function OverviewSection({ pin, go }: { pin: string; go: (s: AdminSection
             : undefined
         }
         onClick={() => go("groups")}
+      />
+      <Row
+        tone={openRequests > 0 ? "warn" : "neutral"}
+        title="Entsperrungsanträge"
+        value={String(openRequests)}
+        text={openRequests > 0 ? "Warten auf deine Entscheidung" : "Keine offen"}
+        onClick={() => go("requests")}
       />
       <Row
         tone={overrides > 0 ? "warn" : "neutral"}

@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  Inbox,
   LayoutGrid,
   Loader2,
   Lock,
@@ -10,7 +11,7 @@ import {
   Settings2,
   Users,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,13 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
-import { verifyPin } from "@/services/admin";
+import { fetchRequests, verifyPin } from "@/services/admin";
 import { isBackendConfigured } from "@/services/supabase";
 import { GroupsSection } from "./GroupsSection";
 import { LiveSection } from "./LiveSection";
 import { MessagesSection } from "./MessagesSection";
 import { OverrideSection } from "./OverrideSection";
 import { OverviewSection } from "./OverviewSection";
+import { RequestsSection } from "./RequestsSection";
 import { StatsSection } from "./StatsSection";
 import { SystemSection } from "./SystemSection";
 
@@ -35,6 +37,7 @@ export type AdminSection =
   | "live"
   | "override"
   | "groups"
+  | "requests"
   | "messages"
   | "stats"
   | "system";
@@ -44,6 +47,7 @@ const SECTIONS: { value: AdminSection; label: string; icon: typeof Activity }[] 
   { value: "live", label: "Live-Daten", icon: Radio },
   { value: "override", label: "Korrektur", icon: Pencil },
   { value: "groups", label: "Tipprunden", icon: Users },
+  { value: "requests", label: "Anträge", icon: Inbox },
   { value: "messages", label: "Mitteilungen", icon: Megaphone },
   { value: "stats", label: "Statistik", icon: BarChart3 },
   { value: "system", label: "System", icon: Settings2 },
@@ -81,6 +85,16 @@ export function AdminPanel({ open, onClose }: { open: boolean; onClose: () => vo
       ?.querySelector('[aria-current="page"]')
       ?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
   }, [section, pin]);
+  // Offene Entsperrungsanträge – Zähler in der Leiste.
+  const [openRequests, setOpenRequests] = useState(0);
+  const countRequests = useCallback(async () => {
+    if (!pin) return;
+    const r = await fetchRequests(pin);
+    if (r.ok) setOpenRequests((r.data.data ?? []).filter((x) => x.status === "open").length);
+  }, [pin]);
+  useEffect(() => {
+    void countRequests();
+  }, [countRequests, section]);
   const go = (s: AdminSection) => {
     setSection(s);
     if (unlocked) unlocked.at = Date.now();
@@ -123,14 +137,22 @@ export function AdminPanel({ open, onClose }: { open: boolean; onClose: () => vo
                 >
                   <Icon className="h-3.5 w-3.5" />
                   {label}
+                  {value === "requests" && openRequests > 0 && (
+                    <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-destructive-foreground">
+                      {openRequests}
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-4">
-              {section === "overview" && <OverviewSection pin={pin} go={go} />}
+              {section === "overview" && (
+                <OverviewSection pin={pin} go={go} openRequests={openRequests} />
+              )}
               {section === "live" && <LiveSection pin={pin} />}
               {section === "override" && <OverrideSection pin={pin} />}
               {section === "groups" && <GroupsSection pin={pin} />}
+              {section === "requests" && <RequestsSection pin={pin} onChange={countRequests} />}
               {section === "messages" && <MessagesSection pin={pin} />}
               {section === "stats" && <StatsSection pin={pin} />}
               {section === "system" && <SystemSection onLock={lock} />}

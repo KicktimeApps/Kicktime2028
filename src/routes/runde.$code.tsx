@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Hourglass,
+  Info,
   Copy,
   Crown,
   Eye,
@@ -25,6 +26,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Flag } from "@/components/team/Flag";
 import { Segmented } from "@/components/common/Segmented";
+import { AppealBlock } from "@/components/tipgroups/AppealBlock";
 import { GroupFormDrawer, RulesButton } from "@/components/tipgroups/TipGroups";
 import { TipPanel } from "@/components/tipgroups/TipPanel";
 import type { TipContext } from "@/lib/tips";
@@ -58,14 +60,17 @@ import {
   answerRequest,
   bannedMembers,
   deleteGroup,
+  groupEvents,
   inviteUrl,
   kickMember,
   leaveGroup,
   loadBoard,
   normalizeCode,
   renameMe,
+  rejectUnban,
   TipError,
   unbanMember,
+  type BannedMember,
   type TipBoard,
   type TipMember,
   type TipRequest,
@@ -448,6 +453,10 @@ function BoardView({
   };
 
   const requests = g.isOwner ? (data.requests ?? []) : [];
+  // Bitten Gesperrter an den Ersteller – zählen am Zahnrad mit.
+  const ownerAppeals = (useBannedList(g.id, g.isOwner).data ?? []).filter(
+    (b) => b.by === "owner" && b.request,
+  ).length;
 
   return (
     <>
@@ -472,9 +481,9 @@ function BoardView({
               className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground"
             >
               <Settings className="h-5 w-5" />
-              {requests.length > 0 && (
+              {requests.length + ownerAppeals > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-destructive-foreground">
-                  {requests.length}
+                  {requests.length + ownerAppeals}
                 </span>
               )}
             </button>
@@ -483,6 +492,7 @@ function BoardView({
         }
       />
 
+      <GroupEvents groupId={g.id} />
       {requests.length > 0 && (
         <button
           type="button"
@@ -824,17 +834,34 @@ function KickChoice({
   );
 }
 
-/** Vom Ersteller Gesperrte – mit „Entsperren“. Ohne Gesperrte unsichtbar. */
+const BY_LABEL: Record<BannedMember["by"], string> = {
+  owner: "von dir gesperrt",
+  admin: "vom KickTime-Team gesperrt",
+  global: "vom KickTime-Team für alle Runden gesperrt",
+};
+
+/**
+ * Gesperrte der Runde (nur für den Ersteller). Eigene Sperren: entsperren –
+ * und Bitten der Gesperrten annehmen oder ablehnen. Sperren durch das
+ * KickTime-Team: nur beantragen. Ohne Gesperrte unsichtbar.
+ */
 function BannedList({ groupId }: { groupId: string }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
-  const { data } = useQuery({
-    queryKey: ["tip-banned", groupId],
-    queryFn: () => bannedMembers(groupId),
-    // Fehlt das Server-Update, einfach nichts anzeigen.
-    retry: false,
-  });
+  const { data } = useBannedList(groupId, true);
   if (!data?.length) return null;
+  const act = async (id: string, fn: () => Promise<unknown>, msg: string) => {
+    setBusy(id);
+    try {
+      await fn();
+      toast(msg);
+      await qc.invalidateQueries({ queryKey: ["tip-banned", groupId] });
+    } catch (err) {
+      toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
+    } finally {
+      setBusy(null);
+    }
+  };
   return (
     <>
       <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -842,41 +869,133 @@ function BannedList({ groupId }: { groupId: string }) {
       </h3>
       <ul className="mb-5 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
         {data.map((b) => (
-          <li key={b.id} className="flex min-h-14 items-center gap-2 px-4 py-2">
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] text-muted-foreground">
-              <Ban className="h-4 w-4 shrink-0" />
-              <span className="truncate">{b.name}</span>
-            </span>
-            <button
-              type="button"
-              disabled={busy === b.id}
-              onClick={async () => {
-                setBusy(b.id);
-                try {
-                  await unbanMember(groupId, b.id);
-                  toast(`${b.name} ist entsperrt und kann mit dem Code wieder anfragen`);
-                  await qc.invalidateQueries({ queryKey: ["tip-banned", groupId] });
-                } catch (err) {
-                  toast.error(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
-                } finally {
-                  setBusy(null);
-                }
-              }}
-              className="inline-flex h-10 items-center gap-1 rounded-full border border-border px-3 text-[13.5px] font-semibold disabled:opacity-50"
-            >
-              {busy === b.id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Undo2 className="h-4 w-4" />
+          <li key={b.id} className="space-y-2 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Ban className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-semibold">{b.name}</span>
+                <span className="block text-[12.5px] text-muted-foreground">{BY_LABEL[b.by]}</span>
+              </span>
+              {b.by === "owner" && (
+                <button
+                  type="button"
+                  disabled={busy === b.id}
+                  onClick={() =>
+                    act(
+                      b.id,
+                      () => unbanMember(groupId, b.id),
+                      `${b.name} ist entsperrt und kann mit dem Code wieder anfragen`,
+                    )
+                  }
+                  className="inline-flex h-10 shrink-0 items-center gap-1 rounded-full border border-border px-3 text-[13.5px] font-semibold disabled:opacity-50"
+                >
+                  {busy === b.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Undo2 className="h-4 w-4" />
+                  )}
+                  Entsperren
+                </button>
               )}
-              Entsperren
-            </button>
+            </div>
+            {b.by === "owner" && b.request && (
+              <div className="rounded-xl border border-primary/30 bg-primary/8 px-3 py-2.5 text-[13.5px]">
+                <div className="font-semibold">Bittet um Entsperrung</div>
+                {b.request.message && (
+                  <p className="mt-0.5 text-muted-foreground">„{b.request.message}“</p>
+                )}
+                <button
+                  type="button"
+                  disabled={busy === b.id}
+                  onClick={() => act(b.id, () => rejectUnban(groupId, b.id), "Bitte abgelehnt")}
+                  className="mt-2 text-[13px] font-semibold text-destructive"
+                >
+                  Ablehnen
+                </button>
+              </div>
+            )}
+            {b.by !== "owner" && (
+              <AppealBlock
+                decider="team"
+                appealKey={
+                  b.by === "global"
+                    ? { scope: "global", memberId: b.id }
+                    : { scope: "group", groupId, memberId: b.id }
+                }
+              />
+            )}
           </li>
         ))}
       </ul>
     </>
   );
 }
+
+/** Gesperrte einer Runde – geteilt von Liste und Zähler am Zahnrad. */
+function useBannedList(groupId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["tip-banned", groupId],
+    queryFn: () => bannedMembers(groupId),
+    enabled,
+    refetchInterval: enabled ? 30_000 : false,
+    // Fehlt das Server-Update, einfach nichts anzeigen.
+    retry: false,
+  });
+}
+
+/**
+ * Hinweise der Runde für alle Mitglieder, z. B. „Tim wurde vom KickTime-Team
+ * gesperrt“ oder „Anna leitet die Runde jetzt“. Weggeklickt bleibt weg.
+ */
+function GroupEvents({ groupId }: { groupId: string }) {
+  const { data } = useQuery({
+    queryKey: ["tip-events", groupId],
+    queryFn: () => groupEvents(groupId),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const [seen, setSeen] = useState<number[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(SEEN_EVENTS_KEY) ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  const fresh = (data ?? []).filter((e) => !seen.includes(e.id)).slice(0, 3);
+  if (fresh.length === 0) return null;
+  const dismiss = () => {
+    const next = [...seen, ...fresh.map((e) => e.id)].slice(-200);
+    setSeen(next);
+    try {
+      localStorage.setItem(SEEN_EVENTS_KEY, JSON.stringify(next));
+    } catch {
+      /* egal */
+    }
+  };
+  return (
+    <div
+      role="status"
+      className="mb-4 flex items-start gap-2.5 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-[14px]"
+    >
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+      <ul className="flex-1 space-y-0.5">
+        {fresh.map((e) => (
+          <li key={e.id}>{e.text}</li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={dismiss}
+        aria-label="Hinweis schließen"
+        className="-m-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+const SEEN_EVENTS_KEY = "kicktime-2028.seen-group-events";
 
 /** Bestätigung mit verständlicher Fehlermeldung. */
 function Confirm({

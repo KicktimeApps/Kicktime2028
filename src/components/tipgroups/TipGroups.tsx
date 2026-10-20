@@ -12,6 +12,7 @@ import {
   Trophy,
   UserPlus,
   Users,
+  Ban,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -25,11 +26,13 @@ import {
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { buildRounds } from "@/domain/rounds";
 import { canPredict, CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
+import { useBanStatus } from "@/hooks/useBanStatus";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
 import { saveChampion, useContextChampion, useTipContext, type TipContext } from "@/lib/tips";
 import { cn } from "@/lib/utils";
 import { isBackendConfigured } from "@/services/supabase";
 import {
+  BANNED_MESSAGE,
   createGroup,
   importTips,
   joinGroup,
@@ -39,6 +42,7 @@ import {
   TipError,
 } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
+import { AppealBlock } from "./AppealBlock";
 import { useNow, useTournament } from "@/store/match-store";
 import { NATIONS, getNation } from "@/tournament/nations";
 
@@ -265,10 +269,13 @@ export function GroupFormDrawer({
   const [name, setName] = useState(tipName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Beim Beitreten gesperrt → gleich hier die Entsperrung beantragen können.
+  const [bannedCode, setBannedCode] = useState<string | null>(null);
 
   const submit = async () => {
     setBusy(true);
     setError(null);
+    setBannedCode(null);
     try {
       const g: { id: string; code: string; name: string; pending?: boolean } =
         mode === "create"
@@ -286,6 +293,8 @@ export function GroupFormDrawer({
       done(g, imported, !!g.pending);
     } catch (err) {
       setError(err instanceof TipError ? err.message : "Das hat nicht geklappt.");
+      if (err instanceof TipError && err.message === BANNED_MESSAGE && mode === "join")
+        setBannedCode(normalizeCode(code));
     } finally {
       setBusy(false);
     }
@@ -370,6 +379,9 @@ export function GroupFormDrawer({
             <p className="rounded-xl bg-destructive/10 px-3 py-2 text-[14px] text-destructive">
               {error}
             </p>
+          )}
+          {bannedCode && (
+            <AppealBlock appealKey={{ scope: "group", groupId: "" }} code={bannedCode} />
           )}
           <button
             type="submit"
@@ -511,10 +523,30 @@ function HowItWorks() {
  * einlädt (Details und Knöpfe erst beim Antippen).
  * „hub“: man ist in Runden – die Runden sind der Weg zum Tippen.
  */
+/** Vom KickTime-Team für alle Tipprunden gesperrt – statt „Runde erstellen“. */
+function BannedEverywhere() {
+  return (
+    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+      <div className="flex items-start gap-3">
+        <Ban className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+        <div>
+          <div className="text-[15px] font-semibold">Für Tipprunden gesperrt</div>
+          <p className="mt-0.5 text-[13.5px] text-muted-foreground">
+            Das KickTime-Team hat dich gesperrt. Du kannst keiner Runde beitreten und keine
+            erstellen. Spielplan, Erinnerungen und deine eigenen Tipps funktionieren weiter.
+          </p>
+        </div>
+      </div>
+      <AppealBlock className="mt-3" appealKey={{ scope: "global" }} decider="team" />
+    </div>
+  );
+}
+
 export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   const demo = useAppStore((s) => s.demo.enabled);
   const groupTips = useAppStore((s) => s.groupTips);
   const { data: groups, isLoading, isError, error } = useMyGroups();
+  const globallyBanned = !!useBanStatus().data?.global;
   const approved = groups?.filter((g) => !g.pending) ?? [];
   const pendingGroups = groups?.filter((g) => g.pending) ?? [];
   const [form, setForm] = useState<"create" | "join" | null>(null);
@@ -539,7 +571,9 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
   // Ohne Server bzw. bevor die Tipprunde dort eingerichtet ist: ausblenden.
   if (!isBackendConfigured() || (error instanceof TipError && error.notInstalled)) return null;
 
-  const buttons = (
+  const buttons = globallyBanned ? (
+    <BannedEverywhere />
+  ) : (
     <div className="grid grid-cols-2 gap-2">
       <button
         type="button"
@@ -585,6 +619,14 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
       onOpenChange={(v) => !v && setForm(null)}
     />
   );
+
+  if (variant === "solo" && globallyBanned) {
+    return (
+      <section className="mb-5">
+        <BannedEverywhere />
+      </section>
+    );
+  }
 
   if (variant === "solo") {
     return (

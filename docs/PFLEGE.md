@@ -153,8 +153,9 @@ Bedienung (Tippen, Scrollen) oder 20 Sekunden Sichtbarkeit. Der Tagesverlauf wir
 aufbewahrt.
 
 Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql`,
-`20261021120000_sperre_hinweis.sql` und `20261021150000_kicken_sperren.sql` ausführen, dann die Edge Functions `admin` und
-`live-scores` neu deployen. Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
+`20261021120000_sperre_hinweis.sql`, `20261021150000_kicken_sperren.sql` und
+`20261022090000_entsperrung.sql` ausführen, dann die Edge Functions `admin`,
+`live-scores` und `send-push-reminders` neu deployen. Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
 Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“.
 
 Der Ersteller einer Runde wählt beim Rauswerfen zwischen **Entfernen** (darf mit dem Code wieder
@@ -162,3 +163,20 @@ anfragen) und **Sperren** (kommt nicht wieder rein). Seine Sperren hebt er in de
 Runden-Einstellungen unter „Gesperrt“ wieder auf; Sperren aus dem Admin-Bereich kann nur der
 Admin aufheben. „Push an alle“ nutzt dieselben
 VAPID-Secrets wie `send-push-reminders`.
+
+### Sperren und Entsperrungsanträge
+
+- **Sperren durch das Team:** im Admin-Bereich → Tipprunden beim Mitglied „Sperren“ (nur diese
+  Runde) oder „Überall sperren“ (keine Runde mehr beitreten oder erstellen). Leitet die Person
+  Runden, übernimmt das älteste Mitglied; allein → Runde gelöscht. Die Runde zeigt allen einen
+  Hinweis, der Ersteller bekommt eine Mitteilung. Tipps bleiben für ein Entsperren erhalten.
+- In der App steht dabei immer „KickTime-Team“, nie „Admin“.
+- **Anträge:** Gesperrte beantragen die Entsperrung im Sperr-Hinweis, auf der Tipps-Seite oder
+  beim Beitreten; Ersteller beantragen sie für vom Team gesperrte Mitglieder in den
+  Runden-Einstellungen. Ersteller-Sperren entscheidet der Ersteller selbst. Je Sperre: ein
+  offener Antrag, nach Ablehnung 7 Tage Pause, höchstens 3 Anträge.
+- **Admin → Anträge:** annehmen oder ablehnen (mit optionaler Antwort), Liste „Überall
+  gesperrt“. Mitteilungen über neue Anträge gehen nur an Geräte, die dort per Schalter
+  eingetragen sind (höchstens 5; „Nur dieses Gerät“ entfernt alle anderen).
+- Eine Sperre gilt für ein Gerät. Wer die App-Daten löscht oder ein anderes Gerät nimmt, ist
+  für den Server ein neuer Nutzer – ohne Anmeldung geht das nicht besser.

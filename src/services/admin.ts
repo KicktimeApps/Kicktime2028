@@ -164,6 +164,8 @@ export type AdminMember = {
   owner: boolean;
   approved: boolean;
   banned: boolean;
+  /** owner = vom Ersteller, admin = vom Team hier, global = vom Team überall */
+  bannedBy?: "owner" | "admin" | "global" | null;
   joinedAt: string;
   tips: number;
   champion: string | null;
@@ -180,3 +182,45 @@ export const unbanMember = (pin: string, groupId: string, memberId: string) =>
   invoke({ action: "member_unban", pin, groupId, memberId });
 export const transferOwner = (pin: string, groupId: string, memberId: string) =>
   invoke({ action: "owner_transfer", pin, groupId, memberId });
+
+/* ---------- Sperren überall & Entsperrungsanträge ---------- */
+
+export type UnbanRequest = {
+  id: number;
+  scope: "group" | "global";
+  status: "open" | "accepted" | "rejected";
+  groupId: string | null;
+  groupName: string | null;
+  name: string | null;
+  /** Vom Ersteller der Runde für das Mitglied beantragt. */
+  byOwner: boolean;
+  message: string | null;
+  reply: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  banReason: string | null;
+};
+export const fetchRequests = (pin: string) =>
+  invoke<{ data: UnbanRequest[] }>({ action: "requests", pin });
+export const decideRequest = (pin: string, id: number, accept: boolean, reply: string) =>
+  invoke({ action: "decide", pin, id, accept, reply });
+
+export type GlobalBan = {
+  device: string;
+  label: string;
+  reason: string | null;
+  createdAt: string;
+  openRequests: number;
+};
+export const fetchGlobalBans = (pin: string) =>
+  invoke<{ data: GlobalBan[] }>({ action: "global_bans", pin });
+export const banGlobal = (pin: string, groupId: string, memberId: string, reason: string) =>
+  invoke<{ data: number }>({ action: "ban_global", pin, groupId, memberId, reason });
+export const unbanGlobal = (
+  pin: string,
+  target: { device: string } | { groupId: string; memberId: string },
+) => invoke<{ data: number }>({ action: "unban_global", pin, ...target });
+
+/** Mitteilungen über neue Anträge an dieses Gerät: abfragen ("") oder ändern. */
+export const teamDevice = (pin: string, deviceId: string, mode: "" | "on" | "off" | "only") =>
+  invoke<{ registered: boolean; count: number }>({ action: "team_device", pin, deviceId, mode });

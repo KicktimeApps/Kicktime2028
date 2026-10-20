@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { isBackendConfigured } from "@/services/supabase";
-import { myBans, myGroups, TipError, wasLeftByMe, type TipGroup } from "@/services/tipgroups";
+import {
+  myBanStatus,
+  myBans,
+  myGroups,
+  TipError,
+  wasLeftByMe,
+  type TipGroup,
+} from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
 
 export const TIP_GROUPS_KEY = ["tip-groups"] as const;
@@ -30,9 +37,13 @@ export function useMyGroups() {
         (g) => !list.some((x) => x.id === g.id) && !wasLeftByMe(g.id),
       );
       if (gone) {
-        // Gesperrt? Dann deutlich anders als „entfernt“.
-        const ban = gone.pending ? undefined : (await myBans()).find((b) => b.id === gone.id);
+        // Gesperrt? Dann deutlich anders als „entfernt“. Überall gesperrt kann
+        // auch heißen, dass die eigene Runde dabei aufgelöst wurde.
+        let ban = gone.pending ? undefined : (await myBans()).find((b) => b.id === gone.id);
+        if (!ban && !gone.pending && (await myBanStatus().catch(() => null))?.global)
+          ban = { id: gone.id, name: gone.name, by: "global" };
         store.setGroupNotice({
+          id: gone.id,
           name: gone.name,
           reason: ban ? "banned" : gone.pending ? "rejected" : "removed",
           by: ban?.by,

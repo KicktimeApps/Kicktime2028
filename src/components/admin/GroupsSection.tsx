@@ -1,5 +1,25 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, ChevronDown, Crown, RefreshCw, Trash2, Undo2, UserMinus } from "lucide-react";
+import {
+  Ban,
+  ChevronDown,
+  Crown,
+  RefreshCw,
+  ShieldBan,
+  Trash2,
+  Undo2,
+  UserMinus,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
@@ -11,6 +31,8 @@ import {
   fetchGroups,
   removeMember,
   transferOwner,
+  banGlobal,
+  unbanGlobal,
   unbanMember,
   type AdminGroup,
   type AdminMember,
@@ -185,12 +207,30 @@ function GroupDetail({
                 )}
                 <span className="truncate font-semibold">{m.name}</span>
                 <span className="ml-auto shrink-0 text-[11.5px] text-muted-foreground">
-                  {m.banned ? "gesperrt" : !m.approved ? "Anfrage offen" : `${m.tips} Tipps`}
+                  {m.banned
+                    ? BAN_LABEL[m.bannedBy ?? "owner"]
+                    : !m.approved
+                      ? "Anfrage offen"
+                      : `${m.tips} Tipps`}
                 </span>
                 {champ && <Flag flag={champ.flag} size="xs" />}
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {m.banned ? (
+                {m.banned && m.bannedBy === "global" ? (
+                  <MiniButton
+                    icon={<Undo2 />}
+                    busy={busy === `unban-${m.memberId}`}
+                    onClick={() =>
+                      act(
+                        `unban-${m.memberId}`,
+                        () => unbanGlobal(pin, { groupId: group.id, memberId: m.memberId }),
+                        `${m.name} überall entsperrt`,
+                      )
+                    }
+                  >
+                    Überall entsperren
+                  </MiniButton>
+                ) : m.banned ? (
                   <MiniButton
                     icon={<Undo2 />}
                     busy={busy === `unban-${m.memberId}`}
@@ -248,6 +288,17 @@ function GroupDetail({
                     >
                       Sperren
                     </MiniButton>
+                    <GlobalBanButton
+                      name={m.name}
+                      busy={busy === `gban-${m.memberId}`}
+                      onBan={(reason) =>
+                        act(
+                          `gban-${m.memberId}`,
+                          () => banGlobal(pin, group.id, m.memberId, reason),
+                          `${m.name} ist überall gesperrt`,
+                        )
+                      }
+                    />
                   </>
                 )}
               </div>
@@ -256,7 +307,9 @@ function GroupDetail({
         })}
       </ul>
       <p className="text-[11.5px] text-muted-foreground">
-        Entfernen: Tipps weg, darf mit dem Code neu beitreten. Sperren: kommt nicht wieder rein.
+        Entfernen: Tipps weg, darf mit dem Code neu beitreten. Sperren: nur diese Runde. Überall
+        sperren: keine Runde mehr, auch keine eigene. Bei Team-Sperren bleiben die Tipps für ein
+        Entsperren erhalten.
       </p>
       <ConfirmButton
         icon={<Trash2 />}
@@ -274,6 +327,64 @@ function GroupDetail({
         Diese Runde löschen
       </ConfirmButton>
     </div>
+  );
+}
+
+const BAN_LABEL = {
+  owner: "vom Ersteller gesperrt",
+  admin: "vom Team gesperrt",
+  global: "überall gesperrt",
+} as const;
+
+/** „Überall sperren“ mit optionalem Grund (nur für das Team sichtbar). */
+function GlobalBanButton({
+  name,
+  busy,
+  onBan,
+}: {
+  name: string;
+  busy: boolean;
+  onBan: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <ActionButton
+          icon={<ShieldBan />}
+          busy={busy}
+          variant="danger-outline"
+          className="h-8 rounded-lg bg-background px-2.5 text-[12.5px] font-medium [&_svg]:h-3.5 [&_svg]:w-3.5"
+        >
+          Überall sperren
+        </ActionButton>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{name} überall sperren?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Kann keiner Tipprunde mehr beitreten und keine erstellen. Fliegt aus allen Runden;
+            leitet {name} eine Runde, übernimmt das älteste Mitglied (allein → Runde gelöscht). Die
+            Tipps bleiben für ein Entsperren erhalten.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value.slice(0, 300))}
+          placeholder="Grund (optional, nur für dich)"
+          className="h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
+        />
+        <AlertDialogFooter>
+          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => onBan(reason.trim())}
+          >
+            Überall sperren
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

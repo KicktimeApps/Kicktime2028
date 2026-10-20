@@ -11,6 +11,15 @@ import {
 import type { AccentId, ThemeMode } from "@/lib/theme";
 import { TOURNAMENT } from "@/tournament/config";
 
+export type GroupNoticeInfo = {
+  /** Runde, um die es geht (für einen Entsperrungsantrag). */
+  id?: string;
+  name: string;
+  reason: "removed" | "rejected" | "banned";
+  /** Wer gesperrt hat – „global“: das KickTime-Team, für alle Tipprunden. */
+  by?: "owner" | "admin" | "global";
+};
+
 export type TeamMark = "favorite" | "interesting" | null;
 
 type State = {
@@ -58,11 +67,7 @@ type State = {
   /** Zuletzt gesehene eigene Runden inkl. Anfragen – zum Erkennen von Rauswurf/Ablehnung. */
   seenGroups: { id: string; name: string; pending: boolean }[];
   /** Einmaliger Hinweis: aus einer Runde entfernt bzw. Anfrage abgelehnt. */
-  groupNotice: {
-    name: string;
-    reason: "removed" | "rejected" | "banned";
-    by?: "owner" | "admin";
-  } | null;
+  groupNotice: GroupNoticeInfo | null;
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -97,9 +102,7 @@ type Actions = {
   setGroupTips: (groupId: string, tips: Record<string, { home: number; away: number }>) => void;
   setGroupChampion: (groupId: string, code: string | null) => void;
   setSeenGroups: (list: { id: string; name: string; pending: boolean }[]) => void;
-  setGroupNotice: (
-    n: { name: string; reason: "removed" | "rejected" | "banned"; by?: "owner" | "admin" } | null,
-  ) => void;
+  setGroupNotice: (n: GroupNoticeInfo | null) => void;
   setPushEnabled: (v: boolean) => void;
   setAutoAlarmFavorites: (v: boolean) => void;
   setAlarm: (matchId: string, v: boolean | null) => void;

@@ -40,10 +40,13 @@ export type TipBoard = {
   requests?: TipRequest[];
 };
 
+/** Beim Beitreten gesperrt – die App bietet dann einen Entsperrungsantrag an. */
+export const BANNED_MESSAGE = "Du kannst dieser Tipprunde nicht mehr beitreten.";
+
 /** Serverfehler → verständlicher deutscher Text. */
 const MESSAGES: [string, string][] = [
   ["group not found", "Diese Tipprunde gibt es nicht. Bitte den Code prüfen."],
-  ["banned", "Du kannst dieser Tipprunde nicht mehr beitreten."],
+  ["banned", BANNED_MESSAGE],
   ["name taken", "Diesen Namen gibt es in der Runde schon. Bitte einen anderen wählen."],
   ["name invalid", "Der Name muss 2 bis 20 Zeichen lang sein."],
   ["group name invalid", "Der Name der Runde muss 2 bis 40 Zeichen lang sein."],
@@ -56,6 +59,11 @@ const MESSAGES: [string, string][] = [
   ["champion locked", "Das Eröffnungsspiel hat begonnen – der Europameister-Tipp ist fest."],
   ["unknown match", "Dieses Spiel kennt der Server noch nicht."],
   ["pending", "Der Ersteller der Runde muss dich noch annehmen."],
+  ["globally banned", "Das KickTime-Team hat dich für Tipprunden gesperrt."],
+  ["request open", "Dein Antrag wird schon geprüft."],
+  ["request limit", "Für diese Sperre sind keine weiteren Anträge möglich."],
+  ["request cooldown", "Nach einer Ablehnung geht ein neuer Antrag erst nach 7 Tagen."],
+  ["not banned", "Hier besteht keine Sperre (mehr)."],
 ];
 
 export class TipError extends Error {
@@ -122,11 +130,68 @@ export async function kickMember(groupId: string, memberId: string, ban: boolean
   }
 }
 
-/** Vom Ersteller gesperrte Mitglieder (nur für den Ersteller). */
+export type BannedMember = {
+  id: string;
+  name: string;
+  /** owner = vom Ersteller, admin = vom Team in dieser Runde, global = vom Team überall */
+  by: "owner" | "admin" | "global";
+  /** Offene Bitte des Gesperrten an den Ersteller. */
+  request?: { message: string | null; at: string } | null;
+};
+
+/** Gesperrte Mitglieder (nur für den Ersteller). */
 export const bannedMembers = (groupId: string) =>
-  rpc<{ id: string; name: string }[] | null>("kt_tip_banned", { p_group: groupId }).then(
-    (l) => l ?? [],
+  rpc<BannedMember[] | null>("kt_tip_banned", { p_group: groupId }).then((l) =>
+    (l ?? []).map((b) => ({ ...b, by: b.by ?? "owner" })),
   );
+
+/** Ersteller lehnt die Bitte eines Gesperrten ab. */
+export const rejectUnban = (groupId: string, memberId: string) =>
+  rpc<null>("kt_tip_reject_unban", { p_group: groupId, p_member: memberId });
+
+/* ---------- Entsperrungsanträge ---------- */
+
+export type Appeal = {
+  id: number;
+  scope: "group" | "global";
+  groupId: string | null;
+  groupName: string | null;
+  /** Ersteller hat für ein Mitglied beantragt. */
+  forMember: boolean;
+  memberId: string | null;
+  handler: "team" | "owner";
+  status: "open" | "accepted" | "rejected";
+  reply: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+};
+
+export type BanStatus = { global: boolean; requests: Appeal[] };
+
+export const myBanStatus = () => rpc<BanStatus>("kt_my_ban_status", {});
+
+/**
+ * Entsperrung beantragen – für sich selbst (Runde per ID oder Code, oder
+ * ohne beides: überall) oder als Ersteller für ein Mitglied.
+ */
+export const requestUnban = (o: {
+  groupId?: string;
+  code?: string;
+  memberId?: string;
+  message: string;
+}) =>
+  rpc<{ scope: string; handler: string }>("kt_unban_request", {
+    p_group: o.groupId ?? null,
+    p_code: o.code ?? null,
+    p_member: o.memberId ?? null,
+    p_message: o.message,
+  });
+
+export type GroupEvent = { id: number; text: string; at: string };
+
+/** Hinweise einer Runde (z. B. „X wurde vom KickTime-Team gesperrt“). */
+export const groupEvents = (groupId: string) =>
+  rpc<GroupEvent[] | null>("kt_tip_events", { p_group: groupId }).then((l) => l ?? []);
 
 export const unbanMember = (groupId: string, memberId: string) =>
   rpc<null>("kt_tip_unban", { p_group: groupId, p_member: memberId });
@@ -139,7 +204,7 @@ export const answerRequest = (groupId: string, memberId: string, accept: boolean
 
 export const myGroups = () => rpc<TipGroup[]>("kt_tip_my_groups", {});
 
-export type MyBan = { id: string; name: string; by?: "owner" | "admin" };
+export type MyBan = { id: string; name: string; by?: "owner" | "admin" | "global" };
 
 /** Runden, aus denen dieses Gerät gesperrt wurde (leer ohne SQL-Update). */
 export async function myBans(): Promise<MyBan[]> {

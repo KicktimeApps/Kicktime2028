@@ -178,12 +178,32 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Einzel-Mitteilungen (Sperren, Entsperrungsanträge, neuer Ersteller).
+    let directSent = 0;
+    const { data: directRows, error: directErr } = await db.rpc("kt_claim_direct_push");
+    if (!directErr) {
+      for (const row of (directRows ?? []) as TipPush[]) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+            JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
+            { TTL: 86_400, urgency: "normal" },
+          );
+          directSent++;
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode;
+          if (status === 404 || status === 410) expired.add(row.device_id);
+          else console.warn("[push] Einzel-Mitteilung fehlgeschlagen", status);
+        }
+      }
+    }
+
     if (expired.size > 0)
       await db
         .from("push_subscriptions")
         .delete()
         .in("device_id", [...expired]);
-    return json({ ok: true, sent, due: list.length, tipSent, cleaned: expired.size });
+    return json({ ok: true, sent, due: list.length, tipSent, directSent, cleaned: expired.size });
   } catch (err) {
     console.error("[push]", err);
     return json({ error: "Interner Fehler" }, 500);

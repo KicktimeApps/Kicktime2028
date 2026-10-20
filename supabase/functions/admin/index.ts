@@ -9,6 +9,7 @@
  *  verify | set | clear | clear_overrides | stats | feedback | feedback_delete | fixtures
  *  config | set_source | test_source | clear_cache | reset_results | set_announcement | broadcast
  *  groups | group | group_delete | member_remove | member_unban | owner_transfer | delete_tip_groups
+ *  requests | decide | ban_global | unban_global | global_bans | team_device
  *
  * Für „broadcast“ (Push an alle) dieselben Secrets wie send-push-reminders:
  * VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
@@ -480,10 +481,89 @@ Deno.serve(async (req) => {
         p_ban: body.ban === true,
       });
 
-    case "member_unban":
+    case "member_unban": {
       if (!UUID.test(groupId) || !UUID.test(memberId))
         return json({ error: "Ungültige Daten" }, 400);
-      return rpc("kt_admin_unban", { p_group: groupId, p_member: memberId });
+      const { error } = await db.rpc("kt_admin_unban", { p_group: groupId, p_member: memberId });
+      if (error?.message.includes("global"))
+        return json({ error: "Überall gesperrt – unter „Anträge“ überall entsperren." }, 400);
+      return error ? json({ error: "Fehlgeschlagen" }, 500) : json({ ok: true });
+    }
+
+    // ---- Sperren überall & Entsperrungsanträge ----
+
+    case "requests":
+      return rpc("kt_admin_requests");
+
+    case "decide": {
+      const id = Number(body.id);
+      if (!Number.isInteger(id) || id <= 0) return json({ error: "Ungültiger Antrag" }, 400);
+      return rpc("kt_admin_decide", {
+        p_id: id,
+        p_accept: body.accept === true,
+        p_reply:
+          String(body.reply ?? "")
+            .trim()
+            .slice(0, 300) || null,
+      });
+    }
+
+    case "ban_global": {
+      if (!UUID.test(groupId) || !UUID.test(memberId))
+        return json({ error: "Ungültige Daten" }, 400);
+      const { data: device, error } = await db.rpc("kt_admin_member_device", {
+        p_group: groupId,
+        p_member: memberId,
+      });
+      if (error || !device) return json({ error: "Mitglied nicht gefunden" }, 404);
+      return rpc("kt_admin_ban_global", {
+        p_device: device,
+        p_reason:
+          String(body.reason ?? "")
+            .trim()
+            .slice(0, 300) || null,
+      });
+    }
+
+    case "unban_global": {
+      let device = String(body.device ?? "");
+      if (!UUID.test(device) && UUID.test(groupId) && UUID.test(memberId)) {
+        const { data } = await db.rpc("kt_admin_member_device", {
+          p_group: groupId,
+          p_member: memberId,
+        });
+        device = String(data ?? "");
+      }
+      if (!UUID.test(device)) return json({ error: "Ungültige Daten" }, 400);
+      return rpc("kt_admin_unban_global", { p_device: device });
+    }
+
+    case "global_bans":
+      return rpc("kt_admin_global_bans");
+
+    // Mitteilungen über neue Anträge: nur ausdrücklich eingetragene Geräte.
+    case "team_device": {
+      const device = String(body.deviceId ?? "");
+      if (!UUID.test(device)) return json({ error: "Ungültiges Gerät" }, 400);
+      const { data: row } = await db
+        .from("app_config")
+        .select("value")
+        .eq("key", "admin_devices")
+        .maybeSingle();
+      let list: string[] = Array.isArray(row?.value?.devices) ? row.value.devices : [];
+      if (body.mode === "on") list = [...new Set([...list, device])].slice(-5);
+      if (body.mode === "off") list = list.filter((d) => d !== device);
+      if (body.mode === "only") list = [device];
+      if (body.mode) {
+        const { error } = await db.from("app_config").upsert({
+          key: "admin_devices",
+          value: { devices: list },
+          updated_at: new Date().toISOString(),
+        });
+        if (error) return json({ error: "Speichern fehlgeschlagen" }, 500);
+      }
+      return json({ ok: true, registered: list.includes(device), count: list.length });
+    }
 
     case "owner_transfer":
       if (!UUID.test(groupId) || !UUID.test(memberId))
