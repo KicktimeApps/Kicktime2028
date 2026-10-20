@@ -10,6 +10,8 @@ export function useBanStatus() {
     queryKey: BAN_STATUS_KEY,
     enabled: isBackendConfigured(),
     staleTime: 20_000,
+    // Beim Zurückkehren in die App nachsehen (z. B. Antrag inzwischen angenommen).
+    refetchOnWindowFocus: true,
     // Solange etwas offen ist, ab und zu nachsehen, ob entschieden wurde.
     refetchInterval: (q) =>
       q.state.data?.global || q.state.data?.requests.some((r) => r.status === "open")

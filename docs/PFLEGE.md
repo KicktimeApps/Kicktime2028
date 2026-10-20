@@ -154,7 +154,7 @@ aufbewahrt.
 
 Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql`,
 `20261021120000_sperre_hinweis.sql`, `20261021150000_kicken_sperren.sql` und
-`20261022090000_entsperrung.sql` ausführen, dann die Edge Functions `admin`,
+`20261022090000_entsperrung.sql` und `20261022120000_entsperrt_hinweis.sql` ausführen, dann die Edge Functions `admin`,
 `live-scores` und `send-push-reminders` neu deployen. Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
 Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“.
 
@@ -178,5 +178,8 @@ VAPID-Secrets wie `send-push-reminders`.
 - **Admin → Anträge:** annehmen oder ablehnen (mit optionaler Antwort), Liste „Überall
   gesperrt“. Mitteilungen über neue Anträge gehen nur an Geräte, die dort per Schalter
   eingetragen sind (höchstens 5; „Nur dieses Gerät“ entfernt alle anderen).
+- Wird ein Antrag angenommen, zeigt die App dem Entsperrten einmalig „Entsperrt!“ – nach einer
+  Ersteller-Sperre mit dem Code der Runde und „Wieder beitreten“ (der Ersteller nimmt ihn dann
+  noch an), nach einer Team-Sperre mit „Zur Runde“ bzw. „Zu den Tipps“.
 - Eine Sperre gilt für ein Gerät. Wer die App-Daten löscht oder ein anderes Gerät nimmt, ist
   für den Server ein neuer Nutzer – ohne Anmeldung geht das nicht besser.

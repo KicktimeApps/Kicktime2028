@@ -156,6 +156,8 @@ export type Appeal = {
   scope: "group" | "global";
   groupId: string | null;
   groupName: string | null;
+  /** Nur bei angenommenen eigenen Anträgen – zum Wiederbeitreten. */
+  groupCode?: string | null;
   /** Ersteller hat für ein Mitglied beantragt. */
   forMember: boolean;
   memberId: string | null;
