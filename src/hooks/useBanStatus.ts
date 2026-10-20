@@ -19,7 +19,13 @@ export function useBanStatus() {
         : false,
     // Ohne Server-Update gibt es die Funktion nicht – dann einfach „nichts gesperrt“.
     retry: false,
-    queryFn: async (): Promise<BanStatus> =>
-      myBanStatus().catch(() => ({ global: false, requests: [] })),
+    // Antwort absichern: Unerwartetes vom Server darf die App nie abstürzen lassen.
+    queryFn: async (): Promise<BanStatus> => {
+      const s = await myBanStatus().catch(() => null);
+      return {
+        global: s?.global === true,
+        requests: Array.isArray(s?.requests) ? s.requests : [],
+      };
+    },
   });
 }
