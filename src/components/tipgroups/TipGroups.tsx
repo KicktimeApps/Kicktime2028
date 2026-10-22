@@ -7,6 +7,7 @@ import {
   Hourglass,
   Info,
   Loader2,
+  PlayCircle,
   Plus,
   Save,
   Trophy,
@@ -98,11 +99,14 @@ function RulesCard({ className }: { className?: string }) {
 /** ⓘ-Knopf: Regeln nur bei Bedarf, nicht ständig auf dem Bildschirm. */
 export function RulesButton() {
   const [open, setOpen] = useState(false);
+  const setTourDone = useAppStore((s) => s.setTipsTourDone);
+  const navigate = useNavigate();
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
+        data-tour="rules"
         aria-label="So wird gezählt"
         title="So wird gezählt"
         className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground"
@@ -115,6 +119,17 @@ export function RulesButton() {
             <DrawerTitle className="sr-only">So wird gezählt</DrawerTitle>
             <DrawerDescription className="sr-only">Punkte im Tippspiel</DrawerDescription>
             <RulesCard />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setTourDone(false);
+                void navigate({ to: "/tipps" });
+              }}
+              className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-[15px] font-semibold"
+            >
+              <PlayCircle className="h-4 w-4 text-primary" /> Einführung noch mal ansehen
+            </button>
           </div>
         </DrawerContent>
       </Drawer>
@@ -165,7 +180,10 @@ export function ChampionTipCard({ context }: { context?: TipContext } = {}) {
   };
   // Kompakt in einer Zeile – die Spiele sollen gleich darunter sichtbar sein.
   return (
-    <section className="mb-5 rounded-2xl border border-gold/30 bg-gold/8 px-3.5 py-2.5">
+    <section
+      data-tour="bonus"
+      className="mb-5 rounded-2xl border border-gold/30 bg-gold/8 px-3.5 py-2.5"
+    >
       <div className="flex items-center gap-2.5">
         <Trophy className="h-5 w-5 shrink-0 text-gold" />
         <span className="shrink-0 text-[14px] font-semibold leading-tight">
@@ -635,6 +653,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
         <button
           type="button"
           onClick={() => setInvite(true)}
+          data-tour="friends"
           className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left hover:bg-muted/40"
         >
           <Users className="h-5 w-5 shrink-0 text-primary" />
@@ -669,7 +688,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
 
   return (
     <section>
-      <div className="mb-6 space-y-2.5">
+      <div data-tour={groups?.length ? "groups" : undefined} className="mb-6 space-y-2.5">
         {approved.length > 1 && (
           <p className="mb-1 rounded-2xl border border-primary/30 bg-primary/8 px-4 py-3 text-[14px]">
             Du bist in <strong>{approved.length} Runden</strong>. Jede Runde hat eigene Tipps –
@@ -697,7 +716,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
       )}
 
       <h2 className="mb-2.5 text-[15px] font-semibold text-muted-foreground">Weitere Runde</h2>
-      {buttons}
+      <div data-tour="new-group">{buttons}</div>
       <HowItWorks />
       {form$}
     </section>

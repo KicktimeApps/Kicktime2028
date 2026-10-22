@@ -166,7 +166,7 @@ export function MatchdayTips({
         </div>
       )}
       {/* Spieltag wählen */}
-      <div className="mb-3 flex items-center gap-2">
+      <div data-tour="matchday" className="mb-3 flex items-center gap-2">
         <button
           type="button"
           aria-label="Vorheriger Spieltag"
@@ -386,7 +386,7 @@ function MatchRow({
       </button>
 
       <div className="flex shrink-0 flex-col items-center gap-1">
-        <div className="flex items-center gap-1">
+        <div data-tour={open ? "tip-input" : undefined} className="flex items-center gap-1">
           {box("home")}
           <span className="font-display text-[18px] text-muted-foreground">:</span>
           {box("away")}

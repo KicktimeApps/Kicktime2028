@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/common/PageHeader";
 import { RulesButton, TipGroupsSection } from "@/components/tipgroups/TipGroups";
 import { TipPanel } from "@/components/tipgroups/TipPanel";
+import { TipsTour } from "@/components/tipgroups/TipsTour";
 import { useTipContext } from "@/lib/tips";
 import { TOURNAMENT } from "@/tournament/config";
 
@@ -38,6 +39,7 @@ function TipsPage() {
       ) : (
         <TipGroupsSection variant="hub" />
       )}
+      <TipsTour key={solo ? "solo" : "hub"} variant={solo ? "solo" : "hub"} />
     </div>
   );
 }

@@ -106,8 +106,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
-      ...(SITE_URL ? [{ property: "og:image", content: `${SITE_URL}/icon-512.png` }] : []),
-      { name: "twitter:card", content: "summary" },
+      // Bild, Adresse und Kartentyp ergänzt der Server mit vollständiger Adresse (share-meta.ts).
+      ...(SITE_URL ? [{ property: "og:image", content: `${SITE_URL}/og-app.png` }] : []),
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

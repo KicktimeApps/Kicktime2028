@@ -80,9 +80,22 @@ import { useTournament } from "@/store/match-store";
 import { getNation } from "@/tournament/nations";
 
 export const Route = createFileRoute("/runde/$code")({
-  head: () => ({
-    meta: [{ title: "Tipprunde | KickTime" }, { name: "robots", content: "noindex" }],
-  }),
+  // Link-Vorschau beim Teilen (WhatsApp & Co.). Bewusst ohne Rundennamen: Den
+  // könnte sonst jeder auslesen, der Codes durchprobiert – er steht ohnehin im
+  // Text, den der Ersteller mitschickt.
+  head: ({ params }) => {
+    const code = normalizeCode(params.code);
+    const description = `Tipp mit bei der EURO 2028 – Code ${code}. Kostenlos und ohne Anmeldung.`;
+    return {
+      meta: [
+        { title: `Einladung zur Tipprunde ${code} | KickTime` },
+        { name: "robots", content: "noindex" },
+        { name: "description", content: description },
+        { property: "og:title", content: "Du bist zur Tipprunde eingeladen 🏆" },
+        { property: "og:description", content: description },
+      ],
+    };
+  },
   component: GroupPage,
 });
 

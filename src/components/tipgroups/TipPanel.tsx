@@ -21,7 +21,10 @@ function Stats({ tips }: { tips: Record<string, Prediction> }) {
     return { ...summarize(tips, visible), total: summarize(tips, matches).total };
   }, [tips, matches, spoiler, revealed]);
   return (
-    <div className="mb-6 grid grid-cols-3 divide-x divide-border/70 rounded-2xl border border-border bg-card py-3">
+    <div
+      data-tour="stats"
+      className="mb-6 grid grid-cols-3 divide-x divide-border/70 rounded-2xl border border-border bg-card py-3"
+    >
       {[
         { label: "Punkte", value: summary.points, accent: true },
         { label: "Treffer", value: summary.rated ? `${Math.round(summary.hitRate * 100)}%` : "–" },

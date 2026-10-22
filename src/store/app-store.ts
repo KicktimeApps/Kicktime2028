@@ -68,6 +68,8 @@ type State = {
   seenGroups: { id: string; name: string; pending: boolean }[];
   /** Einmaliger Hinweis: aus einer Runde entfernt bzw. Anfrage abgelehnt. */
   groupNotice: GroupNoticeInfo | null;
+  /** Einführung auf der Tipp-Seite schon gesehen (oder übersprungen). */
+  tipsTourDone: boolean;
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -110,6 +112,7 @@ type Actions = {
   clearPrediction: (matchId: string) => void;
   setDemo: (enabled: boolean, scenario?: DemoScenario) => void;
   setCelebrated: (code: string) => void;
+  setTipsTourDone: (v: boolean) => void;
 };
 
 export const useAppStore = create<State & Actions>()(
@@ -137,6 +140,7 @@ export const useAppStore = create<State & Actions>()(
       groupChampion: {},
       seenGroups: [],
       groupNotice: null,
+      tipsTourDone: false,
       pushEnabled: false,
       autoAlarmFavorites: true,
       alarms: {},
@@ -269,6 +273,7 @@ export const useAppStore = create<State & Actions>()(
           ...(enabled === s.demo.enabled ? {} : dropDemo()),
         })),
       setCelebrated: (code) => set({ celebratedChampion: code }),
+      setTipsTourDone: (v) => set({ tipsTourDone: v }),
     }),
     {
       name: TOURNAMENT.storagePrefix,
