@@ -96,10 +96,14 @@ function RulesCard({ className }: { className?: string }) {
   );
 }
 
-/** ⓘ-Knopf: Regeln nur bei Bedarf, nicht ständig auf dem Bildschirm. */
-export function RulesButton() {
+/**
+ * ⓘ-Knopf: Regeln nur bei Bedarf, nicht ständig auf dem Bildschirm. Startet
+ * auf Wunsch den Rundgang der Seite neu, auf der er steht.
+ */
+export function RulesButton({ tour = "tips" }: { tour?: "tips" | "round" }) {
   const [open, setOpen] = useState(false);
-  const setTourDone = useAppStore((s) => s.setTipsTourDone);
+  const setTipsTourDone = useAppStore((s) => s.setTipsTourDone);
+  const setRoundTourDone = useAppStore((s) => s.setRoundTourDone);
   const navigate = useNavigate();
   return (
     <>
@@ -123,8 +127,11 @@ export function RulesButton() {
               type="button"
               onClick={() => {
                 setOpen(false);
-                setTourDone(false);
-                void navigate({ to: "/tipps" });
+                if (tour === "round") setRoundTourDone(false);
+                else {
+                  setTipsTourDone(false);
+                  void navigate({ to: "/tipps" });
+                }
               }}
               className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-[15px] font-semibold"
             >

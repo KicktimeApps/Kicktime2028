@@ -28,6 +28,7 @@ import { Flag } from "@/components/team/Flag";
 import { Segmented } from "@/components/common/Segmented";
 import { AppealBlock } from "@/components/tipgroups/AppealBlock";
 import { GroupFormDrawer, RulesButton } from "@/components/tipgroups/TipGroups";
+import { RoundTour } from "@/components/tipgroups/TipsTour";
 import { TipPanel } from "@/components/tipgroups/TipPanel";
 import type { TipContext } from "@/lib/tips";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
@@ -486,6 +487,7 @@ function BoardView({
             <button
               type="button"
               onClick={() => setSettings(true)}
+              data-tour="round-settings"
               aria-label={
                 requests.length
                   ? `Einstellungen der Runde, ${requests.length} offene Anfragen`
@@ -500,7 +502,7 @@ function BoardView({
                 </span>
               )}
             </button>
-            <RulesButton />
+            <RulesButton tour="round" />
           </div>
         }
       />
@@ -523,16 +525,17 @@ function BoardView({
         </button>
       )}
 
-      <Segmented<"tippen" | "tabelle">
-        size="lg"
-        className="mb-3"
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: "tippen", label: "Tippen" },
-          { value: "tabelle", label: "Tabelle" },
-        ]}
-      />
+      <div data-tour="round-tabs" className="mb-3">
+        <Segmented<"tippen" | "tabelle">
+          size="lg"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "tippen", label: "Tippen" },
+            { value: "tabelle", label: "Tabelle" },
+          ]}
+        />
+      </div>
 
       {/* „Tippen“ bleibt beim Wechsel zur Tabelle erhalten (nur versteckt) –
           so gehen eingegebene, noch nicht gespeicherte Tipps nicht verloren. */}
@@ -631,6 +634,7 @@ function BoardView({
         onClose={() => setRenaming(false)}
         onSave={actions.rename}
       />
+      {tab === "tippen" && <RoundTour name={g.name} isOwner={g.isOwner} />}
     </>
   );
 }

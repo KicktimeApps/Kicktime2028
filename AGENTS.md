@@ -172,7 +172,7 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   Erkennung, auf Android echter Installieren-Knopf) → Teams → Zeit → Mitteilungen → Fertig.
   Auf dem iPhone speichert die Home-Bildschirm-App getrennt von Safari.
 - **Rundgang Tipp-Seite:** beim ersten Besuch (`tipsTourDone`), Ziele per `data-tour="…"`
-  (`CoachTour`, `TipsTour`); fehlende Ziele werden übersprungen. Erneut über ⓘ → „Einführung
+  (`CoachTour`, `TipsTour`); dazu ein eigener Rundgang beim ersten Öffnen einer Tipprunde (`roundTourDone`, `RoundTour`). Fehlende Ziele werden übersprungen. Erneut über ⓘ → „Einführung
   noch mal ansehen“.
 - **Link-Vorschau:** `src/server.ts` ergänzt jede HTML-Seite um Vorschaubild/-adresse
   (`share-meta.ts`, Bilder `public/og-app.png`, `og-invite.png`). Einladungen zeigen bewusst

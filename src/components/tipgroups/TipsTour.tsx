@@ -83,19 +83,23 @@ const HUB: TourStep[] = [
 ];
 
 /**
- * Einführung beim ersten Besuch der Tipp-Seite. Startet, sobald die
- * Öffnungsanimation weg ist und die Seite steht; danach nie wieder – außer
- * über „Einführung noch mal ansehen“ in den Regeln.
+ * Startet einen Rundgang, solange er nicht erledigt ist – erst wenn die
+ * Öffnungsanimation weg ist und kein Fenster offen ist.
  */
-export function TipsTour({ variant }: { variant: "solo" | "hub" }) {
-  const done = useAppStore((s) => s.tipsTourDone);
-  const setDone = useAppStore((s) => s.setTipsTourDone);
+function TourLauncher({
+  steps,
+  done,
+  onDone,
+}: {
+  steps: TourStep[];
+  done: boolean;
+  onDone: () => void;
+}) {
   const [run, setRun] = useState(false);
   useEffect(() => {
     if (done) return;
     let timer = 0;
     const wait = () => {
-      // Nicht hinter der Öffnungsanimation oder einem offenen Fenster starten.
       const busy = document.querySelector("img.splash-logo, [role='dialog']");
       timer = window.setTimeout(busy ? wait : () => setRun(true), busy ? 300 : 600);
     };
@@ -105,11 +109,68 @@ export function TipsTour({ variant }: { variant: "solo" | "hub" }) {
   if (done || !run) return null;
   return (
     <CoachTour
-      steps={variant === "solo" ? SOLO : HUB}
+      steps={steps}
       onClose={() => {
         setRun(false);
-        setDone(true);
+        onDone();
       }}
     />
   );
+}
+
+/**
+ * Einführung beim ersten Besuch der Tipp-Seite; danach nie wieder – außer
+ * über „Einführung noch mal ansehen“ in den Regeln.
+ */
+export function TipsTour({ variant }: { variant: "solo" | "hub" }) {
+  const done = useAppStore((s) => s.tipsTourDone);
+  const setDone = useAppStore((s) => s.setTipsTourDone);
+  return (
+    <TourLauncher
+      steps={variant === "solo" ? SOLO : HUB}
+      done={done}
+      onDone={() => setDone(true)}
+    />
+  );
+}
+
+/** Einführung beim ersten Öffnen einer Tipprunde (dort wird getippt). */
+export function RoundTour({ name, isOwner }: { name: string; isOwner: boolean }) {
+  const done = useAppStore((s) => s.roundTourDone);
+  const setDone = useAppStore((s) => s.setRoundTourDone);
+  const steps: TourStep[] = [
+    {
+      title: `Willkommen in „${name}“`,
+      body: "Hier tippst du für diese Runde. Jede Runde hat eigene Tipps – bist du in mehreren, tippst du in jeder einzeln.",
+    },
+    {
+      target: "round-tabs",
+      title: "Tippen und Tabelle",
+      body: "Unter „Tippen“ gibst du deine Tipps ab, unter „Tabelle“ siehst du den Stand der Runde.",
+    },
+    {
+      target: "tip-input",
+      title: "Hier tippst du",
+      body: "Links die Tore fürs erste Team, rechts fürs zweite, dann „Tipp speichern“. Die Tipps der anderen siehst du ab Anpfiff.",
+    },
+    {
+      target: "matchday",
+      title: "Spieltage wechseln",
+      body: "Mit den Pfeilen blätterst du durch die Spieltage.",
+    },
+    {
+      target: "bonus",
+      title: "Bonustipp",
+      body: `Wer wird Europameister? +${CHAMPION_BONUS} Punkte in dieser Runde – abgeben geht nur bis zum Eröffnungsspiel.`,
+    },
+    {
+      target: "round-settings",
+      title: "Einstellungen der Runde",
+      body: isOwner
+        ? "Hier nimmst du Beitrittsanfragen an, lädst Freunde ein und verwaltest die Mitspieler. Ein roter Punkt zeigt neue Anfragen."
+        : "Hier lädst du Freunde ein, änderst deinen Namen oder verlässt die Runde.",
+    },
+    rules,
+  ];
+  return <TourLauncher steps={steps} done={done} onDone={() => setDone(true)} />;
 }
