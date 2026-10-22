@@ -19,6 +19,7 @@ import { UnbanNotice } from "@/components/tipgroups/UnbanNotice";
 import { ChampionCelebration } from "@/components/tournament/ChampionCelebration";
 import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
+import { useGoalAlerts } from "@/hooks/useGoalAlerts";
 import { TIP_GROUPS_KEY } from "@/hooks/useMyGroups";
 import { logError } from "@/lib/error-log";
 // Früh mithören: Android meldet die Installierbarkeit oft schon beim Laden.
@@ -44,6 +45,32 @@ const DESCRIPTION =
  * Setzt Dark/Light-Klasse vor dem ersten Paint (kein Aufblitzen).
  * Liest die gespeicherte Einstellung direkt aus localStorage.
  */
+/**
+ * Startbilder für die Home-Bildschirm-App auf dem iPhone – exakt der erste
+ * Moment der Öffnungsanimation, damit kein weißer Blitz entsteht. iOS braucht
+ * je Gerätegröße ein eigenes Bild (hell und dunkel, erzeugt aus SplashScreen).
+ */
+const STARTUP_DEVICES: [number, number, number][] = [
+  [440, 956, 3],
+  [430, 932, 3],
+  [428, 926, 3],
+  [414, 896, 3],
+  [414, 896, 2],
+  [402, 874, 3],
+  [393, 852, 3],
+  [390, 844, 3],
+  [375, 812, 3],
+  [414, 736, 3],
+  [375, 667, 2],
+];
+const STARTUP_IMAGES = STARTUP_DEVICES.flatMap(([w, h, dpr]) =>
+  (["dark", "light"] as const).map((scheme) => ({
+    rel: "apple-touch-startup-image",
+    href: `/startup/startup-${w}x${h}@${dpr}-${scheme}.png`,
+    media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: portrait) and (prefers-color-scheme: ${scheme})`,
+  })),
+);
+
 const THEME_BOOT = `(function(){try{var s=JSON.parse(localStorage.getItem("${TOURNAMENT.storagePrefix}")||"{}").state||{};var t=s.theme||"system";if(t==="system"){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}var r=document.documentElement;r.classList.remove("dark","light");r.classList.add(t);r.classList.toggle("text-large",!!s.largeText)}catch(e){}})();`;
 
 function NotFound() {
@@ -115,6 +142,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      ...STARTUP_IMAGES,
     ],
     scripts: [{ children: THEME_BOOT }],
   }),
@@ -253,6 +281,7 @@ function RootComponent() {
 function App() {
   const onboarded = useAppStore((s) => s.onboarded);
   useEngine();
+  useGoalAlerts();
   useGlobalErrorLogging();
   useEffect(() => {
     sendPing();

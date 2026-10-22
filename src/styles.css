@@ -136,6 +136,71 @@
   button {
     cursor: pointer;
   }
+  /* Wie eine echte App: kein Gummiband-Ziehen über den Rand (die Leiste unten
+     bleibt stehen) und kein versehentliches Markieren von Knöpfen. */
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+  :where(button, a[href], [role="button"], [role="tab"], [role="switch"], nav, label) {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  img {
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Antippen gibt sichtbar nach – bei allen Knöpfen, Links und Reitern.
+   (Eigene scale-Klassen einzelner Elemente haben Vorrang.) */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, a[href], [role="button"], [role="tab"], [role="switch"]):not(:disabled):active {
+    scale: 0.97;
+  }
+}
+
+/* Tor-Moment: Karte bzw. Zeile leuchtet einmal grün auf (useGoalFlash.ts),
+   die neue Ziffer rutscht von unten herein (GoalScore.tsx). */
+@keyframes score-flip {
+  from {
+    transform: translateY(70%);
+    opacity: 0;
+  }
+}
+@keyframes goal-flash {
+  0% {
+    box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--primary) 0%, transparent);
+  }
+  20% {
+    box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+  100% {
+    box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--primary) 0%, transparent);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .goal-flash {
+    animation: goal-flash 1.8s ease-out;
+  }
+  .score-flip {
+    animation: score-flip 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* Seitenwechsel: kurz überblenden (siehe defaultViewTransition in router.tsx). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
 
 @layer components {

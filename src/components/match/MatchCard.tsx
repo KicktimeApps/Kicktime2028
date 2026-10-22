@@ -12,6 +12,8 @@ import { STAGE_LABEL } from "@/tournament/config";
 import { getTvInfo } from "@/tournament/tv";
 import { MatchActions } from "./MatchActions";
 import { phaseLabel } from "./phase";
+import { ScoreDigit } from "./GoalScore";
+import { useGoalFlash } from "./useGoalFlash";
 import { useSpoiler } from "./useSpoiler";
 
 /**
@@ -37,6 +39,7 @@ export function MatchCard({
   const favorites = useAppStore((s) => s.favorites);
   const interesting = useAppStore((s) => s.interesting);
   const { hidden, reveal } = useSpoiler(m);
+  const flash = useGoalFlash(m, hidden);
   const a = teamDisplay(m.home, m.slotHome);
   const b = teamDisplay(m.away, m.slotAway);
   const live = m.status === "live";
@@ -66,6 +69,7 @@ export function MatchCard({
       className={cn(
         "group relative overflow-hidden rounded-2xl border bg-card transition-colors",
         live ? "border-live/50" : "border-border hover:border-muted-foreground/30",
+        flash && "goal-flash",
         className,
       )}
     >
@@ -155,7 +159,7 @@ export function MatchCard({
                       lost && "text-muted-foreground",
                     )}
                   >
-                    {s}
+                    <ScoreDigit value={s} />
                     {p !== undefined && (
                       <sup className="ml-0.5 text-[10px] font-medium text-muted-foreground">
                         {p}

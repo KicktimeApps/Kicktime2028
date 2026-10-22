@@ -18,6 +18,9 @@ import type { Stage } from "@/tournament/types";
 
 export const Route = createFileRoute("/spielplan")({
   head: () => ({ meta: [{ title: `Spielplan ${TOURNAMENT.name} – alle 51 Spiele | KickTime` }] }),
+  // ?q=… füllt die Suche vor (z. B. von den Stadion-Karten der Startseite).
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search.q === "string" && search.q.trim() ? { q: search.q.slice(0, 40) } : {},
   component: Schedule,
 });
 
@@ -30,7 +33,8 @@ function Schedule() {
   const now = useNow();
   const [scope, setScope] = useState<Scope>("all");
   const [phase, setPhase] = useState<Phase>("all");
-  const [q, setQ] = useState("");
+  const initialQuery = Route.useSearch().q;
+  const [q, setQ] = useState(initialQuery ?? "");
   const scrolled = useRef(false);
   // Erst scrollen, wenn der Match-Store den (Demo-)Zustand übernommen hat.
   const synced = useMatchStore((s) => s.demo.enabled) === useAppStore((s) => s.demo.enabled);

@@ -9,6 +9,9 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
+    // Weiches Überblenden beim Seitenwechsel (View Transitions; wo der Browser
+    // es nicht kann, wechselt die Seite wie bisher sofort). Dauer in styles.css.
+    defaultViewTransition: true,
     defaultPreloadStaleTime: 0,
   });
 

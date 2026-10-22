@@ -177,6 +177,12 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 - **Link-Vorschau:** `src/server.ts` ergänzt jede HTML-Seite um Vorschaubild/-adresse
   (`share-meta.ts`, Bilder `public/og-app.png`, `og-invite.png`). Einladungen zeigen bewusst
   keinen Rundennamen (sonst per Code-Raten auslesbar).
+- **Feinschliff (ab 2.7.0):** iPhone-Startbilder `public/startup/` (aus dem echten Ladebildschirm
+  gerendert, je Gerät hell/dunkel, in `__root.tsx` verlinkt – bei Änderungen am Ladebildschirm
+  neu erzeugen). Seitenwechsel überblenden (`defaultViewTransition`). Tor-Moment: Ziffer rutscht
+  herein (`GoalScore.tsx`), Karte leuchtet (`useGoalFlash.ts`), Hinweis „⚽ Tor für …“ nur für
+  eigene/gefolgte Teams und nie bei aktivem Spoilerschutz (`useGoalAlerts.ts`). Platzhalter
+  statt „Lade…“: `Skeleton.tsx`. Stadien auf der Startseite verlinken `/spielplan?q=…`.
 
 ## 7. Was dem Betreiber wichtig ist (Stil & Zusammenarbeit)
 

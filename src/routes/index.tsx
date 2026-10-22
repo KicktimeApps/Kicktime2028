@@ -38,6 +38,7 @@ import { useUi } from "@/store/ui-store";
 import { MILESTONES, STAGE_LABEL, TOURNAMENT } from "@/tournament/config";
 import { getNation } from "@/tournament/nations";
 import { BROADCASTER_URLS, broadcastersOf, getTvInfo } from "@/tournament/tv";
+import { VENUES } from "@/tournament/venues";
 
 export const Route = createFileRoute("/")({
   component: ForYou,
@@ -456,7 +457,6 @@ function ChampionBanner({ code }: { code: string }) {
 function PreDraw() {
   const prefs = usePrefs();
   const openTeam = useUi((s) => s.openTeam);
-  const setDemo = useAppStore((s) => s.setDemo);
   const now = useNow();
   const [allSteps, setAllSteps] = useState(false);
   const myTeams = [...prefs.favorites, ...prefs.interesting];
@@ -466,6 +466,8 @@ function PreDraw() {
   return (
     <>
       <OpenerHero now={now} matches={useTournament().matches} />
+
+      <PreviewOffer />
 
       <Block title="Deine Teams" action={<MoreLink to="/einstellungen">Ändern</MoreLink>}>
         {myTeams.length === 0 ? (
@@ -546,28 +548,98 @@ function PreDraw() {
         </button>
       </Block>
 
-      <button
-        type="button"
-        onClick={() => {
-          setDemo(true, "group");
-          window.scrollTo({ top: 0 });
-          toast("Vorschau-Modus aktiv", {
-            description: "Beenden über das gelbe Band oben oder im Profil.",
-          });
-        }}
-        className="flex w-full items-center gap-4 rounded-2xl border border-gold/30 bg-gold/8 p-4 text-left"
-      >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-gold-foreground">
-          <FlaskConical className="h-5 w-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[16px] font-semibold">Vorschau ansehen</span>
-          <span className="block text-[14px] text-muted-foreground">
-            So sieht KickTime während der EM aus.
-          </span>
-        </span>
-        <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
-      </button>
+      <Block title="Die Gastgeber">
+        <div className="grid grid-cols-2 gap-2">
+          {HOST_CODES.map((code) => {
+            const n = getNation(code);
+            if (!n) return null;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => openTeam(code)}
+                className="flex h-14 items-center gap-3 rounded-2xl border border-border bg-card px-3.5 text-left hover:bg-muted/40"
+              >
+                <Flag flag={n.flag} size="md" />
+                <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{n.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
+          Die EURO 2028 findet erstmals in vier Ländern auf zwei Inseln statt.
+        </p>
+      </Block>
+
+      <Block title={`Die ${VENUES.length} Stadien`}>
+        <StadiumRail />
+      </Block>
     </>
+  );
+}
+
+const HOST_CODES = ["ENG", "SCO", "WAL", "IRL"] as const;
+
+/** Vor der Auslosung gut sichtbar: die Vorschau zeigt, wie KickTime während der EM aussieht. */
+function PreviewOffer() {
+  const setDemo = useAppStore((s) => s.setDemo);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setDemo(true, "group");
+        window.scrollTo({ top: 0 });
+        toast("Vorschau-Modus aktiv", {
+          description: "Beenden über das gelbe Band oben oder im Profil.",
+        });
+      }}
+      className="mb-8 flex w-full items-center gap-4 rounded-2xl border border-gold/40 bg-gold/10 p-4 text-left"
+    >
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold text-gold-foreground">
+        <FlaskConical className="h-6 w-6" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16px] font-semibold">Schon mal ausprobieren?</span>
+        <span className="block text-[14px] text-muted-foreground">
+          Die Vorschau spielt die EM mit erfundenen Ergebnissen durch – live, Tabellen, Tipps.
+        </span>
+      </span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/60" />
+    </button>
+  );
+}
+
+/** Die Stadien zum seitlichen Wischen; antippen zeigt ihre Spiele im Spielplan. */
+function StadiumRail() {
+  const { matches } = useTournament();
+  return (
+    <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-1 md:mx-0 md:scroll-px-0 md:px-0">
+      {VENUES.map((v) => {
+        const games = matches.filter((m) => m.venue.id === v.id).length;
+        const host = getNation(v.country);
+        return (
+          <Link
+            key={v.id}
+            to="/spielplan"
+            search={{ q: v.name }}
+            className="flex w-[78%] max-w-[280px] shrink-0 snap-start flex-col rounded-2xl border border-border bg-card p-4 hover:bg-muted/40"
+          >
+            <span className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              {host && <Flag flag={host.flag} size="sm" />}
+              {v.city}
+            </span>
+            <span className="mt-2 font-display text-[22px] font-bold uppercase leading-tight">
+              {v.name}
+            </span>
+            <span className="mt-auto flex items-baseline justify-between gap-2 pt-3 text-[13.5px] text-muted-foreground">
+              <span className="tabular">{v.capacity.toLocaleString("de-DE")} Plätze</span>
+              <span className="font-semibold text-primary">
+                {games} {games === 1 ? "Spiel" : "Spiele"}
+              </span>
+            </span>
+          </Link>
+        );
+      })}
+    </div>
   );
 }

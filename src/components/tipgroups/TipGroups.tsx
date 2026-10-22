@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { RoundCardSkeleton } from "@/components/common/Skeleton";
 import { Flag } from "@/components/team/Flag";
 import {
   FormSheet,
@@ -712,9 +713,10 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
       </div>
 
       {isLoading && (
-        <p className="mb-3 flex items-center gap-2 text-[14px] text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Lade deine Runden …
-        </p>
+        <div role="status" aria-label="Deine Runden werden geladen" className="mb-6 space-y-2.5">
+          <RoundCardSkeleton />
+          <RoundCardSkeleton />
+        </div>
       )}
       {isError && (
         <p className="mb-3 text-[14px] text-muted-foreground">

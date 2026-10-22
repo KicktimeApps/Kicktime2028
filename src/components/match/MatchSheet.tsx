@@ -32,6 +32,7 @@ import { BROADCASTER_URLS, broadcastersOf, getTvInfo } from "@/tournament/tv";
 import { COUNTRY_LABEL } from "@/tournament/venues";
 import { MatchActions } from "./MatchActions";
 import { phaseLabel } from "./phase";
+import { ScoreDigit } from "./GoalScore";
 import { PredictionEditor } from "./PredictionEditor";
 import { useSpoiler } from "./useSpoiler";
 
@@ -155,7 +156,7 @@ function SheetBody({ matchId }: { matchId: string }) {
                   hidden && "select-none blur-md",
                 )}
               >
-                {m.score.home}:{m.score.away}
+                <ScoreDigit value={m.score.home} />:<ScoreDigit value={m.score.away} />
               </div>
               {m.penalties && !hidden && (
                 <div className="mt-1 text-[12px] text-muted-foreground">

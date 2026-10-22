@@ -49,6 +49,7 @@ import {
   FormSheetDescription,
   FormSheetTitle,
 } from "@/components/common/FormSheet";
+import { RoundPageSkeleton } from "@/components/common/Skeleton";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { teamDisplay } from "@/domain/labels";
 import { buildBoard, scorePrediction, type BoardRow } from "@/domain/predictions";
@@ -136,9 +137,7 @@ function GroupPage() {
       {!isBackendConfigured() ? (
         <Note>Tipprunden brauchen den KickTime-Server.</Note>
       ) : isLoading ? (
-        <p className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Lade …
-        </p>
+        <RoundPageSkeleton />
       ) : group?.pending ? (
         <PendingView name={group.name} code={group.code} onWithdraw={() => leaveGroup(group.id)} />
       ) : group ? (
@@ -331,13 +330,7 @@ function ServerBoard({ groupId }: { groupId: string }) {
     store.setGroupChampion(groupId, me.champion);
   }, [data, groupId]);
 
-  if (isLoading) {
-    return (
-      <p className="flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Lade Tabelle …
-      </p>
-    );
-  }
+  if (isLoading) return <RoundPageSkeleton />;
   if (error || !data) {
     return (
       <Note>

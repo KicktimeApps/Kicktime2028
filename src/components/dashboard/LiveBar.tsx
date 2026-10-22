@@ -1,6 +1,8 @@
 import { ChevronRight } from "lucide-react";
 import { LiveDot } from "@/components/common/LiveDot";
 import { phaseShort } from "@/components/match/phase";
+import { ScoreDigit } from "@/components/match/GoalScore";
+import { useGoalFlash } from "@/components/match/useGoalFlash";
 import { useSpoiler } from "@/components/match/useSpoiler";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
@@ -12,6 +14,7 @@ import { useUi } from "@/store/ui-store";
 function LiveLine({ m }: { m: MatchView }) {
   const openMatch = useUi((s) => s.openMatch);
   const { hidden } = useSpoiler(m);
+  const flash = useGoalFlash(m, hidden);
   const a = teamDisplay(m.home, m.slotHome);
   const b = teamDisplay(m.away, m.slotAway);
   return (
@@ -19,7 +22,10 @@ function LiveLine({ m }: { m: MatchView }) {
       type="button"
       onClick={() => openMatch(m.id)}
       aria-label={`Live: ${a.name} gegen ${b.name}, Details öffnen`}
-      className="flex h-12 w-full items-center gap-2 px-3 text-left transition-colors hover:bg-live/10"
+      className={cn(
+        "flex h-12 w-full items-center gap-2 px-3 text-left transition-colors hover:bg-live/10",
+        flash && "goal-flash",
+      )}
     >
       <span className="w-12 shrink-0 text-[12px] font-semibold text-live">{phaseShort(m)}</span>
       <Flag flag={a.flag} size="sm" />
@@ -30,7 +36,13 @@ function LiveLine({ m }: { m: MatchView }) {
           hidden && "text-muted-foreground",
         )}
       >
-        {hidden || !m.score ? "–:–" : `${m.score.home}:${m.score.away}`}
+        {hidden || !m.score ? (
+          "–:–"
+        ) : (
+          <>
+            <ScoreDigit value={m.score.home} />:<ScoreDigit value={m.score.away} />
+          </>
+        )}
       </span>
       <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{b.name}</span>
       <Flag flag={b.flag} size="sm" />
