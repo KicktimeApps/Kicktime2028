@@ -9,32 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TurnierRouteImport } from './routes/turnier'
-import { Route as TippsRouteImport } from './routes/tipps'
-import { Route as SpielplanRouteImport } from './routes/spielplan'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EinstellungenRouteImport } from './routes/einstellungen'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SpielplanRouteImport } from './routes/spielplan'
+import { Route as TippsRouteImport } from './routes/tipps'
+import { Route as TurnierRouteImport } from './routes/turnier'
 import { Route as RundeCodeRouteImport } from './routes/runde.$code'
 
-const TurnierRoute = TurnierRouteImport.update({
-  id: '/turnier',
-  path: '/turnier',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TippsRoute = TippsRouteImport.update({
-  id: '/tipps',
-  path: '/tipps',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SpielplanRoute = SpielplanRouteImport.update({
-  id: '/spielplan',
-  path: '/spielplan',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EinstellungenRoute = EinstellungenRouteImport.update({
@@ -42,9 +27,24 @@ const EinstellungenRoute = EinstellungenRouteImport.update({
   path: '/einstellungen',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpielplanRoute = SpielplanRouteImport.update({
+  id: '/spielplan',
+  path: '/spielplan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TippsRoute = TippsRouteImport.update({
+  id: '/tipps',
+  path: '/tipps',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TurnierRoute = TurnierRouteImport.update({
+  id: '/turnier',
+  path: '/turnier',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RundeCodeRoute = RundeCodeRouteImport.update({
@@ -123,32 +123,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/turnier': {
-      id: '/turnier'
-      path: '/turnier'
-      fullPath: '/turnier'
-      preLoaderRoute: typeof TurnierRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tipps': {
-      id: '/tipps'
-      path: '/tipps'
-      fullPath: '/tipps'
-      preLoaderRoute: typeof TippsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/spielplan': {
-      id: '/spielplan'
-      path: '/spielplan'
-      fullPath: '/spielplan'
-      preLoaderRoute: typeof SpielplanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/einstellungen': {
@@ -158,11 +137,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EinstellungenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/spielplan': {
+      id: '/spielplan'
+      path: '/spielplan'
+      fullPath: '/spielplan'
+      preLoaderRoute: typeof SpielplanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tipps': {
+      id: '/tipps'
+      path: '/tipps'
+      fullPath: '/tipps'
+      preLoaderRoute: typeof TippsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/turnier': {
+      id: '/turnier'
+      path: '/turnier'
+      fullPath: '/turnier'
+      preLoaderRoute: typeof TurnierRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/runde/$code': {

@@ -9,8 +9,7 @@ import { useAppStore } from "@/store/app-store";
  *  - eine Tipprunde: eigene Tipps je Runde, gespeichert auf dem Server
  */
 export type TipContext =
-  | { kind: "solo"; id: "solo"; label: string }
-  | { kind: "group"; id: string; label: string };
+  { kind: "solo"; id: "solo"; label: string } | { kind: "group"; id: string; label: string };
 
 type StoreState = ReturnType<typeof useAppStore.getState>;
 

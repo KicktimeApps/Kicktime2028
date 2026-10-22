@@ -52,7 +52,7 @@ Ergebnisse geheim, bis du sie sehen willst.
 
 ```bash
 bun install        # oder npm install
-bun run dev        # http://localhost:5173
+bun run dev        # http://localhost:8080
 ```
 
 Die App läuft **ohne jede Konfiguration**. Live-Daten kommen dann direkt von
@@ -69,8 +69,13 @@ jedes einzelne Gerät.
 | `bun run typecheck` | TypeScript prüfen                            |
 | `bun run lint`      | ESLint + Prettier                            |
 | `bun run check`     | Typecheck, Lint und Tests in einem Durchgang |
+| `bun audit`         | Pakete auf bekannte Sicherheitslücken prüfen |
 
 Produktions-Build lokal ansehen: `bun run build && cd .output && npx wrangler dev`.
+
+Build-Konfiguration: eigene `vite.config.ts` (Vite 8, TanStack Start, Nitro mit Preset
+`cloudflare-module`). Der Build legt `.output/` und `.wrangler/deploy/config.json` an, darum
+nimmt `npx wrangler deploy` automatisch den fertigen Worker.
 
 ## Backend (optional): Supabase
 

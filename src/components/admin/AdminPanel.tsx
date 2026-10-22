@@ -33,14 +33,7 @@ import { StatsSection } from "./StatsSection";
 import { SystemSection } from "./SystemSection";
 
 export type AdminSection =
-  | "overview"
-  | "live"
-  | "override"
-  | "groups"
-  | "requests"
-  | "messages"
-  | "stats"
-  | "system";
+  "overview" | "live" | "override" | "groups" | "requests" | "messages" | "stats" | "system";
 
 const SECTIONS: { value: AdminSection; label: string; icon: typeof Activity }[] = [
   { value: "overview", label: "Übersicht", icon: LayoutGrid },

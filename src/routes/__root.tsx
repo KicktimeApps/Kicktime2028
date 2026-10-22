@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
+  type ErrorComponentProps,
   HeadContent,
   Link,
   Outlet,
@@ -58,9 +59,13 @@ function NotFound() {
   );
 }
 
-function ErrorView({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorView({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
-  useEffect(() => logError("render", error.message), [error]);
+  // Geworfen werden kann alles, nicht nur Error-Objekte.
+  useEffect(
+    () => logError("render", error instanceof Error ? error.message : String(error)),
+    [error],
+  );
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
       <h1 className="font-display text-3xl font-bold uppercase">Foul im Code</h1>

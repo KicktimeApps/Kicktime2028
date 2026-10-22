@@ -52,6 +52,11 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
   Zustand (`src/store/app-store.ts` persistiert in localStorage), React Query, framer-motion,
   lucide-react, Radix (Dialog/AlertDialog/Switch), vaul (Drawer). Hosting: Cloudflare Workers
   (`wrangler.jsonc`, Worker `kicktime-2028`).
+- **Build:** eigene `vite.config.ts` (Vite 8, TanStack Start, Nitro-Preset `cloudflare-module`,
+  Tailwind, React) – **kein Lovable** mehr. Ergebnis: `.output/` + `.wrangler/deploy/config.json`;
+  Cloudflare baut mit `npm install && npm run build` und deployt mit `npx wrangler deploy`.
+  Pakete mit bun (`bun.lock`, `bunfig.toml`: neue Versionen erst nach 24 h). Neue Hauptversionen
+  (z. B. framer-motion, lucide, TypeScript, ESLint) nur gezielt und mit vollem Test anheben.
 - **Backend:** Supabase. Alle schreibenden Zugriffe der App laufen über `SECURITY DEFINER`-RPCs
   (`kt_*`); Tabellen sind per RLS gesperrt. Edge Functions in `supabase/functions/`:
   - `live-scores` – OpenLigaDB abrufen, cachen, beendete Spiele sichern. Quelle per Admin
@@ -77,6 +82,7 @@ npx eslint .                 # Lint (0 Fehler, keine neuen Warnungen)
 npx vitest run               # alle Unit-Tests
 npx vite build               # Build muss durchlaufen
 npx prettier --check <geänderte Dateien>
+bun audit                    # nach Paket-Änderungen: keine bekannten Sicherheitslücken
 ```
 
 (`npm run check` = Typen + Lint + Tests; Paketmanager ist eigentlich bun – `bun run check`.)

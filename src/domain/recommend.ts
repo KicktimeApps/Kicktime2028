@@ -13,13 +13,7 @@ export type Prefs = {
 };
 
 export type Reason =
-  | "favorite"
-  | "interesting"
-  | "pinned"
-  | "topDuel"
-  | "knockout"
-  | "opener"
-  | "final";
+  "favorite" | "interesting" | "pinned" | "topDuel" | "knockout" | "opener" | "final";
 
 export type Recommendation = {
   match: MatchView;
