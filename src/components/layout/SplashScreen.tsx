@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
 import { TOURNAMENT } from "@/tournament/config";
 
-/** Dauer der Öffnungsanimation (nur beim ersten Öffnen pro Sitzung). */
+/** Längste Dauer der Öffnungsanimation (nur beim ersten Öffnen pro Sitzung). */
 export const SPLASH_MS = 2400;
+/** Kürzeste Dauer: bis Logo und Schriftzug fertig animiert sind. */
+export const SPLASH_MIN_MS = 1100;
 
 /**
  * Öffnungsanimation: pulsierende Aura, Logo, Schriftzug und Ladebalken.

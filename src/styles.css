@@ -277,11 +277,15 @@
     transform: none;
   }
 }
+/* Schnell auf ~90 % (meist ist nach gut einer Sekunde alles geladen), dann langsam voll. */
 @keyframes splash-bar {
-  from {
+  0% {
     width: 0%;
   }
-  to {
+  45% {
+    width: 88%;
+  }
+  100% {
     width: 100%;
   }
 }

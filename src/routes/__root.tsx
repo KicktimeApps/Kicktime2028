@@ -9,9 +9,9 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { SPLASH_MS, SplashScreen } from "@/components/layout/SplashScreen";
+import { SPLASH_MIN_MS, SPLASH_MS, SplashScreen } from "@/components/layout/SplashScreen";
 import { MatchSheet } from "@/components/match/MatchSheet";
 import { TeamSheet } from "@/components/team/TeamSheet";
 import { GroupNotice } from "@/components/tipgroups/GroupNotice";
@@ -19,10 +19,12 @@ import { UnbanNotice } from "@/components/tipgroups/UnbanNotice";
 import { ChampionCelebration } from "@/components/tournament/ChampionCelebration";
 import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
+import { TIP_GROUPS_KEY } from "@/hooks/useMyGroups";
 import { logError } from "@/lib/error-log";
 // Früh mithören: Android meldet die Installierbarkeit oft schon beim Laden.
 import "@/lib/install";
 import { sendPing } from "@/lib/telemetry";
+import { isBackendConfigured } from "@/services/supabase";
 import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";
 import { SITE_URL, TOURNAMENT } from "@/tournament/config";
@@ -155,11 +157,15 @@ const SPLASH_KEY = `${TOURNAMENT.storagePrefix}-splash`;
 
 /**
  * Öffnungsanimation einmal pro Sitzung. Sie ist schon im Server-HTML enthalten
- * und verschwindet frühestens nach {@link SPLASH_MS} – oder sofort, wenn sie in
- * dieser Sitzung schon lief bzw. das Gerät reduzierte Bewegung wünscht.
+ * und wird zum Laden genutzt: Sie endet, sobald das Wichtigste da ist
+ * ({@link useStartupReady}) – frühestens nach {@link SPLASH_MIN_MS} (Logo und
+ * Schriftzug fertig animiert), spätestens nach {@link SPLASH_MS}. Sofort weg,
+ * wenn sie in dieser Sitzung schon lief bzw. das Gerät reduzierte Bewegung wünscht.
  */
-function useSplash() {
+function useSplash(isReady: () => boolean) {
   const [show, setShow] = useState(true);
+  const ready = useRef(isReady);
+  ready.current = isReady;
   useEffect(() => {
     let seen = false;
     try {
@@ -174,16 +180,54 @@ function useSplash() {
       setShow(false);
       return;
     }
-    const t = window.setTimeout(() => setShow(false), SPLASH_MS);
-    return () => window.clearTimeout(t);
+    const start = Date.now();
+    const id = window.setInterval(() => {
+      const elapsed = Date.now() - start;
+      if (elapsed >= SPLASH_MS || (elapsed >= SPLASH_MIN_MS && ready.current())) {
+        window.clearInterval(id);
+        setShow(false);
+      }
+    }, 100);
+    return () => window.clearInterval(id);
   }, []);
   return show;
+}
+
+/** Hauptseiten, die während der Öffnungsanimation schon vorgeladen werden. */
+const PRELOAD_ROUTES = ["/", "/spielplan", "/turnier", "/tipps", "/einstellungen"] as const;
+
+/**
+ * Was beim Start da sein soll, bevor die App erscheint: frische Live-Daten
+ * (nicht nur der gespeicherte Stand), die eigenen Tipprunden und der Code der
+ * Hauptseiten. Fehler zählen als „fertig“ – dann zeigt die App ihren Hinweis.
+ */
+function useStartupReady(hydrated: boolean, queryClient: QueryClient) {
+  const router = useRouter();
+  const [pagesLoaded, setPagesLoaded] = useState(false);
+  useEffect(() => {
+    if (!hydrated) return;
+    void Promise.allSettled(PRELOAD_ROUTES.map((to) => router.preloadRoute({ to }))).then(() =>
+      setPagesLoaded(true),
+    );
+  }, [hydrated, router]);
+  return () => {
+    if (!hydrated || !pagesLoaded) return false;
+    const app = useAppStore.getState();
+    const live = useMatchStore.getState().live;
+    const liveReady =
+      app.demo.enabled || !!live.lastError || (!!live.lastFetchAt && live.source !== "cache");
+    // Tipprunden lädt die App erst nach der Einführung.
+    const groups = queryClient.getQueryState(TIP_GROUPS_KEY)?.status;
+    const groupsReady =
+      !app.onboarded || !isBackendConfigured() || groups === "success" || groups === "error";
+    return liveReady && groupsReady;
+  };
 }
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const hydrated = useHydrated();
-  const splash = useSplash();
+  const splash = useSplash(useStartupReady(hydrated, queryClient));
   const ready = hydrated && !splash;
   return (
     <QueryClientProvider client={queryClient}>
