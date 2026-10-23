@@ -70,6 +70,29 @@ type Due = {
   auth: string;
 };
 
+/**
+ * Höchstens so viele Erinnerungen (Spiel + Tipp) je Lauf. Supabase erlaubt einer
+ * Edge Function 2 s Rechenzeit pro Aufruf; jede Nachricht wird verschlüsselt
+ * (~1–3 ms). Wird es mehr, geben wir den Rest wieder frei – er geht im nächsten
+ * Lauf (eine Minute später) raus, statt bei einem Abbruch verloren zu gehen.
+ */
+const MAX_REMINDERS_PER_RUN = 300;
+
+/** VAPID-Signatur je Push-Dienst (Apple, Google …) einmal pro Lauf statt je Nachricht. */
+function vapidCache(subject: string, publicKey: string, privateKey: string) {
+  const cache = new Map<string, string>();
+  return (endpoint: string): Record<string, string> => {
+    const audience = new URL(endpoint).origin;
+    let auth = cache.get(audience);
+    if (!auth) {
+      auth = webpush.getVapidHeaders(audience, subject, publicKey, privateKey, "aes128gcm")
+        .Authorization as string;
+      cache.set(audience, auth);
+    }
+    return { Authorization: auth };
+  };
+}
+
 /** Fällige Erinnerungen holen – bevorzugt atomar über kt_claim_due_alarms. */
 // deno-lint-ignore no-explicit-any
 type Db = any;
@@ -110,14 +133,33 @@ Deno.serve(async (req) => {
     if (!secret || req.headers.get("x-cron-secret") !== secret)
       return json({ error: "Nicht erlaubt" }, 401);
 
-    webpush.setVapidDetails(
-      env("VAPID_SUBJECT", "mailto:kontakt@kicktime.app"),
-      env("VAPID_PUBLIC_KEY"),
-      env("VAPID_PRIVATE_KEY"),
-    );
+    const vapid = {
+      subject: env("VAPID_SUBJECT", "mailto:kontakt@kicktime.app"),
+      publicKey: env("VAPID_PUBLIC_KEY"),
+      privateKey: env("VAPID_PRIVATE_KEY"),
+    };
+    webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey); // prüft die Schlüssel
+    const signed = vapidCache(vapid.subject, vapid.publicKey, vapid.privateKey);
+    // Signatur kommt aus dem Cache – web-push soll sie nicht je Nachricht neu rechnen.
+    const pushOpts = (endpoint: string) => ({ headers: signed(endpoint), vapidDetails: null });
     const db = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
     const now = Date.now();
-    const { list, atomic } = await claimDue(db, now);
+    const { list: claimed, atomic } = await claimDue(db, now);
+
+    // Zu viele auf einmal? Den Rest freigeben – kommt im nächsten Lauf.
+    const list = claimed.slice(0, MAX_REMINDERS_PER_RUN);
+    const laterAlarms = claimed.slice(MAX_REMINDERS_PER_RUN);
+    if (atomic && laterAlarms.length > 0) {
+      const byMatch = new Map<string, string[]>();
+      for (const r of laterAlarms)
+        byMatch.set(r.match_id, [...(byMatch.get(r.match_id) ?? []), r.device_id]);
+      for (const [match, devices] of byMatch)
+        await db
+          .from("match_alarms")
+          .update({ notified_for: null })
+          .eq("match_id", match)
+          .in("device_id", devices);
+    }
 
     let sent = 0;
     const expired = new Set<string>();
@@ -134,7 +176,11 @@ Deno.serve(async (req) => {
             tag: `match-${row.match_id}`,
           }),
           // Nur bis zum Anpfiff zustellen – danach wäre die Nachricht falsch.
-          { TTL: Math.max(60, Math.round((kickoff - now) / 1000)), urgency: "high" },
+          {
+            TTL: Math.max(60, Math.round((kickoff - now) / 1000)),
+            urgency: "high",
+            ...pushOpts(row.endpoint),
+          },
         );
         sent++;
         if (!atomic) {
@@ -191,7 +237,7 @@ Deno.serve(async (req) => {
         await webpush.sendNotification(
           { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
           JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
-          { TTL: 86_400, urgency: "normal" },
+          { TTL: 86_400, urgency: "normal", ...pushOpts(row.endpoint) },
         );
         note(row, true, null);
         return true;
@@ -239,13 +285,33 @@ Deno.serve(async (req) => {
         })),
       );
 
-    // Tipp-Erinnerung (SQL-Update „Wächter und Tipp-Erinnerung“).
+    // Tipp-Erinnerung (SQL-Update „Wächter und Tipp-Erinnerung“) – im selben
+    // Rahmen wie die Spiel-Erinnerungen; der Rest wird wieder freigegeben.
     let tipReminded = 0;
+    let laterTips = 0;
     const { data: remindRows, error: remindErr } = await db.rpc("kt_claim_tip_reminders");
-    if (!remindErr)
-      await parallel((remindRows ?? []) as TipPush[], async (row) => {
+    if (!remindErr) {
+      const all = (remindRows ?? []) as (TipPush & { tag: string })[];
+      const room = Math.max(0, MAX_REMINDERS_PER_RUN - list.length);
+      const later = all.slice(room);
+      laterTips = later.length;
+      const byMatch = new Map<string, string[]>();
+      // tag = "tipp-<Spiel>" (kt_claim_tip_reminders)
+      for (const r of later) {
+        const match = r.tag.replace(/^tipp-/, "");
+        byMatch.set(match, [...(byMatch.get(match) ?? []), r.device_id]);
+      }
+      for (const [match, devices] of byMatch)
+        await db
+          .from("kt_tip_reminders_sent")
+          .delete()
+          .eq("match_id", match)
+          .in("device_id", devices);
+      await parallel(all.slice(0, room), async (row) => {
         if ((await sendMessage(row, "Tipp-Erinnerung")) === true) tipReminded++;
       });
+    }
+    const deferred = (atomic ? laterAlarms.length : 0) + laterTips;
 
     if (expired.size > 0)
       await db
@@ -288,6 +354,13 @@ Deno.serve(async (req) => {
     // kt_push_queue und gehen beim nächsten Lauf (in einer Minute) raus.
     let watch = "aus";
     try {
+      // Staut sich der Versand über mehrere Minuten (sehr viele Nutzer), dem Team
+      // Bescheid geben – dann den Versand aufteilen (mehrere Aufrufe je Minute).
+      await db.rpc("kt_alert_set", {
+        p_key: "push-stau",
+        p_active: deferred >= MAX_REMINDERS_PER_RUN,
+        p_message: `Mitteilungen stauen sich: ${deferred} Erinnerungen warten auf den nächsten Lauf (höchstens ${MAX_REMINDERS_PER_RUN} pro Minute).`,
+      });
       watch = await watchdog(db, now);
     } catch (err) {
       console.warn("[wächter]", err);
@@ -296,7 +369,8 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       sent,
-      due: list.length,
+      due: claimed.length,
+      deferred,
       tipSent,
       directSent,
       tipReminded,

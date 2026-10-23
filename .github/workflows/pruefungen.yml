@@ -1,6 +1,7 @@
 # Automatische Prüfungen bei jedem Push und jedem Pull Request:
 # Typen, Lint, Unit-Tests, Formatierung und Build – dieselben wie lokal
-# (AGENTS.md, Abschnitt 4). Rot = nicht ausliefern, erst beheben.
+# (AGENTS.md, Abschnitt 4) – und Browser-Tests der wichtigsten Abläufe
+# (e2e/, Server nachgestellt). Rot = nicht ausliefern, erst beheben.
 name: Prüfungen
 
 on:
@@ -37,3 +38,28 @@ jobs:
         run: bunx prettier --check .
       - name: Build
         run: bunx vite build
+
+  browser:
+    name: Browser-Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+      - name: Pakete installieren
+        run: bun install --frozen-lockfile
+      - name: Browser installieren
+        run: bunx playwright install --with-deps chromium
+      - name: Browser-Tests (Handy und Desktop)
+        run: bunx playwright test
+      - name: Bericht bei Fehlern sichern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-tests-bericht
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

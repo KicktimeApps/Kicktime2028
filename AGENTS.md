@@ -66,7 +66,11 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
     beide Quellen in `mergeLiveResults` zusammen.
   - `admin` – alle Admin-Aktionen, PIN-geprüft (Secret `ADMIN_PIN`, Brute-Force-Sperre).
   - `send-push-reminders` – per Cron (Header `x-cron-secret`): Erinnerungen, Tipprunden-
-    Nachrichten, Einzel-Mitteilungen (`kt_push_queue`).
+    Nachrichten, Einzel-Mitteilungen (`kt_push_queue`). Supabase erlaubt 2 s Rechenzeit pro
+    Aufruf: höchstens `MAX_REMINDERS_PER_RUN` (300) Spiel- + Tipp-Erinnerungen je Lauf, der Rest
+    wird wieder freigegeben (nächste Minute); VAPID-Signatur je Push-Dienst zwischengespeichert
+    (~0,4 ms je Nachricht). Staut es sich (≥ 600 fällig), meldet der Wächter „push-stau“ – dann
+    mehrere Aufrufe je Minute einplanen. Lasttest: 1000 gleichzeitige in 4 Minuten, keine verloren.
   - Jede Function ist **eine Datei** (wird im Dashboard einzeln kopiert) – Helfer bewusst
     dupliziert.
 - **Ohne Konten:** Ein Nutzer ist eine zufällige Geräte-ID (`src/lib/device-id.ts`). Sperren
@@ -93,7 +97,10 @@ bun audit                    # nach Paket-Änderungen: keine bekannten Sicherhei
 ```
 
 (`npm run check` = Typen + Lint + Tests; Paketmanager ist eigentlich bun – `bun run check`.)
-Dieselben Prüfungen laufen bei jedem Push auf GitHub (`.github/workflows/pruefungen.yml`).
+Dieselben Prüfungen laufen bei jedem Push auf GitHub (`.github/workflows/pruefungen.yml`),
+dazu **Browser-Tests** der wichtigsten Abläufe (`e2e/*.e2e.ts`, Playwright 1.56.1, Handy + Desktop,
+Server per `page.route` nachgestellt – nie echte Daten). Lokal:
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers bunx playwright test`. Neue Abläufe dort mit abdecken.
 
 Zusätzlich je nach Änderung:
 
