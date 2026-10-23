@@ -475,7 +475,7 @@ function AppearanceContent() {
               aria-pressed={s.accent === a.id}
               title={a.label}
               className={cn(
-                "h-11 w-11 rounded-full ring-offset-2 ring-offset-card transition-transform active:scale-90",
+                "h-11 w-11 rounded-full ring-offset-2 ring-offset-card transition-transform",
                 s.accent === a.id && "ring-2 ring-foreground",
               )}
               style={{ background: a.swatch }}

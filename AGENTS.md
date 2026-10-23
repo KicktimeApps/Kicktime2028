@@ -207,10 +207,11 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 - **Link-Vorschau:** `src/server.ts` ergänzt jede HTML-Seite um Vorschaubild/-adresse
   (`share-meta.ts`, Bilder `public/og-app.png`, `og-invite.png`). Einladungen zeigen bewusst
   keinen Rundennamen (sonst per Code-Raten auslesbar).
-- **Druck-Rückmeldung:** Knöpfe, Links und Reiter sinken beim Antippen auf 0,97 (`styles.css`,
-  `@layer base`). Eigene Tailwind-Klassen gewinnen: `active:scale-90` o. Ä. für stärker,
-  `active:scale-100` für „bewusst ohne“. Achtung: Ein `hover:scale-*`/`scale-*` am selben
-  Element ersetzt die Rückmeldung ebenfalls – dann `active:scale-…` ergänzen.
+- **Druck-Rückmeldung (wie iOS):** `lib/press-feedback.ts` (in `__root.tsx` eingebunden) – Knöpfe,
+  Links und Reiter werden beim Antippen blasser (55 %) und blenden weich zurück, kein Einsinken.
+  Auf Touch erst nach 70 ms, Bewegung > 10 px oder Scrollen bricht ab (Scrollen löst nichts
+  aus); sehr kurze Tipper blinken einmal auf. Web Animations API, daher unabhängig von
+  transition-Klassen. Ausnahme: `data-no-press` am Element oder einem Vorfahren.
 - **Feinschliff (ab 2.7.0):** iPhone-Startbilder `public/startup/` (aus dem echten Ladebildschirm
   gerendert, je Gerät hell/dunkel, in `__root.tsx` verlinkt – bei Änderungen am Ladebildschirm
   neu erzeugen). Seitenwechsel überblenden (`defaultViewTransition`). Tor-Moment: Ziffer rutscht

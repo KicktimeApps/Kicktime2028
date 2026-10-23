@@ -21,6 +21,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
 import { useGoalAlerts } from "@/hooks/useGoalAlerts";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
+import { installPressFeedback } from "@/lib/press-feedback";
 import { TIP_GROUPS_KEY } from "@/hooks/useMyGroups";
 import { logError } from "@/lib/error-log";
 // Früh mithören: Android meldet die Installierbarkeit oft schon beim Laden.
@@ -284,6 +285,7 @@ function App() {
   useEngine();
   useGoalAlerts();
   useUpdateCheck();
+  useEffect(() => installPressFeedback(), []);
   useGlobalErrorLogging();
   useEffect(() => {
     sendPing();
