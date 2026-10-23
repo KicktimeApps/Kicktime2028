@@ -25,6 +25,7 @@ import {
   FormSheetDescription,
   FormSheetTitle,
 } from "@/components/common/FormSheet";
+import { BackupCodeHint } from "@/components/settings/BackupCodeHint";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { buildRounds } from "@/domain/rounds";
 import { canPredict, CHAMPION_BONUS, RESULT_POINTS, STAGE_MULTIPLIER } from "@/domain/predictions";
@@ -704,6 +705,7 @@ export function TipGroupsSection({ variant }: { variant: "solo" | "hub" }) {
           </p>
         )}
         {groups?.map(card)}
+        {!!groups?.length && <BackupCodeHint />}
         {demo && (
           <p className="px-1 text-[13px] text-muted-foreground">
             Vorschau: Die Runden sind echt – Einladungen und Anfragen funktionieren wie später.

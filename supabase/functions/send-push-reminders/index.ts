@@ -167,6 +167,21 @@ Deno.serve(async (req) => {
     };
     await parallel(list, sendOne);
 
+    // Zustell-Bestätigung für Team-Geräte (SQL-Update „Zustell-Bestätigung“):
+    // Der Team-Bereich zeigt so, ob Warnungen wirklich bei Apple/Google ankommen.
+    const { data: teamRow } = await db
+      .from("app_config")
+      .select("value")
+      .eq("key", "admin_devices")
+      .maybeSingle();
+    const team = new Set<string>(
+      Array.isArray(teamRow?.value?.devices) ? teamRow.value.devices : [],
+    );
+    const deliveries = new Map<string, { ok: boolean; status: number | null; title: string }>();
+    const note = (row: TipPush, ok: boolean, status: number | null) => {
+      if (team.has(row.device_id)) deliveries.set(row.device_id, { ok, status, title: row.title });
+    };
+
     /**
      * Nachricht an ein Gerät; abgelaufene Abos merken. Gibt bei vorübergehenden
      * Fehlern (Zeitüberschreitung, 429, 5xx) false zurück.
@@ -178,9 +193,11 @@ Deno.serve(async (req) => {
           JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
           { TTL: 86_400, urgency: "normal" },
         );
+        note(row, true, null);
         return true;
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode;
+        note(row, false, status ?? 0);
         if (status === 404 || status === 410) {
           expired.add(row.device_id);
           return "gone";
@@ -236,6 +253,37 @@ Deno.serve(async (req) => {
         .delete()
         .in("device_id", [...expired]);
 
+    if (deliveries.size > 0) {
+      // Getrennt speichern: ein gemeinsames Upsert mit unterschiedlichen Spalten
+      // würde fehlende Felder (z. B. last_ok_at bei einem Fehler) leeren.
+      const at = new Date().toISOString();
+      const all = [...deliveries];
+      const ok = all
+        .filter(([, d]) => d.ok)
+        .map(([device_id, d]) => ({ device_id, last_ok_at: at, last_title: d.title.slice(0, 80) }));
+      const failed = all
+        .filter(([, d]) => !d.ok)
+        .map(([device_id, d]) => ({
+          device_id,
+          last_fail_at: at,
+          last_status: d.status,
+          last_title: d.title.slice(0, 80),
+        }));
+      for (const rows of [ok, failed] as Record<string, unknown>[][]) {
+        if (rows.length === 0) continue;
+        const { error: delivErr } = await db.from("kt_team_delivery").upsert(rows);
+        if (delivErr) console.warn("[zustellung]", delivErr.message); // SQL-Update fehlt
+      }
+    }
+
+    // Einmal täglich (3:07 UTC): Abos aufräumen, die 60 Tage nicht gemeldet wurden.
+    let cleanedOld = 0;
+    const clock = new Date(now);
+    if (clock.getUTCHours() === 3 && clock.getUTCMinutes() === 7) {
+      const { data: n, error: cleanErr } = await db.rpc("kt_push_cleanup");
+      if (!cleanErr) cleanedOld = Number(n ?? 0);
+    }
+
     // Wächter: darf den Versand nie stören. Seine Team-Mitteilungen landen in
     // kt_push_queue und gehen beim nächsten Lauf (in einer Minute) raus.
     let watch = "aus";
@@ -253,6 +301,7 @@ Deno.serve(async (req) => {
       directSent,
       tipReminded,
       cleaned: expired.size,
+      cleanedOld,
       watch,
     });
   } catch (err) {

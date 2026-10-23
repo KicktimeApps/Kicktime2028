@@ -1,5 +1,5 @@
 import { BellRing, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { fetchAlerts, sendAlertTest, type WatchAlert } from "@/services/admin";
 import { ActionButton, Card } from "./shared";
@@ -14,13 +14,20 @@ import { fmtTime, useAction } from "./use-action";
 export function WatchCard({ pin }: { pin: string }) {
   const { busy, run } = useAction();
   const [alerts, setAlerts] = useState<WatchAlert[] | null | undefined>(undefined);
+  // Geräte-Status (letzte Zustellung) mit neu laden.
+  const [reloadKey, setReloadKey] = useState(0);
   const load = useCallback(async () => {
+    setReloadKey((k) => k + 1);
     const data = await run("alerts", () => fetchAlerts(pin));
     if (data) setAlerts(data.alerts);
   }, [pin, run]);
   useEffect(() => {
     void load();
   }, [load]);
+  // Nach einem Test: Der Server verschickt im nächsten Lauf (≤ 1 Minute) –
+  // danach die Zustellung neu abfragen.
+  const later = useRef(0);
+  useEffect(() => () => window.clearTimeout(later.current), []);
 
   const active = (alerts ?? []).filter((a) => a.active);
   const solved = (alerts ?? []).filter((a) => !a.active).slice(0, 5);
@@ -70,19 +77,22 @@ export function WatchCard({ pin }: { pin: string }) {
           ))}
         </ul>
       )}
-      <TeamDeviceRow pin={pin} />
+      <TeamDeviceRow pin={pin} reloadKey={reloadKey} />
       <ActionButton
         icon={<BellRing />}
         busy={busy === "test"}
-        onClick={() =>
-          run(
+        onClick={async () => {
+          const ok = await run(
             "test",
             () => sendAlertTest(pin),
             (d) =>
               `Test an ${d.count} Gerät${d.count === 1 ? "" : "e"} – kommt in etwa 1 Minute` +
               (d.skipped ? ` (${d.skipped} ohne Mitteilungen übersprungen)` : ""),
-          )
-        }
+          );
+          if (!ok) return;
+          window.clearTimeout(later.current);
+          later.current = window.setTimeout(() => setReloadKey((k) => k + 1), 70_000);
+        }}
         className="w-full"
       >
         Test-Mitteilung schicken

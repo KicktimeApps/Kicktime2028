@@ -11,6 +11,7 @@ import {
   Crown,
   Eye,
   Loader2,
+  KeyRound,
   LogOut,
   Pencil,
   QrCode as QrCodeIcon,
@@ -809,6 +810,11 @@ function RoundSettings({
               <span className="flex-1">Meinen Namen ändern</span>
               <span className="text-muted-foreground">{me?.name}</span>
             </button>
+            <Link to="/einstellungen" search={{ s: "handywechsel" }} className={row}>
+              <KeyRound className="h-[18px] w-[18px] text-muted-foreground" />
+              <span className="flex-1">Code für neues Handy</span>
+              <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
+            </Link>
             <Confirm
               title="Runde verlassen?"
               text={

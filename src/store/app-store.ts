@@ -74,6 +74,8 @@ type State = {
   tipsTourDone: boolean;
   /** Einführung in einer Tipprunde (Runden-Seite) schon gesehen. */
   roundTourDone: boolean;
+  /** Wiederherstellungs-Code angesehen/kopiert (oder Hinweis weggeklickt). */
+  codeBackupDone: boolean;
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -121,6 +123,7 @@ type Actions = {
   setCelebrated: (code: string) => void;
   setTipsTourDone: (v: boolean) => void;
   setRoundTourDone: (v: boolean) => void;
+  setCodeBackupDone: (v: boolean) => void;
 };
 
 export const useAppStore = create<State & Actions>()(
@@ -150,6 +153,7 @@ export const useAppStore = create<State & Actions>()(
       groupNotice: null,
       tipsTourDone: false,
       roundTourDone: false,
+      codeBackupDone: false,
       pushEnabled: false,
       autoAlarmFavorites: true,
       tipReminders: true,
@@ -295,6 +299,7 @@ export const useAppStore = create<State & Actions>()(
       setCelebrated: (code) => set({ celebratedChampion: code }),
       setTipsTourDone: (v) => set({ tipsTourDone: v }),
       setRoundTourDone: (v) => set({ roundTourDone: v }),
+      setCodeBackupDone: (v) => set({ codeBackupDone: v }),
     }),
     {
       name: TOURNAMENT.storagePrefix,

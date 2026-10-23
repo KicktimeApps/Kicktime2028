@@ -266,6 +266,16 @@ export type TeamDeviceState = {
   reachable?: number;
   /** Hat dieses Gerät ein Mitteilungs-Abo? (fehlt bei älterer Server-Version) */
   selfPush?: boolean;
+  /** Je eingetragenem Gerät die letzte Zustellung (SQL-Update „Zustell-Bestätigung“). */
+  devices?: TeamDeviceDelivery[];
+};
+
+export type TeamDeviceDelivery = {
+  self: boolean;
+  push: boolean;
+  lastOk: string | null;
+  lastFail: string | null;
+  lastStatus: number | null;
 };
 
 /** Team-Mitteilungen an dieses Gerät: abfragen ("") oder ändern. */

@@ -74,7 +74,9 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
   Der Wiederherstellungs-Code ist die Geräte-ID selbst (32 Zeichen 0–9/A–F); das neue Gerät
   übernimmt sie (`adoptDeviceId`) und damit Tipprunden, Tipps, Push und Sperren. Vorher zeigt
   `groupsOfDevice` die Runden zum Code. Lokale Einstellungen wandern nicht mit. Der Code ist
-  geheim (wer ihn hat, tippt im Namen des Geräts).
+  geheim (wer ihn hat, tippt im Namen des Geräts). Neu installiert = neue ID = Runden weg, daher
+  einmaliger Hinweis „Sichere deinen Code“ in der Rundenliste (`BackupCodeHint`,
+  `codeBackupDone`) und Eintrag „Code für neues Handy“ in den Runden-Einstellungen.
 - **Architektur-Details:** `docs/ARCHITEKTUR.md`. Pflege/Abläufe: `docs/PFLEGE.md`.
   Kernprinzip: Turnierzustand wird immer rein funktional aus Eingaben berechnet
   (`src/domain/resolve.ts`).
@@ -91,6 +93,7 @@ bun audit                    # nach Paket-Änderungen: keine bekannten Sicherhei
 ```
 
 (`npm run check` = Typen + Lint + Tests; Paketmanager ist eigentlich bun – `bun run check`.)
+Dieselben Prüfungen laufen bei jedem Push auf GitHub (`.github/workflows/pruefungen.yml`).
 
 Zusätzlich je nach Änderung:
 
@@ -182,7 +185,11 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 - **Mitteilungen an das Team** gehen nur an Geräte, die im Admin per PIN eingetragen wurden
   (`app_config` „admin_devices“, Schalter `TeamDeviceRow` unter Anträge und im Wächter). Neue
   Installation = neue Geräte-ID → altes Gerät „tot“: die Karte warnt, Eintragen sortiert Geräte
-  ohne Mitteilungs-Abo aus, der Wächter-Test überspringt sie.
+  ohne Mitteilungs-Abo aus, der Wächter-Test überspringt sie. Zustell-Bestätigung:
+  `send-push-reminders` schreibt je Team-Gerät die letzte Zustellung bzw. den letzten Fehler in
+  `kt_team_delivery`, die Wächter-Karte zeigt sie (lädt ~70 s nach einem Test neu).
+- **Aufräumen:** `kt_push_cleanup` (täglich 3:07 UTC aus `send-push-reminders`) löscht Abos, die
+  60 Tage nicht gemeldet wurden – nur ohne anstehende Erinnerung, Tipprunde oder Team-Eintrag.
 - **Admin-Bereich:** Einstellungen → 5× auf die Versionsnummer tippen → PIN (Zählung in
   `lib/secret-taps.ts`; die Zeile ist bewusst kein Knopf und nicht markierbar, damit nichts
   die Stelle verrät – die Version schickt das Feedback ohnehin automatisch mit). PIN bleibt nur im

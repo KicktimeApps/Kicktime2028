@@ -618,6 +618,19 @@ Deno.serve(async (req) => {
         });
         if (error) return json({ error: "Speichern fehlgeschlagen" }, 500);
       }
+      // Letzte Zustellung je eingetragenem Gerät (SQL-Update „Zustell-Bestätigung“).
+      const { data: deliv } = list.length
+        ? await db
+            .from("kt_team_delivery")
+            .select("device_id, last_ok_at, last_fail_at, last_status")
+            .in("device_id", list)
+        : { data: [] };
+      type Deliv = {
+        device_id: string;
+        last_ok_at: string | null;
+        last_fail_at: string | null;
+        last_status: number | null;
+      };
       return json({
         ok: true,
         registered: list.includes(device),
@@ -625,6 +638,16 @@ Deno.serve(async (req) => {
         // Wie viele eingetragene Geräte wirklich Mitteilungen empfangen können.
         reachable: list.filter((d) => live.has(d)).length,
         selfPush: live.has(device),
+        devices: list.map((d) => {
+          const x = ((deliv ?? []) as Deliv[]).find((r) => r.device_id === d);
+          return {
+            self: d === device,
+            push: live.has(d),
+            lastOk: x?.last_ok_at ?? null,
+            lastFail: x?.last_fail_at ?? null,
+            lastStatus: x?.last_status ?? null,
+          };
+        }),
       });
     }
 

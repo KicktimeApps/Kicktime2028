@@ -36,6 +36,7 @@ export function DeviceTransfer() {
 
 function ShowCode() {
   const [code, setCode] = useState<string | null>(null);
+  const setBackupDone = useAppStore((s) => s.setCodeBackupDone);
   return (
     <section className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-[16px] font-semibold">Dein Code</h2>
@@ -71,7 +72,11 @@ function ShowCode() {
       ) : (
         <button
           type="button"
-          onClick={() => setCode(formatRecoveryCode(getDeviceId()))}
+          onClick={() => {
+            setCode(formatRecoveryCode(getDeviceId()));
+            // Hinweis „Sichere deinen Code“ hat sich damit erledigt.
+            setBackupDone(true);
+          }}
           className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-semibold text-primary-foreground"
         >
           <Eye className="h-4 w-4" /> Code anzeigen
@@ -138,6 +143,8 @@ function RestoreForm({ className }: { className?: string }) {
       seenGroups: [],
       groupNotice: null,
       tipContext: null,
+      // Wer den Code eingibt, hat ihn schon – kein Hinweis „Code sichern“.
+      codeBackupDone: true,
     });
     adoptDeviceId(found.id);
     window.location.assign("/tipps");
