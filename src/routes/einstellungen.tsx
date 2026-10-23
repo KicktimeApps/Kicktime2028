@@ -812,7 +812,7 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
       {/* 5× tippen öffnet den Admin-Bereich. Geheim: bewusst kein Knopf – nicht per
           Tastatur anwählbar, kein Fokus-Rahmen, kein Eindrücken; liest sich wie Text. */}
       <p
-        className="mx-auto mt-5 block cursor-default touch-manipulation select-none px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
+        className="mx-auto mt-5 w-fit touch-manipulation px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
         onClick={() => {
           const now = Date.now();
           if (now - taps.current.t > 1500) taps.current.n = 0;
