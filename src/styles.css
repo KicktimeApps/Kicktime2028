@@ -152,16 +152,13 @@
     -webkit-user-drag: none;
     -webkit-touch-callout: none;
   }
-}
-
-/* Antippen gibt sichtbar nach – bei allen Knöpfen, Links und Reitern.
-   (Eigene scale-Klassen einzelner Elemente haben Vorrang. `data-still` = bewusst
-   ohne Rückmeldung, z. B. der versteckte Zugang zum Team-Bereich.) */
-@media (prefers-reduced-motion: no-preference) {
-  :where(button, a[href], [role="button"], [role="tab"], [role="switch"]):not(:disabled):not(
-      [data-still]
-    ):active {
-    scale: 0.97;
+  /* Antippen gibt sichtbar nach – bei allen Knöpfen, Links und Reitern. Liegt in
+     der Basis-Ebene, damit eigene Klassen einzelner Elemente Vorrang haben
+     (z. B. active:scale-90, oder active:scale-100 für „bewusst ohne“). */
+  @media (prefers-reduced-motion: no-preference) {
+    :where(button, a[href], [role="button"], [role="tab"], [role="switch"]):not(:disabled):active {
+      scale: 0.97;
+    }
   }
 }
 

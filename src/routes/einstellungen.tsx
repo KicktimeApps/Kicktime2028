@@ -809,11 +809,10 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
         </AlertDialog>
       </div>
 
-      {/* 5× tippen öffnet den Admin-Bereich – geheim: kein Eindrücken, kein Zeiger */}
-      <button
-        type="button"
-        data-still
-        className="mx-auto mt-5 block cursor-default px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
+      {/* 5× tippen öffnet den Admin-Bereich. Geheim: bewusst kein Knopf – nicht per
+          Tastatur anwählbar, kein Fokus-Rahmen, kein Eindrücken; liest sich wie Text. */}
+      <p
+        className="mx-auto mt-5 block cursor-default touch-manipulation select-none px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
         onClick={() => {
           const now = Date.now();
           if (now - taps.current.t > 1500) taps.current.n = 0;
@@ -829,7 +828,7 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
         KickTime {TOURNAMENT.year} · Version {APP_VERSION} · PhanDev Studios
         <br />
         Privates Fan-Projekt ohne Verbindung zur UEFA
-      </button>
+      </p>
       <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
     </div>
   );
