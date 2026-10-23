@@ -13,6 +13,7 @@ import { FIXTURES } from "@/tournament/schedule";
 import { useMatchStore } from "@/store/match-store";
 import { logError } from "@/lib/error-log";
 import { refreshAnnouncement } from "./announcement";
+import { reportSourceIssue } from "./source-report";
 import { getSupabase, isBackendConfigured } from "./supabase";
 
 /**
@@ -88,7 +89,8 @@ const ymd = (t: number) => new Date(t).toISOString().slice(0, 10).replace(/-/g, 
  * Zweitquelle ESPN – direkt aus dem Browser, weil ESPN Anfragen aus
  * Rechenzentren (also auch vom Server) sperrt. Nur an Tagen mit EM-Spiel
  * (UTC; alle Spiele enden vor Mitternacht), bei einer anderen Test-Liga immer.
- * Fehler sind egal: dann eben nur OpenLigaDB.
+ * Fehler sind für die Anzeige egal (dann eben nur OpenLigaDB), werden aber
+ * dem KickTime-Team gemeldet (Wächter).
  */
 async function fetchEspn(league: string, now: number): Promise<LiveFixture[]> {
   if (!/^[a-z0-9]{2,12}(\.[a-z0-9_]{1,20})?$/.test(league)) return [];
@@ -102,10 +104,21 @@ async function fetchEspn(league: string, now: number): Promise<LiveFixture[]> {
       `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${today}`,
       { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8_000) },
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      reportSourceIssue("espn", `ESPN antwortet mit Fehler ${res.status}`);
+      return [];
+    }
     const raw = (await res.json()) as { events?: EspnEvent[] };
-    return Array.isArray(raw?.events) ? raw.events.map((e) => fromEspn(e, now)) : [];
-  } catch {
+    const events = Array.isArray(raw?.events) ? raw.events : [];
+    // An einem EM-Spieltag müssen dort Spiele stehen.
+    if (matchDay && events.length === 0)
+      reportSourceIssue("espn", "ESPN liefert heute keine Spiele");
+    return events.map((e) => fromEspn(e, now));
+  } catch (err) {
+    reportSourceIssue(
+      "espn",
+      `ESPN nicht erreichbar (${err instanceof Error ? err.name : "Fehler"})`,
+    );
     return [];
   }
 }
@@ -239,6 +252,7 @@ export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
       // lastFetchAt bleibt beim letzten erfolgreichen Abruf („Stand von …“).
       useMatchStore.getState().setLiveMeta({ lastError: msg });
       logError("api", msg);
+      if (backend) reportSourceIssue("backend", `Live-Daten vom Server: ${msg}`);
     }
     if (backend) {
       const overrides = await fetchOverrides().catch(() => null);

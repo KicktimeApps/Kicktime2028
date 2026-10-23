@@ -6,6 +6,7 @@ import { PUBLIC_CONFIG } from "@/public-config";
 import { getSupabase, isBackendConfigured } from "@/services/supabase";
 import { getDeviceId } from "./device-id";
 import { logError } from "./error-log";
+import { useAppStore } from "@/store/app-store";
 
 const SW_PATH = "/sw.js";
 const VAPID = (
@@ -80,6 +81,8 @@ export async function subscribePush(): Promise<boolean> {
       p_user_agent: navigator.userAgent,
     });
     if (error) throw new Error(error.message);
+    // Neues Abo startet auf dem Server mit Tipp-Erinnerung an – Wahl des Nutzers übernehmen.
+    if (!useAppStore.getState().tipReminders) void syncTipReminders(false);
     return true;
   } catch (err) {
     logError("push", `Abo fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
@@ -143,4 +146,22 @@ export async function sendTestPush(): Promise<boolean> {
     leadMinutes: 15,
   };
   return pushAlarms(lastWanted);
+}
+
+/**
+ * Tipp-Erinnerung („Noch kein Tipp“) auf dem Server an- oder ausschalten.
+ * false, wenn das nicht ging (kein Abo, kein Netz, SQL-Update fehlt).
+ */
+export async function syncTipReminders(on: boolean): Promise<boolean> {
+  try {
+    const sb = await getSupabase();
+    if (!sb) return false;
+    const { data, error } = await sb.rpc("kt_set_tip_reminders", {
+      p_device: getDeviceId(),
+      p_on: on,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }

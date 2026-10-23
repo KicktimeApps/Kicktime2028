@@ -13,8 +13,11 @@ import {
   type SourceTest,
 } from "@/services/admin";
 import { refreshLiveData } from "@/services/live-data";
+import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";
+import { getNation } from "@/tournament/nations";
 import { ActionButton, Card, ConfirmButton, Info } from "./shared";
+import { WatchCard } from "./WatchCard";
 import { fmtTime, useAction } from "./use-action";
 
 const ESPN_DEFAULT = "uefa.euro";
@@ -82,6 +85,7 @@ export function LiveSection({ pin }: { pin: string }) {
 
   return (
     <div className="space-y-3 text-[13.5px]">
+      <WatchCard pin={pin} />
       <Card title="Status" text="Was die App gerade von der Live-Quelle bekommt.">
         <div className="grid grid-cols-2 gap-2">
           <Info label="Quelle" value={live.source ?? "–"} />
@@ -116,9 +120,15 @@ export function LiveSection({ pin }: { pin: string }) {
                 () =>
                   syncFixtures(
                     pin,
-                    useMatchStore
-                      .getState()
-                      .tournament.matches.map((m) => ({ matchId: m.id, kickoffUtc: m.kickoffUtc })),
+                    useMatchStore.getState().tournament.matches.map((m) => ({
+                      matchId: m.id,
+                      kickoffUtc: m.kickoffUtc,
+                      // Paarung nur aus echten Daten – nie aus dem Vorschau-Modus.
+                      title:
+                        !useAppStore.getState().demo.enabled && m.home && m.away
+                          ? `${getNation(m.home)?.name ?? m.home} – ${getNation(m.away)?.name ?? m.away}`
+                          : undefined,
+                    })),
                   ),
                 (d) => `${d.count} Anstoßzeiten übernommen`,
               )

@@ -3,12 +3,14 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
 import { getErrors, subscribeErrors } from "@/lib/error-log";
 import { cn } from "@/lib/utils";
 import {
+  fetchAlerts,
   fetchConfig,
   fetchGroups,
   fetchStats,
   type AdminConfig,
   type AdminGroup,
   type Stats,
+  type WatchAlert,
 } from "@/services/admin";
 import { useMatchStore } from "@/store/match-store";
 import type { AdminSection } from "./AdminPanel";
@@ -29,7 +31,9 @@ export function OverviewSection({
   const [stats, setStats] = useState<Stats | null>(null);
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [groups, setGroups] = useState<AdminGroup[] | null>(null);
+  const [alerts, setAlerts] = useState<WatchAlert[] | null | undefined>(undefined);
   useEffect(() => {
+    void fetchAlerts(pin).then((r) => r.ok && setAlerts(r.data.alerts));
     void fetchStats(pin).then((r) => r.ok && setStats(r.data));
     void fetchConfig(pin).then((r) => r.ok && setConfig(r.data));
     void fetchGroups(pin).then((r) => r.ok && setGroups(r.data.data ?? []));
@@ -39,9 +43,25 @@ export function OverviewSection({
   const paused = config?.liveSource?.paused === true;
   const pending = (groups ?? []).reduce((n, g) => n + Number(g.pending), 0);
   const ext = stats?.ext;
+  const problems = (alerts ?? []).filter((a) => a.active);
 
   return (
     <div className="space-y-2 text-[13.5px]">
+      <Row
+        tone={alerts === null ? "warn" : problems.length > 0 ? "bad" : "good"}
+        title="Wächter"
+        value={
+          alerts === undefined
+            ? "–"
+            : alerts === null
+              ? "nicht eingerichtet"
+              : problems.length > 0
+                ? `${problems.length} Problem${problems.length === 1 ? "" : "e"}`
+                : "alles ok"
+        }
+        text={alerts === null ? "SQL-Update fehlt noch" : problems[0]?.message}
+        onClick={() => go("live")}
+      />
       <Row
         tone={paused ? "warn" : liveOk ? "good" : "bad"}
         title="Live-Daten"

@@ -185,6 +185,20 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 - **Rundgang Tipp-Seite:** beim ersten Besuch (`tipsTourDone`), Ziele per `data-tour="…"`
   (`CoachTour`, `TipsTour`); dazu ein eigener Rundgang beim ersten Öffnen einer Tipprunde (`roundTourDone`, `RoundTour`). Fehlende Ziele werden übersprungen. Erneut über ⓘ → „Einführung
   noch mal ansehen“.
+- **Wächter (ab 2.11.0):** `send-push-reminders` prüft rund um jedes Spiel alle 2 Minuten
+  (OpenLigaDB über `live-scores`, Spiel läuft/abgeschlossen, Abruf pausiert, Liga leer) und
+  wertet Meldungen der Geräte aus (`kt_report_source`: ESPN/Server, `services/source-report.ts`).
+  Probleme und „wieder in Ordnung“ gehen per `kt_alert_set` → `kt_push_team` an die
+  eingetragenen Team-Geräte (bei Fortbestehen alle 30 Min.). Vor dem Turnier täglich 8 Uhr UTC
+  Prüfung „Liga leer“. Anzeige + Test-Mitteilung im Team-Bereich → Live-Daten (`WatchCard`).
+- **Tipp-Erinnerung:** eine Stunde vor Anpfiff „Noch kein Tipp“ an bestätigte Mitglieder ohne
+  Tipp (`kt_claim_tip_reminders`, je Gerät und Spiel einmal, abschaltbar unter Erinnerungen).
+  Paarung kommt aus `kt_fixtures.title` (Team-Bereich → „Anstoßzeiten abgleichen“, nie aus
+  dem Vorschau-Modus).
+- **Update-Hinweis:** `/version.json` (Server-Version) – `useUpdateCheck` bietet bei neuerer
+  Version „Aktualisieren“ an. `sw.js` speichert `/version.json` nie.
+- **Einladen per QR-Code:** `components/common/QrCode.tsx` (Paket `uqr`), in der Tipprunde unter
+  „Tabelle“.
 - **Schutz-Header:** `src/server.ts` setzt über `lib/security-headers.ts` u. a. kein Einbetten in
   fremde Seiten, `nosniff`, HSTS und sperrt Kamera/Mikrofon/Standort. Bewusst keine volle CSP
   (Startskripte stehen inline). Nutzt die App neue Browser-Rechte, dort freigeben.

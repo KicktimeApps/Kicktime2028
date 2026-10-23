@@ -13,6 +13,7 @@ import {
   Loader2,
   LogOut,
   Pencil,
+  QrCode as QrCodeIcon,
   Settings,
   Share2,
   Trash2,
@@ -24,6 +25,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { QrCode } from "@/components/common/QrCode";
 import { Flag } from "@/components/team/Flag";
 import { Segmented } from "@/components/common/Segmented";
 import { AppealBlock } from "@/components/tipgroups/AppealBlock";
@@ -608,7 +610,7 @@ function BoardView({
               );
             })}
           </ol>
-          <InviteCard code={g.code} onShare={share} />
+          <InviteCard code={g.code} name={g.name} onShare={share} />
         </>
       )}
 
@@ -643,7 +645,8 @@ function BoardView({
   );
 }
 
-function InviteCard({ code, onShare }: { code: string; onShare: () => void }) {
+function InviteCard({ code, name, onShare }: { code: string; name: string; onShare: () => void }) {
+  const [qr, setQr] = useState(false);
   return (
     <section className="rounded-2xl border border-border bg-card p-4">
       <div className="text-[13px] text-muted-foreground">Code zum Beitreten</div>
@@ -661,13 +664,43 @@ function InviteCard({ code, onShare }: { code: string; onShare: () => void }) {
           <Copy className="h-4 w-4" />
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onShare}
-        className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[16px] font-semibold text-primary-foreground"
-      >
-        <Share2 className="h-4 w-4" /> Freunde einladen
-      </button>
+      <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+        <button
+          type="button"
+          onClick={onShare}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-[16px] font-semibold text-primary-foreground"
+        >
+          <Share2 className="h-4 w-4" /> Freunde einladen
+        </button>
+        <button
+          type="button"
+          onClick={() => setQr(true)}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-border px-4 text-[15px] font-semibold"
+        >
+          <QrCodeIcon className="h-4 w-4" /> QR-Code
+        </button>
+      </div>
+      <Drawer open={qr} onOpenChange={setQr} shouldScaleBackground={false}>
+        <DrawerContent className="mx-auto max-w-lg border-border bg-background">
+          <div className="flex flex-col items-center px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-center">
+            <DrawerTitle className="font-display text-2xl font-bold uppercase">{name}</DrawerTitle>
+            <DrawerDescription className="mt-1 text-[14px] text-muted-foreground">
+              Mit der Handy-Kamera scannen – öffnet die Einladung direkt.
+            </DrawerDescription>
+            <div className="mt-5 w-full max-w-[280px] overflow-hidden rounded-2xl bg-white p-3 shadow-sm">
+              <QrCode
+                value={inviteUrl(code)}
+                label={`QR-Code für die Einladung in „${name}“`}
+                className="block h-auto w-full"
+              />
+            </div>
+            <div className="mt-4 text-[13px] text-muted-foreground">oder Code eingeben</div>
+            <div className="font-display text-[30px] font-bold tracking-[0.2em] tabular">
+              {code}
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </section>
   );
 }

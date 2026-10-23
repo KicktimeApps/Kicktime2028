@@ -93,9 +93,30 @@ export type FeedbackRow = {
 export const fetchFeedback = (pin: string) =>
   invoke<{ rows: FeedbackRow[] }>({ action: "feedback", pin });
 
-/** Anstoßzeiten an den Server geben (Sperre für Tipprunden ab Anpfiff). */
-export const syncFixtures = (pin: string, fixtures: { matchId: string; kickoffUtc: string }[]) =>
-  invoke<{ ok: true; count: number }>({ action: "fixtures", pin, fixtures });
+/**
+ * Anstoßzeiten an den Server geben (Sperre für Tipprunden ab Anpfiff). Mit
+ * Paarung (`title`) – die Tipp-Erinnerung nennt sie im Text.
+ */
+export const syncFixtures = (
+  pin: string,
+  fixtures: { matchId: string; kickoffUtc: string; title?: string }[],
+) => invoke<{ ok: true; count: number }>({ action: "fixtures", pin, fixtures });
+
+/** Wächter: aktuelle und kürzlich behobene Probleme der Live-Daten. */
+export type WatchAlert = {
+  key: string;
+  message: string;
+  active: boolean;
+  first_at: string;
+  last_seen_at: string;
+  resolved_at: string | null;
+};
+/** null = SQL-Update „Wächter“ fehlt noch. */
+export const fetchAlerts = (pin: string) =>
+  invoke<{ alerts: WatchAlert[] | null }>({ action: "alerts", pin });
+/** Test-Mitteilung an alle eingetragenen Team-Geräte. */
+export const sendAlertTest = (pin: string) =>
+  invoke<{ ok: true; count: number }>({ action: "alert_test", pin });
 
 /** Alle Tipprunden auf dem Server löschen (mit Mitgliedern und Tipps). */
 export const deleteAllTipGroups = (pin: string) =>

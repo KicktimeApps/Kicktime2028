@@ -65,7 +65,10 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
+  // Versionsabfrage (Update-Hinweis) nie zwischenspeichern – sie soll den
+  // Offline-Speicher nicht füllen und immer den echten Stand liefern.
   if (url.origin !== self.location.origin || url.pathname === "/sw.js") return;
+  if (url.pathname === "/version.json") return;
   event.respondWith(networkFirst(request));
 });
 

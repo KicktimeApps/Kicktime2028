@@ -10,6 +10,7 @@
  *  config | set_source | test_source | clear_cache | reset_results | set_announcement | broadcast
  *  groups | group | group_delete | member_remove | member_unban | owner_transfer | delete_tip_groups
  *  requests | decide | ban_global | unban_global | global_bans | team_device
+ *  alerts | alert_test   (Wächter: Probleme der Live-Daten, Test-Mitteilung)
  *
  * Für „broadcast“ (Push an alle) dieselben Secrets wie send-push-reminders:
  * VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
@@ -262,12 +263,20 @@ Deno.serve(async (req) => {
           (f: { matchId?: string; kickoffUtc?: string }) =>
             /^m\d{2}$/.test(String(f.matchId)) && !Number.isNaN(Date.parse(String(f.kickoffUtc))),
         )
-        .map((f: { matchId: string; kickoffUtc: string }) => ({
+        .map((f: { matchId: string; kickoffUtc: string; title?: unknown }) => ({
           match_id: f.matchId,
           kickoff_utc: new Date(f.kickoffUtc).toISOString(),
+          // Paarung für die Tipp-Erinnerung („Deutschland – Schottland“), sonst leer.
+          title: typeof f.title === "string" ? f.title.trim().slice(0, 80) || null : null,
         }));
       if (rows.length === 0) return json({ error: "Keine gültigen Anstoßzeiten" }, 400);
-      const { error } = await db.from("kt_fixtures").upsert(rows);
+      let { error } = await db.from("kt_fixtures").upsert(rows);
+      if (error) {
+        // Spalte title noch nicht angelegt (SQL-Update fehlt) → ohne speichern.
+        ({ error } = await db
+          .from("kt_fixtures")
+          .upsert(rows.map(({ title: _t, ...r }: { title: string | null }) => r)));
+      }
       return error
         ? json({ error: "Speichern fehlgeschlagen (SQL-Update Tipprunde ausgeführt?)" }, 500)
         : json({ ok: true, count: rows.length });
@@ -598,6 +607,43 @@ Deno.serve(async (req) => {
         if (error) return json({ error: "Speichern fehlgeschlagen" }, 500);
       }
       return json({ ok: true, registered: list.includes(device), count: list.length });
+    }
+
+    // ---- Wächter ----
+
+    case "alerts": {
+      const { data, error } = await db
+        .from("kt_alerts")
+        .select("key, message, active, first_at, last_seen_at, resolved_at")
+        .order("active", { ascending: false })
+        .order("last_seen_at", { ascending: false })
+        .limit(30);
+      if (error) return json({ alerts: null }); // SQL-Update fehlt noch
+      return json({ alerts: data ?? [] });
+    }
+
+    // Test: Mitteilung an alle eingetragenen Team-Geräte (kommt in ~1 Minute).
+    case "alert_test": {
+      const { data: row } = await db
+        .from("app_config")
+        .select("value")
+        .eq("key", "admin_devices")
+        .maybeSingle();
+      const devices: string[] = Array.isArray(row?.value?.devices) ? row.value.devices : [];
+      if (devices.length === 0)
+        return json({ error: "Kein Gerät für Team-Mitteilungen eingetragen" }, 400);
+      const { error } = await db.from("kt_push_queue").insert(
+        devices.map((d) => ({
+          device_id: d,
+          title: "🔔 KickTime-Wächter: Test",
+          body: "So sehen Warnungen aus, wenn Live-Daten ausfallen.",
+          url: "/einstellungen",
+          tag: "alert-test",
+        })),
+      );
+      return error
+        ? json({ error: "Speichern fehlgeschlagen" }, 500)
+        : json({ ok: true, count: devices.length });
     }
 
     case "owner_transfer":

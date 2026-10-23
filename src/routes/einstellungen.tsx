@@ -46,7 +46,7 @@ import { downloadIcs } from "@/lib/calendar";
 import { submitFeedback, type FeedbackCategory, type FeedbackRating } from "@/lib/feedback";
 import { haptics } from "@/lib/haptics";
 import { detectPushSupport } from "@/lib/notifications";
-import { hasPushBackend, sendTestPush, syncServerAlarms } from "@/lib/push";
+import { hasPushBackend, sendTestPush, syncServerAlarms, syncTipReminders } from "@/lib/push";
 import { enableReminders } from "@/lib/reminders";
 import { ACCENTS, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -372,6 +372,35 @@ function RemindersContent() {
             aria-label="Automatisch für Favoriten"
           />
         </label>
+        {hasPushBackend() && (
+          <label
+            className={cn(
+              "mt-4 flex items-center gap-3 border-t border-border/70 pt-4",
+              !s.pushEnabled && "opacity-50",
+            )}
+          >
+            <span className="flex-1">
+              <span className="block text-[15px]">Erinnern, wenn ein Tipp fehlt</span>
+              <span className="mt-0.5 block text-[13px] text-muted-foreground">
+                Eine Stunde vor Anpfiff, wenn du in einer Tipprunde noch nicht getippt hast.
+              </span>
+            </span>
+            <Switch
+              disabled={!s.pushEnabled}
+              checked={s.tipReminders}
+              onCheckedChange={async (v) => {
+                s.setTipReminders(v);
+                if (!(await syncTipReminders(v))) {
+                  s.setTipReminders(!v);
+                  toast.error("Hat nicht geklappt", {
+                    description: "Bitte mit Internet noch einmal versuchen.",
+                  });
+                }
+              }}
+              aria-label="Erinnern, wenn ein Tipp fehlt"
+            />
+          </label>
+        )}
         <p className="mt-3 text-[13px] text-muted-foreground">
           Für einzelne Spiele tippst du auf die Glocke am Spiel.
         </p>

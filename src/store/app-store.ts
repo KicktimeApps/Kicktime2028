@@ -43,6 +43,8 @@ type State = {
 
   pushEnabled: boolean;
   autoAlarmFavorites: boolean;
+  /** „Noch kein Tipp“ eine Stunde vor Anpfiff (Tipprunden, über den Server). */
+  tipReminders: boolean;
   /** Tri-State: true = an, false = bewusst aus, fehlt = Automatik. */
   alarms: Record<string, boolean>;
 
@@ -109,6 +111,7 @@ type Actions = {
   setGroupNotice: (n: GroupNoticeInfo | null) => void;
   setPushEnabled: (v: boolean) => void;
   setAutoAlarmFavorites: (v: boolean) => void;
+  setTipReminders: (v: boolean) => void;
   setAlarm: (matchId: string, v: boolean | null) => void;
   setPrediction: (matchId: string, home: number, away: number) => void;
   clearPrediction: (matchId: string) => void;
@@ -147,6 +150,7 @@ export const useAppStore = create<State & Actions>()(
       roundTourDone: false,
       pushEnabled: false,
       autoAlarmFavorites: true,
+      tipReminders: true,
       alarms: {},
       predictions: {},
       demo: { enabled: false, scenario: "group", startedAt: 0 },
@@ -245,6 +249,7 @@ export const useAppStore = create<State & Actions>()(
       setGroupNotice: (groupNotice) => set({ groupNotice }),
       setPushEnabled: (v) => set(v ? { pushEnabled: true } : { pushEnabled: false }),
       setAutoAlarmFavorites: (v) => set({ autoAlarmFavorites: v }),
+      setTipReminders: (v) => set({ tipReminders: v }),
       setAlarm: (id, v) =>
         set((s) => {
           const next = { ...s.alarms };

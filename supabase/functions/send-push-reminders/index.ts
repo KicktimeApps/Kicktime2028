@@ -4,7 +4,12 @@
  * Wird jede Minute per pg_cron aufgerufen (siehe Migration). Sendet für alle
  * fälligen Erinnerungen einen Web Push (VAPID). Hat sich die Anstoßzeit seit
  * der letzten Benachrichtigung geändert, wird erneut erinnert. Außerdem gehen
- * Nachrichten der Tipprunden raus (z. B. „Neue Beitrittsanfrage“).
+ * Nachrichten der Tipprunden raus (z. B. „Neue Beitrittsanfrage“) und die
+ * Tipp-Erinnerung („Noch kein Tipp“, eine Stunde vor Anpfiff).
+ *
+ * Wächter: prüft rund um Spiele, ob Live-Daten ankommen (OpenLigaDB über
+ * live-scores, Meldungen der Geräte zu ESPN/Server), und meldet Probleme und
+ * deren Behebung dem KickTime-Team (kt_alert_set → kt_push_team).
  *
  * Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRON_SECRET
  * Deploy mit --no-verify-jwt; geschützt über den Header x-cron-secret.
@@ -217,14 +222,192 @@ Deno.serve(async (req) => {
         })),
       );
 
+    // Tipp-Erinnerung (SQL-Update „Wächter und Tipp-Erinnerung“).
+    let tipReminded = 0;
+    const { data: remindRows, error: remindErr } = await db.rpc("kt_claim_tip_reminders");
+    if (!remindErr)
+      await parallel((remindRows ?? []) as TipPush[], async (row) => {
+        if ((await sendMessage(row, "Tipp-Erinnerung")) === true) tipReminded++;
+      });
+
     if (expired.size > 0)
       await db
         .from("push_subscriptions")
         .delete()
         .in("device_id", [...expired]);
-    return json({ ok: true, sent, due: list.length, tipSent, directSent, cleaned: expired.size });
+
+    // Wächter: darf den Versand nie stören. Seine Team-Mitteilungen landen in
+    // kt_push_queue und gehen beim nächsten Lauf (in einer Minute) raus.
+    let watch = "aus";
+    try {
+      watch = await watchdog(db, now);
+    } catch (err) {
+      console.warn("[wächter]", err);
+      watch = "fehler";
+    }
+    return json({
+      ok: true,
+      sent,
+      due: list.length,
+      tipSent,
+      directSent,
+      tipReminded,
+      cleaned: expired.size,
+      watch,
+    });
   } catch (err) {
     console.error("[push]", err);
     return json({ error: "Interner Fehler" }, 500);
   }
 });
+
+// ---------------------------------------------------------------- Wächter
+
+type Fixture = { match_id: string; kickoff_utc: string; title?: string | null };
+type LiveFixture = { kickoffUtc?: string; status?: string };
+
+const MIN = 60_000;
+const berlinTime = (t: number) =>
+  new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(t));
+
+/**
+ * Prüft die Live-Daten und meldet Probleme ans KickTime-Team. Rund um Spiele
+ * alle 2 Minuten, vor dem Turnier einmal täglich. Gibt eine kurze Zusammenfassung
+ * für die Protokolle zurück.
+ */
+async function watchdog(db: Db, now: number): Promise<string> {
+  const alert = async (key: string, active: boolean, message = "") => {
+    const { error } = await db.rpc("kt_alert_set", {
+      p_key: key,
+      p_active: active,
+      p_message: message,
+    });
+    if (error) throw new Error(`kt_alert_set: ${error.message}`);
+  };
+  // Ohne SQL-Update gibt es den Wächter noch nicht.
+  const { error: tidyErr } = await db.rpc("kt_alerts_tidy");
+  if (tidyErr) return "nicht eingerichtet";
+
+  const minute = new Date(now).getUTCMinutes();
+  const { data: fx } = await db.from("kt_fixtures").select("*");
+  const fixtures = ((fx ?? []) as Fixture[])
+    .map((f) => ({ ...f, t: Date.parse(f.kickoff_utc) }))
+    .filter((f) => !Number.isNaN(f.t));
+  if (fixtures.length === 0) return "keine Anstoßzeiten";
+  const opener = Math.min(...fixtures.map((f) => f.t));
+  const last = Math.max(...fixtures.map((f) => f.t));
+  // Rund um Spiele: von 5 Min. vor Anpfiff bis 4 Std. danach.
+  const around = fixtures.filter((f) => now >= f.t - 5 * MIN && now <= f.t + 240 * MIN);
+  const beforeTournament = now >= opener - 21 * 24 * 60 * MIN && now < opener;
+  const dailyCheck = beforeTournament && new Date(now).getUTCHours() === 8 && minute === 0;
+
+  // Meldungen der Geräte (ESPN, Server) – alle 2 Minuten.
+  if (minute % 2 === 0) {
+    const { data: sum } = await db.rpc("kt_source_summary");
+    const rows = (sum ?? []) as {
+      source: string;
+      devices: number;
+      reports: number;
+      last_detail: string | null;
+    }[];
+    const label: Record<string, string> = {
+      espn: "Zweitquelle ESPN",
+      backend: "Die App erreicht die Live-Daten des Servers nicht",
+    };
+    for (const src of ["espn", "backend"]) {
+      const r = rows.find((x) => x.source === src);
+      // Ab 2 Geräten oder wenn ein Gerät 15 Minuten lang immer wieder Fehler hat.
+      const bad = !!r && (r.devices >= 2 || r.reports >= 3);
+      await alert(
+        `quelle-${src}`,
+        bad,
+        bad
+          ? `${label[src]}: ${r!.last_detail ?? "Fehler"} (${r!.devices} Gerät${r!.devices === 1 ? "" : "e"}, letzte 15 Min.)`
+          : "",
+      );
+    }
+  }
+
+  if ((around.length === 0 || minute % 2 !== 0) && !dailyCheck) return "ruhig";
+  if (now > last + 240 * MIN && !dailyCheck) return "Turnier vorbei";
+
+  // Eigene Live-Daten-Funktion abfragen (aktualisiert dabei auch den Cache).
+  let body: { fixtures?: LiveFixture[]; cache?: string; url?: string; warning?: string } | null =
+    null;
+  let failure = "";
+  try {
+    const res = await fetch(`${env("SUPABASE_URL")}/functions/v1/live-scores`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        // Wie die App: öffentlicher Schlüssel (falls vorhanden).
+        ...(Deno.env.get("SUPABASE_ANON_KEY")
+          ? {
+              apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
+              authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+            }
+          : {}),
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) failure = `antwortet mit Fehler ${res.status}`;
+    else body = await res.json();
+  } catch (err) {
+    failure = `antwortet nicht (${err instanceof Error ? err.name : "Fehler"})`;
+  }
+  await alert("server", !!failure, `Die Live-Daten-Funktion des Servers ${failure}.`);
+  if (!body) return "server: " + failure;
+
+  const list = Array.isArray(body.fixtures) ? body.fixtures : [];
+  await alert(
+    "pausiert",
+    body.cache === "paused" && around.length > 0,
+    "Der Live-Abruf ist im Team-Bereich angehalten – es kommen keine neuen Spielstände.",
+  );
+  await alert(
+    "openligadb",
+    body.cache === "stale",
+    `OpenLigaDB ist nicht erreichbar (${body.warning ?? "Fehler"}). Die App zeigt den letzten Stand.`,
+  );
+  await alert(
+    "liga-leer",
+    list.length === 0,
+    `OpenLigaDB liefert für ${body.url ?? "die eingestellte Liga"} keine Spiele. Bitte im Team-Bereich → Live-Daten prüfen und ggf. das Kürzel umstellen.`,
+  );
+  if (dailyCheck || list.length === 0) return `geprüft: ${list.length} Spiele`;
+
+  // Je Anstoßzeit: Laufende Spiele müssen in OpenLigaDB stehen, beendete
+  // spätestens 2½ Std. nach Ende abgeschlossen sein (sonst keine Tipp-Punkte).
+  const near = (f: { t: number }, x: LiveFixture) =>
+    !!x.kickoffUtc && Math.abs(Date.parse(x.kickoffUtc) - f.t) <= 30 * MIN;
+  const slots = new Map<number, typeof fixtures>();
+  for (const f of around) slots.set(f.t, [...(slots.get(f.t) ?? []), f]);
+  for (const [t, group] of slots) {
+    const key = `spiel-${group.map((g) => g.match_id).join("-")}`;
+    const names = group.map((g) => g.title || `Spiel ${g.match_id.replace(/^m0?/, "")}`).join(", ");
+    const found = list.filter((x) => near({ t }, x));
+    const running = now >= t + 10 * MIN && now <= t + 150 * MIN;
+    const overdue = now >= t + 160 * MIN;
+    if (running) {
+      const seen = found.filter((x) => x.status === "live" || x.status === "finished").length;
+      await alert(
+        key,
+        seen < group.length,
+        `OpenLigaDB meldet ${names} (Anpfiff ${berlinTime(t)} Uhr) nicht als laufend – Spielstände fehlen. Ggf. im Team-Bereich → Korrektur eintragen.`,
+      );
+    } else if (overdue) {
+      const done = found.filter((x) => x.status === "finished").length;
+      await alert(
+        key,
+        done < group.length,
+        `${names} (Anpfiff ${berlinTime(t)} Uhr) ist bei OpenLigaDB noch nicht abgeschlossen – Tipp-Punkte gibt es erst danach. Ggf. im Team-Bereich → Korrektur eintragen.`,
+      );
+    }
+  }
+  return `geprüft: ${around.length} Spiel(e) rund um jetzt`;
+}

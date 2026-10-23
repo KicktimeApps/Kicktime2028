@@ -20,6 +20,7 @@ import { ChampionCelebration } from "@/components/tournament/ChampionCelebration
 import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
 import { useGoalAlerts } from "@/hooks/useGoalAlerts";
+import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 import { TIP_GROUPS_KEY } from "@/hooks/useMyGroups";
 import { logError } from "@/lib/error-log";
 // Früh mithören: Android meldet die Installierbarkeit oft schon beim Laden.
@@ -282,6 +283,7 @@ function App() {
   const onboarded = useAppStore((s) => s.onboarded);
   useEngine();
   useGoalAlerts();
+  useUpdateCheck();
   useGlobalErrorLogging();
   useEffect(() => {
     sendPing();
