@@ -48,4 +48,42 @@ describe("Tipprunde: Tabelle", () => {
     });
     expect(row.points).toBe(CHAMPION_BONUS);
   });
+
+  describe("vorläufige Punkte (laufende Spiele)", () => {
+    const live = { ...match("m03", 1, 0), status: "live" } as MatchView;
+    const tips = { m01: { home: 2, away: 1 }, m03: { home: 1, away: 0 } };
+
+    it("zählen ohne `live` nicht mit", () => {
+      const [row] = buildBoard([{ id: "a", name: "Anna", tips }], [...matches, live]);
+      expect(row.points).toBe(4);
+      expect(row.hasLive).toBe(false);
+      expect(row.livePoints).toBe(0);
+    });
+
+    it("zählen mit `live` vorläufig mit und bestimmen die Reihenfolge", () => {
+      const rows = buildBoard(
+        [
+          { id: "a", name: "Anna", tips: { m01: { home: 2, away: 1 }, m03: { home: 0, away: 2 } } },
+          { id: "b", name: "Bert", tips: { m01: { home: 1, away: 0 }, m03: { home: 1, away: 0 } } },
+        ],
+        [...matches, live],
+        { live: true },
+      );
+      expect(rows.map((r) => [r.name, r.points, r.livePoints, r.hasLive])).toEqual([
+        ["Bert", 3 + 4, 4, true],
+        ["Anna", 4, 0, true],
+      ]);
+    });
+
+    it("Spiele ohne Zwischenstand und verdeckte Spiele zählen nicht", () => {
+      const noScore = { ...live, id: "m04", score: undefined } as MatchView;
+      const [row] = buildBoard(
+        [{ id: "a", name: "Anna", tips: { ...tips, m04: { home: 0, away: 0 } } }],
+        [...matches, live, noScore],
+        { live: true, counts: (m) => m.id !== "m03" },
+      );
+      expect(row.points).toBe(4);
+      expect(row.hasLive).toBe(false);
+    });
+  });
 });

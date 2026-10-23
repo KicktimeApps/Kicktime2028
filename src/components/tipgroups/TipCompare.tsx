@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { defaultPageStart, defaultRoundIndex } from "@/domain/compare";
 import { teamDisplay } from "@/domain/labels";
-import { scorePrediction, type BoardRow } from "@/domain/predictions";
+import { isRated, scorePrediction, type BoardRow } from "@/domain/predictions";
 import { buildRounds } from "@/domain/rounds";
 import { formatDayShort, formatTime } from "@/domain/time";
 import type { MatchView } from "@/domain/types";
@@ -17,6 +17,7 @@ import { useUi } from "@/store/ui-store";
  * mehrere Tage), im Tabellenkopf immer gleich viele Spiele nebeneinander – mit
  * den Pfeilen (oder Wischen) durch die Spiele blättern. Darunter je Mitspieler
  * die Tipps mit Punkten, rechts P = Punkte im Spieltag, G = gesamt.
+ * Laufende Spiele zählen mit dem Zwischenstand vorläufig mit (rot = live).
  * Fremde Tipps liefert der Server erst ab Anpfiff.
  */
 
@@ -78,7 +79,8 @@ export function TipCompare({
     if (next >= 0 && next < list.length) setPicked({ round: round.key, start: next });
   };
 
-  const counts = (m: MatchView) => m.status === "finished" && !!m.score && isVisible(m);
+  const counts = (m: MatchView) => isRated(m, true) && isVisible(m);
+  const anyLive = list.some((m) => m.status === "live" && counts(m));
   const cols = `1.5rem minmax(0,1fr) repeat(${size}, var(--tip-col)) 1.75rem 2.25rem`;
   const first = list[0].kickoffUtc;
   const last = list[list.length - 1].kickoffUtc;
@@ -251,6 +253,7 @@ export function TipCompare({
           ? "Vorschau: Die Tipps der anderen erscheinen erst ab dem echten Anpfiff."
           : "Die Tipps der anderen erscheinen ab Anpfiff."}{" "}
         Kleine Zahl = Punkte · P = Spieltag · G = gesamt.
+        {anyLive && " Rote Punkte sind vorläufig (Spiel läuft)."}
       </p>
     </>
   );
@@ -278,7 +281,14 @@ function TipCell({ m, mem, counts }: { m: MatchView; mem: TipMember; counts: boo
     >
       {t.home}:{t.away}
       {res && res.points > 0 && (
-        <sub className="ml-px text-[10.5px] font-bold text-primary">{res.points}</sub>
+        <sub
+          className={cn(
+            "ml-px text-[10.5px] font-bold",
+            m.status === "live" ? "text-live" : "text-primary",
+          )}
+        >
+          {res.points}
+        </sub>
       )}
     </span>
   );

@@ -55,7 +55,7 @@ import {
 import { RoundPageSkeleton } from "@/components/common/Skeleton";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { teamDisplay } from "@/domain/labels";
-import { buildBoard, scorePrediction, type BoardRow } from "@/domain/predictions";
+import { buildBoard, isRated, scorePrediction, type BoardRow } from "@/domain/predictions";
 import { tournamentWinner } from "@/domain/status";
 import { formatDayShort } from "@/domain/time";
 import type { MatchView } from "@/domain/types";
@@ -438,9 +438,11 @@ function BoardView({
   const final = tournament.matches.find((m) => m.stage === "final");
   const isVisible = (m: MatchView) => !spoiler || !!revealed[m.id];
   const hiddenIds = tournament.matches
-    .filter((m) => m.status === "finished" && m.score && !isVisible(m))
+    .filter((m) => isRated(m, true) && !isVisible(m))
     .map((m) => m.id);
+  // Laufende Spiele zählen mit dem Zwischenstand vorläufig mit (wie bei Kicktipp).
   const rows = buildBoard(members, tournament.matches, {
+    live: true,
     counts: isVisible,
     champion: champion && final && isVisible(final) ? champion : null,
   });
@@ -570,6 +572,12 @@ function BoardView({
               </button>
             </div>
           )}
+          {rows.some((r) => r.hasLive) && (
+            <p className="mb-2 flex items-center gap-2 px-1 text-[12.5px] text-muted-foreground">
+              <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-live" />
+              Live: Punkte aus laufenden Spielen sind vorläufig.
+            </p>
+          )}
           <ol className="mb-6 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
             {rows.map((r) => {
               const m = members.find((x) => x.id === r.id)!;
@@ -604,7 +612,14 @@ function BoardView({
                         {r.championPoints > 0 && " · Europameister richtig"}
                       </span>
                     </span>
-                    <span className="font-display text-[26px] font-bold tabular">{r.points}</span>
+                    <span className="flex shrink-0 flex-col items-end leading-none">
+                      <span className="font-display text-[26px] font-bold tabular">{r.points}</span>
+                      {r.hasLive && (
+                        <span className="mt-1 text-[11.5px] font-semibold text-live tabular">
+                          {r.livePoints > 0 ? `+${r.livePoints} live` : "live"}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 </li>
               );
@@ -1136,7 +1151,8 @@ function MemberDrawer({
               )}
               {list.map((m) => {
                 const t = member.tips[m.id];
-                const show = m.status === "finished" && m.score && isVisible(m);
+                const show = isRated(m, true) && isVisible(m);
+                const live = m.status === "live";
                 const r = show ? scorePrediction(t, m.score!, m.stage) : null;
                 return (
                   <li key={m.id} className="flex items-center gap-3 px-4 py-2.5 text-[14.5px]">
@@ -1147,13 +1163,23 @@ function MemberDrawer({
                       </span>
                       <span className="text-[12.5px] text-muted-foreground">
                         {formatDayShort(m.kickoffUtc, tz)}
-                        {show && ` · Ergebnis ${m.score!.home}:${m.score!.away}`}
+                        {show && (live ? " · Live " : " · Ergebnis ")}
+                        {show && (
+                          <span className={cn(live && "font-semibold text-live")}>
+                            {m.score!.home}:{m.score!.away}
+                          </span>
+                        )}
                       </span>
                     </span>
                     <span className="font-display text-[19px] font-bold tabular">
                       {t.home}:{t.away}
                     </span>
-                    <span className="w-9 text-right font-semibold text-primary tabular">
+                    <span
+                      className={cn(
+                        "w-9 text-right font-semibold tabular",
+                        live ? "text-live" : "text-primary",
+                      )}
+                    >
                       {r ? `+${r.points}` : ""}
                     </span>
                   </li>

@@ -71,10 +71,10 @@ export class TipError extends Error {
   notInstalled = false;
 }
 
-async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+async function rpc<T>(fn: string, args: Record<string, unknown>, device?: string): Promise<T> {
   const sb = await getSupabase();
   if (!sb) throw new TipError("Tipprunden brauchen eine Internetverbindung zum KickTime-Server.");
-  const { data, error } = await sb.rpc(fn, { p_device: getDeviceId(), ...args });
+  const { data, error } = await sb.rpc(fn, { p_device: device ?? getDeviceId(), ...args });
   if (error) {
     // Längste Übereinstimmung zuerst („group name invalid“ vor „name invalid“)
     const hit = [...MESSAGES]
@@ -205,6 +205,10 @@ export const answerRequest = (groupId: string, memberId: string, accept: boolean
   rpc<null>("kt_tip_answer", { p_group: groupId, p_member: memberId, p_accept: accept });
 
 export const myGroups = () => rpc<TipGroup[]>("kt_tip_my_groups", {});
+
+/** Runden eines anderen Geräts (Handywechsel: zeigen, was der Code übernimmt). */
+export const groupsOfDevice = (device: string) =>
+  rpc<TipGroup[] | null>("kt_tip_my_groups", {}, device).then((l) => l ?? []);
 
 export type MyBan = { id: string; name: string; by?: "owner" | "admin" | "global" };
 

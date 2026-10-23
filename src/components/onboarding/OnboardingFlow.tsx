@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LogoMark, Wordmark } from "@/components/layout/Logo";
+import { RestoreSheet } from "@/components/settings/DeviceTransfer";
 import { WeekEditor } from "@/components/settings/WeekEditor";
 import { Flag } from "@/components/team/Flag";
 import { TeamPicker } from "@/components/team/TeamPicker";
@@ -22,6 +23,7 @@ import { formatDate } from "@/domain/time";
 import { shouldOfferInstall, useInstallPrompt } from "@/lib/install";
 import { shouldOfferPush } from "@/lib/reminders";
 import { cn } from "@/lib/utils";
+import { isBackendConfigured } from "@/services/supabase";
 import { useAppStore, useTimeZone } from "@/store/app-store";
 import { TOURNAMENT } from "@/tournament/config";
 import { getNation } from "@/tournament/nations";
@@ -189,6 +191,7 @@ function StepTitle({ icon, title, text }: { icon: React.ReactNode; title: string
 }
 
 function Welcome({ onStart }: { onStart: () => void }) {
+  const [restore, setRestore] = useState(false);
   const features = [
     { icon: <Star />, title: "Deine Teams", text: "Du sagst, wem du die Daumen drückst." },
     {
@@ -243,6 +246,18 @@ function Welcome({ onStart }: { onStart: () => void }) {
       <p className="mt-3 text-center text-[12px] text-muted-foreground">
         Ohne Anmeldung · Daten bleiben auf deinem Gerät
       </p>
+      {isBackendConfigured() && (
+        <>
+          <button
+            type="button"
+            onClick={() => setRestore(true)}
+            className="mx-auto mt-4 inline-flex h-10 items-center rounded-full px-3 text-[14px] font-semibold text-primary"
+          >
+            Neues Handy? Tipprunden übernehmen
+          </button>
+          <RestoreSheet open={restore} onOpenChange={setRestore} />
+        </>
+      )}
     </div>
   );
 }

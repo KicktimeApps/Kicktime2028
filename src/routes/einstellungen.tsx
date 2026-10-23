@@ -12,6 +12,7 @@ import {
   Info,
   ShieldCheck,
   MessageSquareHeart,
+  Smartphone,
   Palette,
   RotateCcw,
   Star,
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Segmented } from "@/components/common/Segmented";
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { DeviceTransfer } from "@/components/settings/DeviceTransfer";
 import { PRESETS, presetMatches } from "@/components/settings/presets";
 import { WeekEditor } from "@/components/settings/WeekEditor";
 import { Flag } from "@/components/team/Flag";
@@ -59,7 +61,15 @@ import { LEGAL_URL, TOURNAMENT } from "@/tournament/config";
 import { getNation } from "@/tournament/nations";
 
 /** Unterpunkte der Einstellungen – jeder hat eine eigene Seite (?s=…). */
-const SECTIONS = ["teams", "zeit", "erinnerungen", "darstellung", "vorschau", "feedback"] as const;
+const SECTIONS = [
+  "teams",
+  "zeit",
+  "erinnerungen",
+  "darstellung",
+  "vorschau",
+  "feedback",
+  "handywechsel",
+] as const;
 type Section = (typeof SECTIONS)[number];
 
 export const Route = createFileRoute("/einstellungen")({
@@ -214,6 +224,12 @@ function Overview() {
       </Group>
 
       {isBackendConfigured() && (
+        <Group title="Tipprunden">
+          <NavRow to="handywechsel" icon={<Smartphone />} title="Handy wechseln" />
+        </Group>
+      )}
+
+      {isBackendConfigured() && (
         <Group title="Mithelfen">
           <NavRow to="feedback" icon={<MessageSquareHeart />} title="Feedback geben" />
         </Group>
@@ -249,6 +265,10 @@ const SECTION_META: Record<Section, { title: string; intro?: string }> = {
     title: "Feedback geben",
     intro: "Idee, Fehler oder Lob – geht anonym direkt ans KickTime-Team.",
   },
+  handywechsel: {
+    title: "Handy wechseln",
+    intro: "Tipprunden und Tipps aufs neue Handy mitnehmen – ohne Anmeldung, mit einem Code.",
+  },
 };
 
 function SubPage({ section }: { section: Section }) {
@@ -282,6 +302,7 @@ function SubPage({ section }: { section: Section }) {
         {section === "darstellung" && <AppearanceContent />}
         {section === "vorschau" && <DemoContent />}
         {section === "feedback" && <FeedbackContent />}
+        {section === "handywechsel" && <DeviceTransfer />}
       </div>
     </div>
   );

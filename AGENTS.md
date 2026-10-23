@@ -70,7 +70,11 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
   - Jede Function ist **eine Datei** (wird im Dashboard einzeln kopiert) – Helfer bewusst
     dupliziert.
 - **Ohne Konten:** Ein Nutzer ist eine zufällige Geräte-ID (`src/lib/device-id.ts`). Sperren
-  treffen Geräte.
+  treffen Geräte. **Handywechsel** (Einstellungen → „Handy wechseln“, auch in der Einführung):
+  Der Wiederherstellungs-Code ist die Geräte-ID selbst (32 Zeichen 0–9/A–F); das neue Gerät
+  übernimmt sie (`adoptDeviceId`) und damit Tipprunden, Tipps, Push und Sperren. Vorher zeigt
+  `groupsOfDevice` die Runden zum Code. Lokale Einstellungen wandern nicht mit. Der Code ist
+  geheim (wer ihn hat, tippt im Namen des Geräts).
 - **Architektur-Details:** `docs/ARCHITEKTUR.md`. Pflege/Abläufe: `docs/PFLEGE.md`.
   Kernprinzip: Turnierzustand wird immer rein funktional aus Eingaben berechnet
   (`src/domain/resolve.ts`).
@@ -162,7 +166,9 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   Europameister-Bonustipp bis zum Eröffnungsspiel. Pillen „Tippen“ · „Vergleich“ · „Tabelle“:
   „Vergleich“ (`TipCompare.tsx`, `domain/compare.ts`) zeigt alle Tipps mit Punkten wie bei
   Kicktipp: Spieltag wie beim Tippen (`rounds.ts`, über mehrere Tage), im Kopf immer 3 Spiele
-  (Desktop 6), mit ◀ ▶ oder Wischen blättern; rechts P (Spieltag) und G (gesamt). Max. 50 Mitglieder/Runde, 10 Runden und 5 selbst erstellte Runden je Gerät.
+  (Desktop 6), mit ◀ ▶ oder Wischen blättern; rechts P (Spieltag) und G (gesamt).
+  Laufende Spiele zählen mit dem Zwischenstand **vorläufig** mit (`buildBoard(…, { live: true })`,
+  rot markiert, „+N live“ in der Tabelle); Spoilerschutz gilt auch dafür. Max. 50 Mitglieder/Runde, 10 Runden und 5 selbst erstellte Runden je Gerät.
 - **Rauswerfen (Ersteller):** „Entfernen“ (darf mit Code neu anfragen) oder „Sperren“ (erst nach
   Entsperren durch den Ersteller). Gesperrte sehen einen Vollbild-Hinweis.
 - **Sperren durch das Team (Admin):** in einer Runde oder **überall** (kein Beitreten/Erstellen,

@@ -9,6 +9,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { SPLASH_MIN_MS, SPLASH_MS, SplashScreen } from "@/components/layout/SplashScreen";
@@ -21,6 +22,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useEngine } from "@/hooks/useEngine";
 import { useGoalAlerts } from "@/hooks/useGoalAlerts";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
+import { takeRestored } from "@/lib/device-id";
 import { installPressFeedback } from "@/lib/press-feedback";
 import { TIP_GROUPS_KEY } from "@/hooks/useMyGroups";
 import { logError } from "@/lib/error-log";
@@ -286,6 +288,19 @@ function App() {
   useGoalAlerts();
   useUpdateCheck();
   useEffect(() => installPressFeedback(), []);
+  // Nach einem Handywechsel kurz bestätigen (der Ladebildschirm kommt beim
+  // Neuladen in derselben Sitzung nicht noch einmal).
+  useEffect(() => {
+    const t = window.setTimeout(
+      () =>
+        takeRestored() &&
+        toast.success("Tipprunden übernommen", {
+          description: "Teams, Zeiten und Einstellungen wählst du auf diesem Handy neu.",
+        }),
+      800,
+    );
+    return () => window.clearTimeout(t);
+  }, []);
   useGlobalErrorLogging();
   useEffect(() => {
     sendPing();

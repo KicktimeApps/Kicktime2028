@@ -30,3 +30,46 @@ export function getDeviceId(): string {
     return memoryId;
   }
 }
+
+/* ---------------------------------------------------- Handywechsel */
+
+/**
+ * Wiederherstellungs-Code = die Geräte-ID selbst, gut lesbar: 32 Zeichen
+ * (0–9, A–F) in 8 Vierergruppen. Wer ihn kennt, ist für den Server dieses
+ * Gerät – darum geheim halten.
+ */
+export function formatRecoveryCode(id: string): string {
+  const hex = id.replace(/-/g, "").toUpperCase();
+  return hex.match(/.{1,4}/g)?.join(" ") ?? hex;
+}
+
+/** Eingabe → Geräte-ID (Kleinbuchstaben mit Bindestrichen) oder null, wenn unvollständig. */
+export function parseRecoveryCode(input: string): string | null {
+  const hex = input.toLowerCase().replace(/[^0-9a-f]/g, "");
+  if (hex.length !== 32) return null;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+const RESTORED_KEY = "kicktime-2028.restored";
+
+/** Geräte-ID eines anderen Geräts übernehmen (danach die App neu laden). */
+export function adoptDeviceId(id: string): void {
+  memoryId = id;
+  try {
+    localStorage.setItem(KEY, id);
+    sessionStorage.setItem(RESTORED_KEY, "1");
+  } catch {
+    /* nur im Speicher – gilt bis zum Schließen */
+  }
+}
+
+/** Nach dem Neuladen: Wurde gerade ein Code übernommen? (nur einmal true) */
+export function takeRestored(): boolean {
+  try {
+    if (!sessionStorage.getItem(RESTORED_KEY)) return false;
+    sessionStorage.removeItem(RESTORED_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}

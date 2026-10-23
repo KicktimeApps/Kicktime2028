@@ -121,32 +121,48 @@ export type BoardRow = {
   hits: number;
   rated: number;
   championPoints: number;
+  /** Davon vorläufig: Punkte aus laufenden Spielen (nur mit `live`). */
+  livePoints: number;
+  /** Mindestens ein getipptes Spiel läuft gerade und zählt vorläufig mit. */
+  hasLive: boolean;
 };
+
+/** Zählt für die Tabelle: beendet – oder (vorläufig) laufend mit Zwischenstand. */
+export function isRated(m: MatchView, live: boolean): boolean {
+  return !!m.score && (m.status === "finished" || (live && m.status === "live"));
+}
 
 /**
  * Tabelle einer Tipprunde. Sortierung: Punkte, dann Volltreffer, dann
  * richtige Tendenzen; wer überall gleich ist, teilt sich den Platz.
  * `counts` entscheidet, welche beendeten Spiele mitzählen (Spoilerschutz).
+ * Mit `live` zählen laufende Spiele mit dem Zwischenstand vorläufig mit.
  */
 export function buildBoard(
   members: BoardMember[],
   matches: MatchView[],
-  opts: { counts?: (m: MatchView) => boolean; champion?: string | null } = {},
+  opts: { counts?: (m: MatchView) => boolean; champion?: string | null; live?: boolean } = {},
 ): BoardRow[] {
   const rated = matches.filter(
-    (m) => m.status === "finished" && m.score && (opts.counts ? opts.counts(m) : true),
+    (m) => isRated(m, !!opts.live) && (opts.counts ? opts.counts(m) : true),
   );
   const rows = members.map((mem) => {
     let points = 0;
     let exact = 0;
     let hits = 0;
     let count = 0;
+    let livePoints = 0;
+    let hasLive = false;
     for (const m of rated) {
       const t = mem.tips[m.id];
       if (!t) continue;
       const r = scorePrediction(t, m.score!, m.stage);
       count++;
       points += r.points;
+      if (m.status === "live") {
+        hasLive = true;
+        livePoints += r.points;
+      }
       if (r.result === "exact") exact++;
       if (r.result !== "miss") hits++;
     }
@@ -160,6 +176,8 @@ export function buildBoard(
       hits,
       rated: count,
       championPoints,
+      livePoints,
+      hasLive,
     };
   });
   rows.sort(
