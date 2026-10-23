@@ -136,11 +136,12 @@
   button {
     cursor: pointer;
   }
-  /* Wie eine echte App: kein Gummiband-Ziehen über den Rand (die Leiste unten
-     bleibt stehen) und kein versehentliches Markieren von Knöpfen. */
-  html,
-  body {
-    overscroll-behavior-y: none;
+  /* Am Seitenrand federt die Seite natürlich aus (wie überall auf dem iPhone) –
+     der Hintergrund hat dabei die App-Farbe. In Fenstern mit eigenem Scrollbereich
+     federt nur das Fenster, die Seite dahinter bleibt stehen. Außerdem kein
+     versehentliches Markieren von Knöpfen. */
+  :where(.overflow-y-auto, .overflow-auto) {
+    overscroll-behavior-y: contain;
   }
   :where(button, a[href], [role="button"], [role="tab"], [role="switch"], nav, label) {
     -webkit-user-select: none;
