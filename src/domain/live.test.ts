@@ -61,6 +61,27 @@ describe("fromOpenLiga", () => {
     expect(f.penalties).toEqual({ home: 4, away: 3 });
   });
 
+  it("Elfmeterschießen läuft, Tore ohne Minute: zählen nicht zum Spielstand", () => {
+    const kickoff = Date.parse("2028-07-01T19:00:00Z");
+    const m = {
+      matchID: 4,
+      matchDateTimeUTC: "2028-07-01T19:00:00Z",
+      matchIsFinished: false,
+      team1: { teamName: "Portugal" },
+      team2: { teamName: "Slowenien" },
+      goals: [
+        { scoreTeam1: 1, scoreTeam2: 0, matchMinute: null, isPenalty: true },
+        { scoreTeam1: 2, scoreTeam2: 0, matchMinute: null, isPenalty: true },
+      ],
+    };
+    const late = fromOpenLiga(m, kickoff + 160 * 60_000);
+    expect(late.score).toEqual({ home: 0, away: 0 });
+    expect(late.phase).toBe("penalties");
+    // Elfmeter im laufenden Spiel ohne Minute zählt weiter mit.
+    const early = fromOpenLiga({ ...m, goals: m.goals.slice(0, 1) }, kickoff + 30 * 60_000);
+    expect(early.score).toEqual({ home: 1, away: 0 });
+  });
+
   it("laufendes Spiel nutzt die Torliste als Zwischenstand", () => {
     const kickoff = Date.parse("2028-06-10T16:00:00Z");
     const f = fromOpenLiga(
@@ -298,6 +319,135 @@ describe("mergeLiveResults", () => {
     expect(mergeLiveResults(p, b).results[id].score).toEqual({ home: 1, away: 1 });
     const b2 = apply([f({ externalId: "espn-1", score: { home: 0, away: 0 } })]);
     expect(mergeLiveResults(p, b2).results[id].status).toBe("finished");
+  });
+
+  it("Teams vertauscht zwischen den Quellen → Spielstand der Zweitquelle wird gedreht", () => {
+    const ko = FIXTURES.find((x) => x.stage === "r16")!;
+    const now = Date.parse(ko.kickoffUtc) + 30 * 60_000;
+    const g = (over: Partial<LiveFixture>): LiveFixture => ({
+      externalId: "1",
+      kickoffUtc: ko.kickoffUtc,
+      status: "live",
+      ...over,
+    });
+    const p = applyLiveFixtures(
+      [g({ homeName: "Spanien", awayName: "Italien", score: { home: 0, away: 0 } })],
+      FIXTURES,
+      new Map(),
+      now,
+    );
+    const b = applyLiveFixtures(
+      [
+        g({
+          externalId: "espn-1",
+          homeName: "Italy",
+          awayName: "Spain",
+          score: { home: 0, away: 1 },
+        }),
+      ],
+      FIXTURES,
+      new Map(),
+      now,
+    );
+    const m = mergeLiveResults(p, b);
+    const kid = matchId(ko.number);
+    expect(m.patches[kid]).toMatchObject({ home: "ESP", away: "ITA" });
+    expect(m.results[kid].score).toEqual({ home: 1, away: 0 });
+  });
+});
+
+describe("Teams aus der Quelle über mehrere Abrufe", () => {
+  // Nachbau von refreshLiveData: Zuordnung gegen den Stand ohne Quell-Teams
+  // (liveMatchTeams), danach mit den neuen Patches auflösen.
+  const run = (api: LiveFixture[], draw: Record<string, string>, now: number, rounds = 4) => {
+    const seen: string[] = [];
+    let patches = {};
+    for (let i = 0; i < rounds; i++) {
+      const base = teamsOf(draw);
+      patches = applyLiveFixtures(api, FIXTURES, base, now).patches;
+      const t = resolveTournament({ fixtures: FIXTURES, draw, results: {}, patches, now });
+      seen.push(t.matches.map((m) => `${m.home ?? "-"}:${m.away ?? "-"}`).join(","));
+    }
+    return seen;
+  };
+
+  it("Gruppenspiel ohne Auslosung: Teams bleiben stehen", () => {
+    const def = FIXTURES[0];
+    const now = Date.parse(def.kickoffUtc) - 3600_000;
+    const api = [
+      {
+        externalId: "1",
+        kickoffUtc: def.kickoffUtc,
+        city: "Cardiff",
+        homeName: "Wales",
+        awayName: "Spanien",
+        status: "scheduled" as const,
+      },
+    ];
+    const seen = run(api, {}, now);
+    expect(new Set(seen).size).toBe(1);
+    expect(seen[0].split(",")[0]).toBe("WAL:ESP");
+  });
+
+  it("K.-o.-Spiel: Teams aus der Quelle bleiben stehen", () => {
+    const ko = FIXTURES.find((f) => f.stage === "r16")!;
+    const now = Date.parse(ko.kickoffUtc) - 3600_000;
+    const api = [
+      {
+        externalId: "1",
+        kickoffUtc: ko.kickoffUtc,
+        homeName: "Spanien",
+        awayName: "Italien",
+        status: "scheduled" as const,
+      },
+    ];
+    const seen = run(api, {}, now);
+    expect(new Set(seen).size).toBe(1);
+  });
+
+  it("K.-o.-Spiel: andere Paarung als berechnet → Quelle gilt, gedrehte Paarung nicht", () => {
+    const ko = FIXTURES.find((f) => f.stage === "r16")!;
+    const now = Date.parse(ko.kickoffUtc) + 30 * 60_000;
+    const known = new Map([[ko.number, { home: "ESP", away: "ITA" }]]);
+    const f = (homeName: string, awayName: string): LiveFixture => ({
+      externalId: "1",
+      kickoffUtc: ko.kickoffUtc,
+      homeName,
+      awayName,
+      status: "live",
+      score: { home: 2, away: 1 },
+    });
+    const kid = matchId(ko.number);
+    const other = applyLiveFixtures([f("Frankreich", "Italien")], FIXTURES, known, now);
+    expect(other.patches[kid]).toMatchObject({ home: "FRA", away: "ITA" });
+    expect(other.results[kid].score).toEqual({ home: 2, away: 1 });
+    const turned = applyLiveFixtures([f("Italien", "Spanien")], FIXTURES, known, now);
+    expect(turned.patches[kid]?.home).toBeUndefined();
+    expect(turned.results[kid].score).toEqual({ home: 1, away: 2 });
+  });
+
+  it("Gruppenspiel: Auslosung bleibt maßgeblich", () => {
+    const def = FIXTURES[0];
+    const now = Date.parse(def.kickoffUtc) - 3600_000;
+    const known = teamsOf(DEMO_DRAW);
+    const k = known.get(def.number)!;
+    const res = applyLiveFixtures(
+      [
+        {
+          externalId: "1",
+          kickoffUtc: def.kickoffUtc,
+          city: "Cardiff",
+          homeName: "Frankreich",
+          awayName: "Italien",
+          status: "scheduled",
+        },
+      ],
+      FIXTURES,
+      known,
+      now,
+    );
+    expect(k.home).not.toBe("FRA");
+    expect(res.patches[matchId(def.number)]?.home).toBeUndefined();
   });
 });
 

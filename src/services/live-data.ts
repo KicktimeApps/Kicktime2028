@@ -10,7 +10,7 @@ import {
 import type { FixturePatch, LivePhase, MatchStatus, ResultRecord, Score } from "@/domain/types";
 import { LIVE_SOURCE, TOURNAMENT } from "@/tournament/config";
 import { FIXTURES } from "@/tournament/schedule";
-import { useMatchStore } from "@/store/match-store";
+import { liveMatchTeams, useMatchStore } from "@/store/match-store";
 import { logError } from "@/lib/error-log";
 import { refreshAnnouncement } from "./announcement";
 import { reportSourceIssue } from "./source-report";
@@ -219,7 +219,6 @@ let inflight: Promise<void> | null = null;
 export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
   if (inflight) return inflight;
   inflight = (async () => {
-    const store = useMatchStore.getState();
     const backend = isBackendConfigured();
     try {
       const now = Date.now();
@@ -231,9 +230,7 @@ export function refreshLiveData(opts: { force?: boolean } = {}): Promise<void> {
       espnLeague = espn;
       // Ausgeschaltet → verwerfen; Liga geändert → gleich mit der neuen fragen.
       const backup = !espn ? [] : espn === asked ? await espnRun : await fetchEspn(espn, now);
-      const teams = new Map(
-        store.tournament.matches.map((m) => [m.number, { home: m.home, away: m.away }]),
-      );
+      const teams = liveMatchTeams();
       const { results, patches, unmatched } = mergeLiveResults(
         applyLiveFixtures(fixtures, FIXTURES, teams, now),
         applyLiveFixtures(backup, FIXTURES, teams, now),

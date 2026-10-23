@@ -95,6 +95,28 @@ function compute(i: Inputs): TournamentState {
   });
 }
 
+/**
+ * Paarungen für die Zuordnung der Live-Daten: immer der echte Turnierstand
+ * (auch im Vorschau-Modus) und ohne die Teams, die die Quelle beim letzten
+ * Abruf selbst gesetzt hat. Sonst gälten diese beim nächsten Abruf als
+ * „schon bekannt“, würden nicht mehr gesetzt – und die Teams sprängen bei
+ * jedem zweiten Abruf zurück auf Platzhalter.
+ */
+export function liveMatchTeams(): Map<number, { home: string | null; away: string | null }> {
+  const s = useMatchStore.getState();
+  const patches: Record<string, FixturePatch> = {};
+  for (const [id, p] of Object.entries(s.apiPatches))
+    if (p.kickoffUtc) patches[id] = { kickoffUtc: p.kickoffUtc };
+  const t = resolveTournament({
+    fixtures: FIXTURES,
+    draw: DRAW,
+    results: mergeResults(s.apiResults, s.adminResults),
+    patches,
+    now: s.now,
+  });
+  return new Map(t.matches.map((m) => [m.number, { home: m.home, away: m.away }]));
+}
+
 const initial: Inputs = {
   now: Date.now(),
   apiResults: {},

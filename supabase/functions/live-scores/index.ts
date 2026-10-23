@@ -102,8 +102,11 @@ function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
   const after90 = toScore(byKind("After90Minutes", 2));
   const half = toScore(byKind("HalfTime", 1));
   // Tore aus dem Elfmeterschießen stehen in derselben Liste (Elfmeter ab der
-  // 120. Minute) – sie zählen nicht zum Spielstand.
-  const isShootout = (g: OlGoal) => g.isPenalty === true && (g.matchMinute ?? 0) >= 120;
+  // 120. Minute) – sie zählen nicht zum Spielstand. Fehlt die Minute, zählt
+  // ein Elfmeter nach Ende der Verlängerung (2,5 Std. nach Anpfiff) als Schießen.
+  const lateByClock = !Number.isNaN(kickoff) && now - kickoff >= 150 * 60_000;
+  const isShootout = (g: OlGoal) =>
+    g.isPenalty === true && (g.matchMinute == null ? lateByClock : g.matchMinute >= 120);
   const shootout = (m.goals ?? []).some(isShootout);
   const goals = (m.goals ?? [])
     .filter((g) => !isShootout(g))
@@ -285,21 +288,43 @@ async function readSource(db: Db): Promise<Source> {
   };
 }
 
-/** Beendete Spiele dauerhaft speichern – aber nie ein bereits beendetes überschreiben. */
+/**
+ * Beendete Spiele dauerhaft speichern. Ein gespeichertes Ergebnis wird nur
+ * überschrieben, wenn die Quelle das Spiel weiterhin als beendet meldet, aber
+ * mit anderem Stand oder anderen Teams – also nachträglich korrigiert hat.
+ * Verschwindet ein Spiel aus der Quelle oder gilt es dort plötzlich wieder als
+ * offen, bleibt der gespeicherte Endstand.
+ */
 async function persistFinished(db: Db, list: LiveFixture[]) {
   const done = list.filter((f) => f.status === "finished" && f.score);
   if (done.length === 0) return;
   const { data: existing } = await db
     .from("match_results")
-    .select("external_id")
+    .select("external_id, fixture")
     .eq("finished", true)
     .in(
       "external_id",
       done.map((f) => f.externalId),
     );
-  const known = new Set((existing ?? []).map((r: { external_id: string }) => r.external_id));
+  const sig = (f?: LiveFixture | null) =>
+    f
+      ? JSON.stringify([
+          f.score?.home,
+          f.score?.away,
+          f.penalties?.home ?? null,
+          f.penalties?.away ?? null,
+          f.homeName ?? null,
+          f.awayName ?? null,
+        ])
+      : "";
+  const known = new Map(
+    (existing ?? []).map((r: { external_id: string; fixture: LiveFixture }) => [
+      r.external_id,
+      sig(r.fixture),
+    ]),
+  );
   const rows = done
-    .filter((f) => !known.has(f.externalId))
+    .filter((f) => known.get(f.externalId) !== sig(f))
     .map((f) => ({
       external_id: f.externalId,
       fixture: f,

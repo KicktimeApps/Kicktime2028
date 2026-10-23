@@ -79,8 +79,12 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
   // Zwischenstand = Tor mit dem höchsten Gesamtstand (bei Gleichstand das
   // zuletzt gelieferte). Unabhängig von Reihenfolge oder fehlender Minute.
   // Tore aus dem Elfmeterschießen stehen in derselben Liste (Elfmeter ab der
-  // 120. Minute) – sie zählen nicht zum Spielstand.
-  const isShootout = (g: OlGoal) => g.isPenalty === true && (g.matchMinute ?? 0) >= 120;
+  // 120. Minute) – sie zählen nicht zum Spielstand. Manchmal fehlt die Minute
+  // (EM 2024, Portugal – Slowenien); dann zählt ein Elfmeter, der erst nach
+  // Ende der Verlängerung (2,5 Std. nach Anpfiff) gemeldet wird, als Schießen.
+  const lateByClock = !Number.isNaN(kickoff) && now - kickoff >= 150 * 60_000;
+  const isShootout = (g: OlGoal) =>
+    g.isPenalty === true && (g.matchMinute == null ? lateByClock : g.matchMinute >= 120);
   const shootout = (m.goals ?? []).some(isShootout);
   let lastGoal: OlGoal | undefined;
   for (const g of m.goals ?? []) {
@@ -349,7 +353,14 @@ export function applyLiveFixtures(
     // das Ergebnis statt der Paarung.
     const flipped = !!known?.home && !!known?.away && home === known.away && away === known.home;
     const flip = (s?: Score) => (s && flipped ? { home: s.away, away: s.home } : s);
-    if (!flipped) {
+    // K.-o.-Phase: Meldet die Quelle eine andere Paarung als berechnet, gilt
+    // die Quelle (Fair-Play-Wertung u. Ä. rechnen wir nicht nach). In der
+    // Gruppenphase bleibt die Auslosung maßgeblich, die Quelle füllt nur Lücken.
+    const ko = def.stage !== "group" && !!home && !!away && home !== away && !flipped;
+    if (ko && (home !== known?.home || away !== known?.away)) {
+      patch.home = home;
+      patch.away = away;
+    } else if (!flipped) {
       if (home && !known?.home) patch.home = home;
       if (away && !known?.away) patch.away = away;
     }
@@ -395,6 +406,8 @@ export function mergeLiveResults(
   primary: LiveApplyResult,
   backup: LiveApplyResult,
 ): LiveApplyResult {
+  const patches = { ...primary.patches };
+  for (const [id, b] of Object.entries(backup.patches)) patches[id] = { ...b, ...patches[id] };
   const results = { ...primary.results };
   for (const [id, b] of Object.entries(backup.results)) {
     const p = results[id];
@@ -402,10 +415,15 @@ export function mergeLiveResults(
       !p ||
       STATUS_RANK[b.status] > STATUS_RANK[p.status] ||
       (b.status === "live" && p.status === "live")
-    )
-      results[id] = b;
+    ) {
+      // Beide Quellen setzen die Teams, aber mit Heim/Gast vertauscht → der
+      // Spielstand der Zweitquelle muss zur Paarung der Hauptquelle passen.
+      const bp = backup.patches[id];
+      const mp = patches[id];
+      const swapped = !!bp?.home && !!bp.away && mp?.home === bp.away && mp?.away === bp.home;
+      const turn = (s?: Score) => (s && swapped ? { home: s.away, away: s.home } : s);
+      results[id] = swapped ? { ...b, score: turn(b.score), penalties: turn(b.penalties) } : b;
+    }
   }
-  const patches = { ...primary.patches };
-  for (const [id, b] of Object.entries(backup.patches)) patches[id] = { ...b, ...patches[id] };
   return { results, patches, unmatched: primary.unmatched };
 }

@@ -117,6 +117,23 @@ describe("Drittplatzierten-Tabelle", () => {
     ].sort((a, b) => a - b);
     expect(all).toEqual(Array.from({ length: 15 }, (_, i) => i + 37));
   });
+
+  it("jeder Sieger zieht genau einmal weiter, jeder Gruppenplatz genau einmal", () => {
+    const ko = FIXTURES.filter((f) => f.stage !== "group");
+    const used = new Map<number, number>();
+    for (const f of ko)
+      for (const slot of [f.home, f.away]) {
+        const w = slot.match(/^W(\d+)$/);
+        if (!w) continue;
+        expect(Number(w[1])).toBeLessThan(f.number);
+        used.set(Number(w[1]), (used.get(Number(w[1])) ?? 0) + 1);
+      }
+    for (const f of ko) expect(used.get(f.number) ?? 0).toBe(f.stage === "final" ? 0 : 1);
+    const places = ko.flatMap((f) => [f.home, f.away]).filter((s) => /^[12][A-F]$/.test(s));
+    expect([...places].sort()).toEqual(
+      ["1", "2"].flatMap((r) => GROUPS.map((g) => `${r}${g}`)).sort(),
+    );
+  });
 });
 
 describe("Nationen", () => {
