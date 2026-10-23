@@ -171,7 +171,10 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   Tore stehen in der normalen Torliste (Minute 120, `isPenalty`) und zählen nicht zum Spielstand.
 - **Vorschau-Modus:** Ergebnisse simuliert, **Tipprunden sind echt** (Server) – der Betreiber
   testet meist darin und lädt echte Leute ein. „Vorschau neu starten“ (Einstellungen → Vorschau-Modus,
-  `restartDemo`) setzt Uhr, Vorschau-Tipps und Vorschau-Feier zurück und lädt neu.
+  `restartDemo`) setzt Uhr, Vorschau-Tipps und Vorschau-Feier zurück und lädt neu. Die Vorschau übernimmt
+  **keine** Live-Daten und keine Korrekturen. Korrekturen (Team-Bereich → Korrektur) gelten immer
+  für die echten Spiele (gleiche Spielnummern!) – darum dort im Vorschau-Modus gesperrt, nur
+  „Echte Korrekturen entfernen“ bleibt.
 - **Tipprunden:** Code (6 Zeichen), Beitritt = Anfrage, Ersteller nimmt an. Tipps je Runde,
   Sperre ab Anpfiff (Server prüft, `kt_fixtures`), fremde Tipps erst ab Anpfiff sichtbar,
   Europameister-Bonustipp bis zum Eröffnungsspiel. Pillen „Tippen“ · „Vergleich“ · „Tabelle“:

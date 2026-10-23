@@ -9,6 +9,7 @@ import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { clearAllOverrides, clearOverride, setOverride } from "@/services/admin";
 import { refreshLiveData } from "@/services/live-data";
+import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";
 import { ConfirmButton } from "./shared";
 import { useAction } from "./use-action";
@@ -62,6 +63,7 @@ export function OverrideSection({ pin }: { pin: string }) {
   }, [matches, now, query]);
 
   const overrides = useMatchStore((s) => Object.keys(s.adminResults).length);
+  const demo = useAppStore((s) => s.demo.enabled);
   const { busy, run } = useAction();
   return (
     <div className="space-y-3">
@@ -87,27 +89,54 @@ export function OverrideSection({ pin }: { pin: string }) {
           </ConfirmButton>
         </div>
       )}
-      <p className="text-[12.5px] text-muted-foreground">
-        OpenLigaDB gibt vor. Eine Korrektur überbrückt nur, wenn die Quelle hängt: Sobald dort ein
-        neuer Stand ankommt (z. B. das Tor oder das Spielende), gilt automatisch wieder OpenLigaDB.
-      </p>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Team, Datum oder #Nummer suchen …"
-        className="h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
-      />
-      {list.length === 0 && (
-        <p className="text-[13px] text-muted-foreground">
-          {query ? "Nichts gefunden." : "Noch keine Paarungen bekannt."}
-        </p>
+      {demo ? (
+        // Die Vorschau zeigt erfundene Spiele mit denselben Nummern wie die
+        // echten – eine Korrektur hier landete im echten Turnier bei allen Nutzern.
+        <div className="space-y-2.5 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2.5 text-[13px]">
+          <p>
+            <b>Vorschau-Modus ist an.</b> Korrekturen gelten immer für die echten Spiele und wären
+            für alle Nutzer sichtbar – deshalb hier gesperrt. In der Vorschau ändern sie nichts. Zum
+            Korrigieren die Vorschau beenden.
+          </p>
+          <ConfirmButton
+            variant="danger-outline"
+            className="h-9 px-3 text-[13px]"
+            icon={<Trash2 />}
+            busy={busy === "all"}
+            title="Alle echten Korrekturen entfernen?"
+            text="Falls in der Vorschau schon etwas korrigiert wurde: Danach gelten für alle Spiele wieder nur die Live-Daten."
+            confirm="Alle entfernen"
+            onConfirm={() => run("all", () => clearAllOverrides(pin), "Alle Korrekturen entfernt")}
+          >
+            Echte Korrekturen entfernen
+          </ConfirmButton>
+        </div>
+      ) : (
+        <>
+          <p className="text-[12.5px] text-muted-foreground">
+            OpenLigaDB gibt vor. Eine Korrektur überbrückt nur, wenn die Quelle hängt: Sobald dort
+            ein neuer Stand ankommt (z. B. das Tor oder das Spielende), gilt automatisch wieder
+            OpenLigaDB.
+          </p>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Team, Datum oder #Nummer suchen …"
+            className="h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] outline-none focus:border-primary"
+          />
+          {list.length === 0 && (
+            <p className="text-[13px] text-muted-foreground">
+              {query ? "Nichts gefunden." : "Noch keine Paarungen bekannt."}
+            </p>
+          )}
+          <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {list.map((m) => (
+              <OverrideRowKeyed key={m.id} pin={pin} matchId={m.id} />
+            ))}
+          </ul>
+        </>
       )}
-      <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-        {list.map((m) => (
-          <OverrideRowKeyed key={m.id} pin={pin} matchId={m.id} />
-        ))}
-      </ul>
     </div>
   );
 }
