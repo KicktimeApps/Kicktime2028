@@ -13,7 +13,7 @@ export function DemoBanner() {
       <FlaskConical className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">
         Vorschau · {meta?.label}
-        <span className="font-normal opacity-80"> · nur ausgedacht</span>
+        <span className="font-normal"> · nur ausgedacht</span>
       </span>
       <button
         type="button"

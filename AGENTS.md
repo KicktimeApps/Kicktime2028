@@ -176,6 +176,9 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 - **Rundgang Tipp-Seite:** beim ersten Besuch (`tipsTourDone`), Ziele per `data-tour="…"`
   (`CoachTour`, `TipsTour`); dazu ein eigener Rundgang beim ersten Öffnen einer Tipprunde (`roundTourDone`, `RoundTour`). Fehlende Ziele werden übersprungen. Erneut über ⓘ → „Einführung
   noch mal ansehen“.
+- **Schutz-Header:** `src/server.ts` setzt über `lib/security-headers.ts` u. a. kein Einbetten in
+  fremde Seiten, `nosniff`, HSTS und sperrt Kamera/Mikrofon/Standort. Bewusst keine volle CSP
+  (Startskripte stehen inline). Nutzt die App neue Browser-Rechte, dort freigeben.
 - **Link-Vorschau:** `src/server.ts` ergänzt jede HTML-Seite um Vorschaubild/-adresse
   (`share-meta.ts`, Bilder `public/og-app.png`, `og-invite.png`). Einladungen zeigen bewusst
   keinen Rundennamen (sonst per Code-Raten auslesbar).
