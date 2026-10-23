@@ -809,10 +809,11 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
         </AlertDialog>
       </div>
 
-      {/* 5× tippen öffnet den Admin-Bereich */}
+      {/* 5× tippen öffnet den Admin-Bereich – geheim: kein Eindrücken, kein Zeiger */}
       <button
         type="button"
-        className="mx-auto mt-5 block px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
+        data-still
+        className="mx-auto mt-5 block cursor-default px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
         onClick={() => {
           const now = Date.now();
           if (now - taps.current.t > 1500) taps.current.n = 0;

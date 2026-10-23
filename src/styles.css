@@ -155,9 +155,12 @@
 }
 
 /* Antippen gibt sichtbar nach – bei allen Knöpfen, Links und Reitern.
-   (Eigene scale-Klassen einzelner Elemente haben Vorrang.) */
+   (Eigene scale-Klassen einzelner Elemente haben Vorrang. `data-still` = bewusst
+   ohne Rückmeldung, z. B. der versteckte Zugang zum Team-Bereich.) */
 @media (prefers-reduced-motion: no-preference) {
-  :where(button, a[href], [role="button"], [role="tab"], [role="switch"]):not(:disabled):active {
+  :where(button, a[href], [role="button"], [role="tab"], [role="switch"]):not(:disabled):not(
+      [data-still]
+    ):active {
     scale: 0.97;
   }
 }
