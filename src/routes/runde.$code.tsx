@@ -29,6 +29,7 @@ import { Segmented } from "@/components/common/Segmented";
 import { AppealBlock } from "@/components/tipgroups/AppealBlock";
 import { GroupFormDrawer, RulesButton } from "@/components/tipgroups/TipGroups";
 import { RoundTour } from "@/components/tipgroups/TipsTour";
+import { TipCompare } from "@/components/tipgroups/TipCompare";
 import { TipPanel } from "@/components/tipgroups/TipPanel";
 import type { TipContext } from "@/lib/tips";
 import { TIP_GROUPS_KEY, useMyGroups } from "@/hooks/useMyGroups";
@@ -400,7 +401,7 @@ function BoardView({
 }) {
   const tournament = useTournament();
   const demo = useAppStore((s) => s.demo.enabled);
-  const [tab, setTab] = useState<"tippen" | "tabelle">("tippen");
+  const [tab, setTab] = useState<"tippen" | "vergleich" | "tabelle">("tippen");
   // Diese Runde wird zur gewählten – auch das Spiel-Detail tippt dann hierfür.
   const setTipContext = useAppStore((s) => s.setTipContext);
   useEffect(() => setTipContext(context.id), [context.id, setTipContext]);
@@ -519,12 +520,13 @@ function BoardView({
       )}
 
       <div data-tour="round-tabs" className="mb-3">
-        <Segmented<"tippen" | "tabelle">
+        <Segmented<"tippen" | "vergleich" | "tabelle">
           size="lg"
           value={tab}
           onChange={setTab}
           options={[
             { value: "tippen", label: "Tippen" },
+            { value: "vergleich", label: "Vergleich" },
             { value: "tabelle", label: "Tabelle" },
           ]}
         />
@@ -540,6 +542,15 @@ function BoardView({
         )}
         <TipPanel ctx={context} showStats={false} />
       </div>
+      {tab === "vergleich" && (
+        <TipCompare
+          members={members}
+          rows={rows}
+          isVisible={isVisible}
+          onSelect={setSelected}
+          demo={demo}
+        />
+      )}
       {tab === "tabelle" && (
         <>
           {hiddenIds.length > 0 && (

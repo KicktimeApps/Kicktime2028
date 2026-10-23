@@ -152,7 +152,9 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   testet meist darin und lädt echte Leute ein.
 - **Tipprunden:** Code (6 Zeichen), Beitritt = Anfrage, Ersteller nimmt an. Tipps je Runde,
   Sperre ab Anpfiff (Server prüft, `kt_fixtures`), fremde Tipps erst ab Anpfiff sichtbar,
-  Europameister-Bonustipp bis zum Eröffnungsspiel. Max. 50 Mitglieder/Runde, 10 Runden und 5 selbst erstellte Runden je Gerät.
+  Europameister-Bonustipp bis zum Eröffnungsspiel. Pillen „Tippen“ · „Vergleich“ · „Tabelle“:
+  „Vergleich“ (`TipCompare.tsx`, `domain/compare.ts`) zeigt je Spieltag alle Tipps mit Punkten
+  wie bei Kicktipp – bewusst schlicht, ein Tag, höchstens vier Spalten. Max. 50 Mitglieder/Runde, 10 Runden und 5 selbst erstellte Runden je Gerät.
 - **Rauswerfen (Ersteller):** „Entfernen“ (darf mit Code neu anfragen) oder „Sperren“ (erst nach
   Entsperren durch den Ersteller). Gesperrte sehen einen Vollbild-Hinweis.
 - **Sperren durch das Team (Admin):** in einer Runde oder **überall** (kein Beitreten/Erstellen,

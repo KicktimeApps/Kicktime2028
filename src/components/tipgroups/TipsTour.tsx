@@ -145,8 +145,8 @@ export function RoundTour({ name, isOwner }: { name: string; isOwner: boolean })
     },
     {
       target: "round-tabs",
-      title: "Tippen und Tabelle",
-      body: "Unter „Tippen“ gibst du deine Tipps ab, unter „Tabelle“ siehst du den Stand der Runde.",
+      title: "Tippen, Vergleich, Tabelle",
+      body: "Unter „Tippen“ gibst du deine Tipps ab, unter „Vergleich“ siehst du ab Anpfiff, was alle getippt haben, und unter „Tabelle“ den Stand der Runde.",
     },
     {
       target: "tip-input",
