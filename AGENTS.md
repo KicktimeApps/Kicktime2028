@@ -173,7 +173,9 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   Sperre: ein offener Antrag, nach Ablehnung 7 Tage Pause, höchstens 3. Nach Annahme
   einmaliger Hinweis „Entsperrt!“ (bei Ersteller-Sperre mit Code + „Wieder beitreten“).
 - **Mitteilungen an das Team** gehen nur an Geräte, die im Admin per PIN eingetragen wurden.
-- **Admin-Bereich:** Einstellungen → 5× auf die Versionsnummer tippen → PIN. PIN bleibt nur im
+- **Admin-Bereich:** Einstellungen → 5× auf die Versionsnummer tippen → PIN (Zählung in
+  `lib/secret-taps.ts`; die Zeile ist bewusst kein Knopf und nicht markierbar, damit nichts
+  die Stelle verrät – die Version schickt das Feedback ohnehin automatisch mit). PIN bleibt nur im
   Speicher des offenen App-Fensters (30 Min.), nie gespeichert. Bereiche: Übersicht,
   Live-Daten, Korrektur, Tipprunden, Anträge, Mitteilungen, Statistik, System.
 - **Statistik:** zählt alle echten Nutzer (nicht nur Push), Bots/Automatisierung werden

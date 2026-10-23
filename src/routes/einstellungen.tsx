@@ -45,6 +45,7 @@ import { usePrefs } from "@/hooks/usePrefs";
 import { downloadIcs } from "@/lib/calendar";
 import { submitFeedback, type FeedbackCategory, type FeedbackRating } from "@/lib/feedback";
 import { haptics } from "@/lib/haptics";
+import { nextTap } from "@/lib/secret-taps";
 import { detectPushSupport } from "@/lib/notifications";
 import { hasPushBackend, sendTestPush, syncServerAlarms, syncTipReminders } from "@/lib/push";
 import { enableReminders } from "@/lib/reminders";
@@ -809,23 +810,16 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
         </AlertDialog>
       </div>
 
-      {/* 5× tippen öffnet den Admin-Bereich. Geheim: bewusst kein Knopf – nicht per
-          Tastatur anwählbar, kein Fokus-Rahmen, kein Eindrücken; liest sich wie Text. */}
+      {/* 5× tippen öffnet den Team-Bereich (secret-taps.ts). Geheim: bewusst kein
+          Knopf (nicht per Tastatur anwählbar, kein Fokus-Rahmen, kein Eindrücken) und
+          nicht markierbar – schnelles Tippen markiert sonst Text. Die Version braucht
+          niemand zu kopieren: Feedback schickt sie automatisch mit. */}
       <p
-        className="mx-auto mt-5 w-fit touch-manipulation px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
-        // Schnelles Klicken am Computer markiert sonst Wörter bzw. die ganze Zeile.
-        onMouseDown={(e) => {
-          if (e.detail > 1) e.preventDefault();
-        }}
+        className="mx-auto mt-5 w-fit touch-manipulation select-none px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
         onClick={() => {
-          // Text markiert (z. B. zum Kopieren der Version) zählt nicht als Tippen.
-          if (window.getSelection()?.toString()) return;
-          const now = Date.now();
-          if (now - taps.current.t > 1500) taps.current.n = 0;
-          taps.current.n++;
-          taps.current.t = now;
-          if (taps.current.n >= 5) {
-            taps.current.n = 0;
+          const r = nextTap(taps.current, Date.now());
+          taps.current = r.state;
+          if (r.open) {
             haptics.success();
             setAdminOpen(true);
           }
