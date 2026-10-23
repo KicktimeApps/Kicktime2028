@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Trophy, X } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Flag } from "@/components/team/Flag";
 import { tournamentWinner } from "@/domain/status";
 import { useAppStore } from "@/store/app-store";
@@ -35,16 +36,37 @@ export function ChampionCelebration() {
     [],
   );
   const close = () => key && setCelebrated(key);
+  const shown = open && !!nation;
 
-  return (
+  // Seite dahinter sperren: kein Scrollen, Escape schließt.
+  useEffect(() => {
+    if (!shown) return;
+    const html = document.documentElement;
+    const prev = [html.style.overflow, document.body.style.overflow];
+    html.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      [html.style.overflow, document.body.style.overflow] = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+    // close ändert sich mit jedem Rendern, hängt aber nur an key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, key]);
+
+  if (typeof document === "undefined") return null;
+  // Direkt an <body>: Eltern mit Animation/transform würden „fixed“ sonst auf
+  // ihren Bereich beschränken – auf dem iPhone stand die Feier dann irgendwo
+  // weiter unten auf der Seite statt mittig auf dem Bildschirm.
+  return createPortal(
     <AnimatePresence>
       {open && nation && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-6 backdrop-blur-sm"
-          onClick={close}
+          className="fixed inset-0 z-[100] flex touch-none items-center justify-center overscroll-none bg-black/75 px-6 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label={`${nation.name} ist Europameister`}
@@ -65,7 +87,6 @@ export function ChampionCelebration() {
             initial={{ scale: 0.9, y: 16 }}
             animate={{ scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 240, damping: 22 }}
-            onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-gold/40 bg-card p-8 text-center"
           >
             <div className="gold-shimmer pointer-events-none absolute inset-0" aria-hidden />
@@ -96,6 +117,7 @@ export function ChampionCelebration() {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
