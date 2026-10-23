@@ -1,35 +1,38 @@
-import { localParts } from "./time";
+import type { Round } from "./rounds";
 import type { MatchView } from "./types";
 
 /**
- * Tipp-Vergleich in der Tipprunde: Spiele nach Spieltag (Kalendertag in der
- * Zeitzone des Nutzers) gruppieren und den Tag wählen, der gerade zählt.
+ * Tipp-Vergleich in der Tipprunde – aufgebaut wie bei Kicktipp: ein Spieltag
+ * (gleiche Einteilung wie beim Tippen, siehe rounds.ts), darin immer gleich
+ * viele Spiele nebeneinander, mit Pfeilen blättern.
  */
-export type MatchDay = { key: string; matches: MatchView[] };
 
-export function matchDays(matches: MatchView[], timeZone: string): MatchDay[] {
-  const byDay = new Map<string, MatchView[]>();
-  const sorted = [...matches].sort(
-    (a, b) => Date.parse(a.kickoffUtc) - Date.parse(b.kickoffUtc) || a.number - b.number,
-  );
-  for (const m of sorted) {
-    const key = localParts(m.kickoffUtc, timeZone).dayKey;
-    const list = byDay.get(key);
-    if (list) list.push(m);
-    else byDay.set(key, [m]);
+/**
+ * Welcher Spieltag zuerst erscheint: der mit einem laufenden Spiel, sonst der
+ * letzte mit angepfiffenen Spielen, sonst der erste.
+ */
+export function defaultRoundIndex(rounds: Round[]): number {
+  const live = rounds.findIndex((r) => r.matches.some((m) => m.status === "live"));
+  if (live >= 0) return live;
+  for (let i = rounds.length - 1; i >= 0; i--) {
+    if (rounds[i].matches.some((m) => m.status !== "scheduled")) return i;
   }
-  return [...byDay].map(([key, list]) => ({ key, matches: list }));
+  return 0;
 }
 
 /**
- * Welcher Tag zuerst erscheint: der mit einem laufenden Spiel, sonst der
- * letzte Tag mit angepfiffenen Spielen, sonst der erste Tag des Turniers.
+ * Erste Seite (Index des ersten Spiels) beim Öffnen eines Spieltags: die mit
+ * dem laufenden Spiel, sonst die mit dem zuletzt angepfiffenen, sonst vorne.
  */
-export function defaultDayIndex(days: MatchDay[]): number {
-  const live = days.findIndex((d) => d.matches.some((m) => m.status === "live"));
-  if (live >= 0) return live;
-  for (let i = days.length - 1; i >= 0; i--) {
-    if (days[i].matches.some((m) => m.status !== "scheduled")) return i;
+export function defaultPageStart(matches: MatchView[], size: number): number {
+  let i = matches.findIndex((m) => m.status === "live");
+  if (i < 0) {
+    for (let j = matches.length - 1; j >= 0; j--) {
+      if (matches[j].status !== "scheduled") {
+        i = j;
+        break;
+      }
+    }
   }
-  return 0;
+  return i < 0 ? 0 : Math.floor(i / size) * size;
 }
