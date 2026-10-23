@@ -116,7 +116,7 @@ export const fetchAlerts = (pin: string) =>
   invoke<{ alerts: WatchAlert[] | null }>({ action: "alerts", pin });
 /** Test-Mitteilung an alle eingetragenen Team-Geräte. */
 export const sendAlertTest = (pin: string) =>
-  invoke<{ ok: true; count: number }>({ action: "alert_test", pin });
+  invoke<{ ok: true; count: number; skipped?: number }>({ action: "alert_test", pin });
 
 /** Alle Tipprunden auf dem Server löschen (mit Mitgliedern und Tipps). */
 export const deleteAllTipGroups = (pin: string) =>
@@ -259,6 +259,15 @@ export const unbanGlobal = (
   target: { device: string } | { groupId: string; memberId: string },
 ) => invoke<{ data: number }>({ action: "unban_global", pin, ...target });
 
-/** Mitteilungen über neue Anträge an dieses Gerät: abfragen ("") oder ändern. */
+export type TeamDeviceState = {
+  registered: boolean;
+  count: number;
+  /** Eingetragene Geräte mit Mitteilungs-Abo (fehlt bei älterer Server-Version). */
+  reachable?: number;
+  /** Hat dieses Gerät ein Mitteilungs-Abo? (fehlt bei älterer Server-Version) */
+  selfPush?: boolean;
+};
+
+/** Team-Mitteilungen an dieses Gerät: abfragen ("") oder ändern. */
 export const teamDevice = (pin: string, deviceId: string, mode: "" | "on" | "off" | "only") =>
-  invoke<{ registered: boolean; count: number }>({ action: "team_device", pin, deviceId, mode });
+  invoke<TeamDeviceState>({ action: "team_device", pin, deviceId, mode });

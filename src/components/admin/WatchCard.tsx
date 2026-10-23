@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { fetchAlerts, sendAlertTest, type WatchAlert } from "@/services/admin";
 import { ActionButton, Card } from "./shared";
+import { TeamDeviceRow } from "./TeamDevice";
 import { fmtTime, useAction } from "./use-action";
 
 /**
@@ -69,6 +70,7 @@ export function WatchCard({ pin }: { pin: string }) {
           ))}
         </ul>
       )}
+      <TeamDeviceRow pin={pin} />
       <ActionButton
         icon={<BellRing />}
         busy={busy === "test"}
@@ -76,7 +78,9 @@ export function WatchCard({ pin }: { pin: string }) {
           run(
             "test",
             () => sendAlertTest(pin),
-            (d) => `Test an ${d.count} Gerät${d.count === 1 ? "" : "e"} – kommt in etwa 1 Minute`,
+            (d) =>
+              `Test an ${d.count} Gerät${d.count === 1 ? "" : "e"} – kommt in etwa 1 Minute` +
+              (d.skipped ? ` (${d.skipped} ohne Mitteilungen übersprungen)` : ""),
           )
         }
         className="w-full"

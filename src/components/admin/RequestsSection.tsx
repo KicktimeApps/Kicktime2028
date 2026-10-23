@@ -1,19 +1,16 @@
-import { BellRing, Check, RefreshCw, Undo2, X } from "lucide-react";
+import { Check, RefreshCw, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Switch } from "@/components/ui/switch";
-import { getDeviceId } from "@/lib/device-id";
 import { cn } from "@/lib/utils";
 import {
   decideRequest,
   fetchGlobalBans,
   fetchRequests,
-  teamDevice,
   unbanGlobal,
   type GlobalBan,
   type UnbanRequest,
 } from "@/services/admin";
-import { useAppStore } from "@/store/app-store";
 import { ActionButton, Card, ConfirmButton } from "./shared";
+import { TeamDeviceRow } from "./TeamDevice";
 import { fmtTime, useAction } from "./use-action";
 
 /** Entsperrungsanträge, „überall gesperrt“ und Mitteilungen an dieses Gerät. */
@@ -40,7 +37,12 @@ export function RequestsSection({ pin, onChange }: { pin: string; onChange?: () 
 
   return (
     <div className="space-y-3 text-[13.5px]">
-      <TeamDeviceCard pin={pin} />
+      <Card
+        title="Mitteilungen ans Team"
+        text="Neue Anträge und Warnungen des Wächters gehen nur an eingetragene Geräte."
+      >
+        <TeamDeviceRow pin={pin} />
+      </Card>
 
       <div className="flex items-center justify-between">
         <h3 className="text-[14.5px] font-semibold">
@@ -198,62 +200,5 @@ function RequestCard({
         </ActionButton>
       </div>
     </div>
-  );
-}
-
-/**
- * Mitteilungen über neue Anträge – nur an Geräte, die hier mit der PIN
- * eingetragen wurden. Kein anderes Gerät kann sich selbst eintragen.
- */
-function TeamDeviceCard({ pin }: { pin: string }) {
-  const pushEnabled = useAppStore((s) => s.pushEnabled);
-  const { busy, run } = useAction();
-  const [state, setState] = useState<{ registered: boolean; count: number } | null>(null);
-  const device = getDeviceId();
-  useEffect(() => {
-    void teamDevice(pin, device, "").then((r) => r.ok && setState(r.data));
-  }, [pin, device]);
-  const set = async (mode: "on" | "off" | "only", msg: string) => {
-    const res = await run("device", () => teamDevice(pin, device, mode), msg);
-    if (res) setState(res);
-  };
-  return (
-    <Card
-      title="Mitteilungen über neue Anträge"
-      text={
-        pushEnabled
-          ? "Nur Geräte, die hier eingeschaltet werden, bekommen eine Mitteilung."
-          : "Erst auf diesem Gerät Erinnerungen in den Einstellungen einschalten."
-      }
-      action={
-        <Switch
-          checked={!!state?.registered}
-          disabled={!state || !pushEnabled || busy === "device"}
-          onCheckedChange={(v) =>
-            set(v ? "on" : "off", v ? "Dieses Gerät bekommt Mitteilungen" : "Ausgeschaltet")
-          }
-          aria-label="Mitteilungen über neue Anträge an dieses Gerät"
-        />
-      }
-    >
-      {state && state.count > 0 && (
-        <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
-          <BellRing className="h-3.5 w-3.5" />
-          <span className="flex-1">
-            {state.count} {state.count === 1 ? "Gerät eingetragen" : "Geräte eingetragen"}
-            {state.registered ? " (auch dieses)" : ""}
-          </span>
-          {state.registered && state.count > 1 && (
-            <button
-              type="button"
-              onClick={() => set("only", "Nur noch dieses Gerät")}
-              className="font-semibold text-foreground underline-offset-2 hover:underline"
-            >
-              Nur dieses Gerät
-            </button>
-          )}
-        </div>
-      )}
-    </Card>
   );
 }

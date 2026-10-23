@@ -179,7 +179,10 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   Team-Sperren entscheidet das Team (Admin → Anträge), Ersteller-Sperren der Ersteller. Je
   Sperre: ein offener Antrag, nach Ablehnung 7 Tage Pause, höchstens 3. Nach Annahme
   einmaliger Hinweis „Entsperrt!“ (bei Ersteller-Sperre mit Code + „Wieder beitreten“).
-- **Mitteilungen an das Team** gehen nur an Geräte, die im Admin per PIN eingetragen wurden.
+- **Mitteilungen an das Team** gehen nur an Geräte, die im Admin per PIN eingetragen wurden
+  (`app_config` „admin_devices“, Schalter `TeamDeviceRow` unter Anträge und im Wächter). Neue
+  Installation = neue Geräte-ID → altes Gerät „tot“: die Karte warnt, Eintragen sortiert Geräte
+  ohne Mitteilungs-Abo aus, der Wächter-Test überspringt sie.
 - **Admin-Bereich:** Einstellungen → 5× auf die Versionsnummer tippen → PIN (Zählung in
   `lib/secret-taps.ts`; die Zeile ist bewusst kein Knopf und nicht markierbar, damit nichts
   die Stelle verrät – die Version schickt das Feedback ohnehin automatisch mit). PIN bleibt nur im

@@ -40,6 +40,14 @@ function preflight(req: Request): Response | null {
     : null;
 }
 
+/** Welche dieser Geräte ein Mitteilungs-Abo haben (nur an die kommt etwas an). */
+// deno-lint-ignore no-explicit-any
+async function withPush(db: any, devices: string[]): Promise<Set<string>> {
+  if (devices.length === 0) return new Set();
+  const { data } = await db.from("push_subscriptions").select("device_id").in("device_id", devices);
+  return new Set(((data ?? []) as { device_id: string }[]).map((r) => r.device_id));
+}
+
 function env(name: string, fallback?: string): string {
   const v = Deno.env.get(name) ?? fallback;
   if (v === undefined) throw new Error(`Secret ${name} fehlt`);
@@ -585,7 +593,7 @@ Deno.serve(async (req) => {
     case "global_bans":
       return rpc("kt_admin_global_bans");
 
-    // Mitteilungen über neue Anträge: nur ausdrücklich eingetragene Geräte.
+    // Team-Mitteilungen (Anträge, Wächter): nur ausdrücklich eingetragene Geräte.
     case "team_device": {
       const device = String(body.deviceId ?? "");
       if (!UUID.test(device)) return json({ error: "Ungültiges Gerät" }, 400);
@@ -595,7 +603,11 @@ Deno.serve(async (req) => {
         .eq("key", "admin_devices")
         .maybeSingle();
       let list: string[] = Array.isArray(row?.value?.devices) ? row.value.devices : [];
-      if (body.mode === "on") list = [...new Set([...list, device])].slice(-5);
+      const live = await withPush(db, [...list, device]);
+      // Beim Eintragen Geräte ohne Mitteilungs-Abo aussortieren (z. B. App neu
+      // installiert → neue Geräte-ID): an die käme nie etwas an.
+      if (body.mode === "on")
+        list = [...new Set([...list.filter((d) => live.has(d)), device])].slice(-5);
       if (body.mode === "off") list = list.filter((d) => d !== device);
       if (body.mode === "only") list = [device];
       if (body.mode) {
@@ -606,7 +618,14 @@ Deno.serve(async (req) => {
         });
         if (error) return json({ error: "Speichern fehlgeschlagen" }, 500);
       }
-      return json({ ok: true, registered: list.includes(device), count: list.length });
+      return json({
+        ok: true,
+        registered: list.includes(device),
+        count: list.length,
+        // Wie viele eingetragene Geräte wirklich Mitteilungen empfangen können.
+        reachable: list.filter((d) => live.has(d)).length,
+        selfPush: live.has(device),
+      });
     }
 
     // ---- Wächter ----
@@ -632,8 +651,18 @@ Deno.serve(async (req) => {
       const devices: string[] = Array.isArray(row?.value?.devices) ? row.value.devices : [];
       if (devices.length === 0)
         return json({ error: "Kein Gerät für Team-Mitteilungen eingetragen" }, 400);
+      const live = await withPush(db, devices);
+      const targets = devices.filter((d) => live.has(d));
+      if (targets.length === 0)
+        return json(
+          {
+            error:
+              "Kein eingetragenes Gerät kann Mitteilungen empfangen – dieses Gerät neu eintragen",
+          },
+          400,
+        );
       const { error } = await db.from("kt_push_queue").insert(
-        devices.map((d) => ({
+        targets.map((d) => ({
           device_id: d,
           title: "🔔 KickTime-Wächter: Test",
           body: "So sehen Warnungen aus, wenn Live-Daten ausfallen.",
@@ -643,7 +672,7 @@ Deno.serve(async (req) => {
       );
       return error
         ? json({ error: "Speichern fehlgeschlagen" }, 500)
-        : json({ ok: true, count: devices.length });
+        : json({ ok: true, count: targets.length, skipped: devices.length - targets.length });
     }
 
     case "owner_transfer":
