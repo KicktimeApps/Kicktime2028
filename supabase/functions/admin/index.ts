@@ -14,7 +14,7 @@
  * Für „broadcast“ (Push an alle) dieselben Secrets wie send-push-reminders:
  * VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import webpush from "npm:web-push@3.6.7";
 
 // ---------- Helfer (bewusst in dieser Datei, damit sie sich einzeln ins Dashboard kopieren lässt) ----------

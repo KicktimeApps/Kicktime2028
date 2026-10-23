@@ -16,7 +16,7 @@
  * Anfragen aus Rechenzentren (403), erlaubt aber Browser (CORS). Gespeichert
  * werden nur Endergebnisse der Hauptquelle.
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 
 // ---------- Helfer (bewusst in dieser Datei, damit sie sich einzeln ins Dashboard kopieren lässt) ----------
 
