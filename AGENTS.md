@@ -43,8 +43,9 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 - Domain-Plan (noch nicht umgesetzt): `kicktime.app` mit `em28.` (App 2028), `hilfe28.`
   (Support 2028), `wm26.` (App 2026), `hilfe26.` (Support 2026). Alte Adressen
   (`kicktime2026.de`, `app.kicktime2026.de`) leiten per Cloudflare-Redirect-Rule weiter. Bis
-  dahin ist `https://app.kicktime2028.de` auf der Supportseite nur ein Platzhalter und
-  `LEGAL_URL` in `src/tournament/config.ts` zeigt noch auf kicktime2026.de.
+  dahin ist `https://app.kicktime2028.de` auf der Supportseite nur ein Platzhalter.
+  `LEGAL_URL` (`src/tournament/config.ts`) zeigt auf die Supportseite 2028
+  `https://kicktime2028-landingpage.ben-online35.workers.dev` (`/datenschutz`, `/impressum`).
 
 ## 3. Technik
 
@@ -148,6 +149,12 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 
 - **Turnier:** EURO 2028 (GB & Irland), 24 Teams, 51 Spiele, 9.6.–9.7.2028. Live-Daten von
   OpenLigaDB (`em/2028`), Admin-Korrekturen überbrücken nur, bis die Quelle Neues meldet.
+  Geprüft mit echten EM-2024-Daten (Okt. 2026): `em/2024` und ESPN `uefa.euro` lieferten alle 51
+  Spiele, Ergebnisse identisch. `em/2028` ist dort noch leer – die Community legt die Liga erst
+  vor dem Turnier an; vorher im KickTime-Team-Bereich → Live-Daten → „Testen“ prüfen, ggf.
+  Kürzel umstellen. Achtung: OpenLigaDB-Teamnamen können falsch sein (2024 hieß Frankreich
+  „SV Großefehn“) – die Zuordnung fällt dann auf Tag + Stadion/Uhrzeit zurück. Elfmeterschießen-
+  Tore stehen in der normalen Torliste (Minute 120, `isPenalty`) und zählen nicht zum Spielstand.
 - **Vorschau-Modus:** Ergebnisse simuliert, **Tipprunden sind echt** (Server) – der Betreiber
   testet meist darin und lädt echte Leute ein.
 - **Tipprunden:** Code (6 Zeichen), Beitritt = Anfrage, Ersteller nimmt an. Tipps je Runde,
@@ -172,7 +179,8 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 - **Statistik:** zählt alle echten Nutzer (nicht nur Push), Bots/Automatisierung werden
   ausgefiltert, gemeldet erst nach echter Bedienung. Keine IP, kein User-Agent gespeichert.
 - **Einführung:** Willkommen → Installieren (nur im Browser auf Handy/Tablet, Browser-
-  Erkennung, auf Android echter Installieren-Knopf) → Teams → Zeit → Mitteilungen → Fertig.
+  Erkennung, auf Android echter Installieren-Knopf) → Hell/Dunkel (dunkel empfohlen und
+  vorausgewählt) → Teams → Zeit → Mitteilungen → Fertig.
   Auf dem iPhone speichert die Home-Bildschirm-App getrennt von Safari.
 - **Rundgang Tipp-Seite:** beim ersten Besuch (`tipsTourDone`), Ziele per `data-tour="…"`
   (`CoachTour`, `TipsTour`); dazu ein eigener Rundgang beim ersten Öffnen einer Tipprunde (`roundTourDone`, `RoundTour`). Fehlende Ziele werden übersprungen. Erneut über ⓘ → „Einführung

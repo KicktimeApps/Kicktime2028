@@ -300,3 +300,63 @@ describe("mergeLiveResults", () => {
     expect(mergeLiveResults(p, b2).results[id].status).toBe("finished");
   });
 });
+
+describe("OpenLigaDB: echter Datensatz EM 2024 (Portugal – Frankreich, i. E.)", () => {
+  // Gekürzt aus https://api.openligadb.de/getmatchdata/em/2024 (Spiel 69386).
+  // Die Elfmeter stehen dort ungeordnet in der Torliste, alle mit Minute 120.
+  const shots: [number, number][] = [
+    [1, 1],
+    [2, 2],
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [2, 4],
+    [3, 4],
+    [3, 5],
+  ];
+  const real = {
+    matchID: 69386,
+    matchDateTimeUTC: "2024-07-05T19:00:00Z",
+    matchIsFinished: true,
+    team1: { teamName: "Portugal" },
+    team2: { teamName: "Frankreich" },
+    matchResults: [
+      { pointsTeam1: 0, pointsTeam2: 0, resultTypeID: 1, resultTypeKind: "HalfTime" },
+      { pointsTeam1: 0, pointsTeam2: 0, resultTypeID: 2, resultTypeKind: "After90Minutes" },
+      { pointsTeam1: 0, pointsTeam2: 0, resultTypeID: 4, resultTypeKind: "AfterExtraTime" },
+      { pointsTeam1: 3, pointsTeam2: 5, resultTypeID: 5, resultTypeKind: "AfterPenalties" },
+    ],
+    goals: shots.map(([a, b]) => ({
+      scoreTeam1: a,
+      scoreTeam2: b,
+      matchMinute: 120,
+      isPenalty: true,
+    })),
+    location: { locationCity: "Hamburg", locationStadium: "Volksparkstadion" },
+  };
+  const kickoff = Date.parse(real.matchDateTimeUTC);
+
+  it("beendet: 0:0, Elfmeterschießen 3:5", () => {
+    const f = fromOpenLiga(real, kickoff + 4 * 3_600_000);
+    expect(f).toMatchObject({ status: "finished", score: { home: 0, away: 0 } });
+    expect(f.penalties).toEqual({ home: 3, away: 5 });
+    expect(f).toMatchObject({ city: "Hamburg", stadium: "Volksparkstadion" });
+  });
+
+  it("während des Elfmeterschießens: Spielstand bleibt 0:0, Phase Elfmeter", () => {
+    const live = { ...real, matchIsFinished: false, matchResults: real.matchResults.slice(0, 2) };
+    const f = fromOpenLiga(live, kickoff + 140 * 60_000);
+    expect(f).toMatchObject({ status: "live", score: { home: 0, away: 0 }, phase: "penalties" });
+  });
+
+  it("ohne Ergebnis-Namen gilt die echte Typ-Nummer 4 als „nach Verlängerung“", () => {
+    const noKind = {
+      ...real,
+      matchResults: real.matchResults.map(({ resultTypeKind: _k, ...r }) => r),
+      goals: [],
+    };
+    const f = fromOpenLiga(noKind, kickoff + 4 * 3_600_000);
+    expect(f.score).toEqual({ home: 0, away: 0 });
+    expect(f.penalties).toEqual({ home: 3, away: 5 });
+  });
+});

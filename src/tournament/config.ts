@@ -74,9 +74,11 @@ export const SITE_URL = ((import.meta.env?.VITE_SITE_URL as string | undefined) 
   "",
 );
 
-/** Datenschutz & Impressum. */
-export const LEGAL_URL =
-  (import.meta.env?.VITE_LEGAL_URL as string | undefined) || "https://kicktime2026.de";
+/** Supportseite 2028 mit Datenschutz (/datenschutz) und Impressum (/impressum). */
+export const LEGAL_URL = (
+  (import.meta.env?.VITE_LEGAL_URL as string | undefined) ||
+  "https://kicktime2028-landingpage.ben-online35.workers.dev"
+).replace(/\/$/, "");
 
 /** Dauer eines Spiels inkl. Pause und Puffer – danach gilt es als beendet. */
 export const MATCH_WINDOW_MIN = 115;

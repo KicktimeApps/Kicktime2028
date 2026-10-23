@@ -10,6 +10,7 @@ import {
   EyeOff,
   FlaskConical,
   Info,
+  ShieldCheck,
   MessageSquareHeart,
   Palette,
   RotateCcw,
@@ -636,59 +637,56 @@ function FeedbackContent() {
         </div>
       </div>
 
-      {current && (
-        <>
-          <div>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              maxLength={1000}
-              rows={4}
-              placeholder={current.placeholder}
-              className="w-full resize-none rounded-xl border border-border bg-subtle px-3 py-2 text-[15px] outline-none focus:border-primary"
-            />
-            <div className="mt-1 text-right text-[11.5px] text-muted-foreground tabular">
-              {text.length}/1000
-            </div>
-          </div>
+      <div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          maxLength={1000}
+          rows={4}
+          placeholder={current?.placeholder ?? "Erzähl uns, was du denkst …"}
+          aria-label="Deine Nachricht"
+          className="w-full resize-none rounded-xl border border-border bg-subtle px-3 py-2 text-[15px] outline-none focus:border-primary"
+        />
+        <div className="mt-1 text-right text-[11.5px] text-muted-foreground tabular">
+          {text.length}/1000
+        </div>
+      </div>
 
-          <div>
-            <div className="mb-2 text-[13px] font-semibold">
-              Wie gefällt dir KickTime?{" "}
-              <span className="font-normal text-muted-foreground">(optional)</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {FEEDBACK_RATINGS.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  aria-pressed={rating === r.value}
-                  onClick={() => {
-                    haptics.tap();
-                    setRating(rating === r.value ? null : r.value);
-                  }}
-                  className={cn(chip(rating === r.value), "h-14 flex-col gap-0 text-[12.5px]")}
-                >
-                  <span className="text-xl leading-tight">{r.emoji}</span>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div>
+        <div className="mb-2 text-[13px] font-semibold">
+          Wie gefällt dir KickTime?{" "}
+          <span className="font-normal text-muted-foreground">(optional)</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {FEEDBACK_RATINGS.map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              aria-pressed={rating === r.value}
+              onClick={() => {
+                haptics.tap();
+                setRating(rating === r.value ? null : r.value);
+              }}
+              className={cn(chip(rating === r.value), "h-14 flex-col gap-0 text-[12.5px]")}
+            >
+              <span className="text-xl leading-tight">{r.emoji}</span>
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          <button
-            type="button"
-            onClick={send}
-            disabled={!ready || busy}
-            className="inline-flex h-12 w-full items-center justify-center rounded-full bg-primary text-[16px] font-semibold text-primary-foreground transition-opacity disabled:opacity-40"
-          >
-            {busy ? "Wird gesendet …" : "Absenden"}
-          </button>
-          <p className="text-center text-[12px] text-muted-foreground">
-            Anonym – ohne Namen oder Konto.
-          </p>
-        </>
-      )}
+      <button
+        type="button"
+        onClick={send}
+        disabled={!ready || busy}
+        className="inline-flex h-12 w-full items-center justify-center rounded-full bg-primary text-[16px] font-semibold text-primary-foreground transition-opacity disabled:opacity-40"
+      >
+        {busy ? "Wird gesendet …" : "Absenden"}
+      </button>
+      <p className="text-center text-[12px] text-muted-foreground">
+        {kind ? "Anonym – ohne Namen oder Konto." : "Wähle oben, worum es geht."}
+      </p>
     </Panel>
   );
 }
@@ -702,9 +700,24 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
   return (
     <div>
       <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
-        <a href={LEGAL_URL} target="_blank" rel="noopener noreferrer" className={row}>
+        <a
+          href={`${LEGAL_URL}/datenschutz`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={row}
+        >
+          <ShieldCheck className="h-[18px] w-[18px] text-muted-foreground" />
+          <span className="flex-1">Datenschutz</span>
+          <ExternalLink className="h-4 w-4 text-muted-foreground/60" />
+        </a>
+        <a
+          href={`${LEGAL_URL}/impressum`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={row}
+        >
           <Info className="h-[18px] w-[18px] text-muted-foreground" />
-          <span className="flex-1">Datenschutz & Impressum</span>
+          <span className="flex-1">Impressum</span>
           <ExternalLink className="h-4 w-4 text-muted-foreground/60" />
         </a>
         <AlertDialog>

@@ -69,7 +69,12 @@ type OlResult = {
   resultTypeID?: number;
   resultTypeKind?: string;
 };
-type OlGoal = { scoreTeam1: number; scoreTeam2: number; matchMinute?: number | null };
+type OlGoal = {
+  scoreTeam1: number;
+  scoreTeam2: number;
+  matchMinute?: number | null;
+  isPenalty?: boolean | null;
+};
 type OpenLigaMatch = {
   matchID: number;
   matchDateTimeUTC?: string;
@@ -92,10 +97,17 @@ function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
       ? { home: r.pointsTeam1, away: r.pointsTeam2 }
       : undefined;
   const pens = toScore(byKind("AfterPenalties", 5));
-  const afterEt = toScore(byKind("AfterExtraTime", 3));
+  // Typ-Nummern wie im echten Feed (EM 2024): 4 = nach Verlängerung, 5 = Elfmeterschießen.
+  const afterEt = toScore(byKind("AfterExtraTime", 4));
   const after90 = toScore(byKind("After90Minutes", 2));
   const half = toScore(byKind("HalfTime", 1));
-  const goals = [...(m.goals ?? [])].sort((a, b) => (a.matchMinute ?? 0) - (b.matchMinute ?? 0));
+  // Tore aus dem Elfmeterschießen stehen in derselben Liste (Elfmeter ab der
+  // 120. Minute) – sie zählen nicht zum Spielstand.
+  const isShootout = (g: OlGoal) => g.isPenalty === true && (g.matchMinute ?? 0) >= 120;
+  const shootout = (m.goals ?? []).some(isShootout);
+  const goals = (m.goals ?? [])
+    .filter((g) => !isShootout(g))
+    .sort((a, b) => (a.matchMinute ?? 0) - (b.matchMinute ?? 0));
   const last = goals[goals.length - 1];
   const fromGoals = last ? { home: last.scoreTeam1, away: last.scoreTeam2 } : undefined;
 
@@ -116,7 +128,8 @@ function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
       if (penalties.home === penalties.away) penalties = pens;
     }
   } else if (status === "live") {
-    score = fromGoals ?? afterEt ?? after90 ?? half ?? { home: 0, away: 0 };
+    // Steht der Stand nach Verlängerung schon fest, läuft das Elfmeterschießen.
+    score = afterEt ?? fromGoals ?? after90 ?? half ?? { home: 0, away: 0 };
   }
 
   let phase: LiveFixture["phase"];
@@ -124,6 +137,7 @@ function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
   if (status === "live" && !Number.isNaN(kickoff)) {
     minute = Math.max(1, Math.floor((now - kickoff) / 60_000));
     phase = minute < 47 ? "first" : minute < 62 ? "half" : minute <= 112 ? "second" : "extra";
+    if (shootout || afterEt) phase = "penalties";
   }
 
   return {

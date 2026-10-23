@@ -34,7 +34,12 @@ type OlResult = {
   resultTypeKind?: string;
   resultOrderID?: number;
 };
-type OlGoal = { scoreTeam1: number; scoreTeam2: number; matchMinute?: number | null };
+type OlGoal = {
+  scoreTeam1: number;
+  scoreTeam2: number;
+  matchMinute?: number | null;
+  isPenalty?: boolean | null;
+};
 export type OpenLigaMatch = {
   matchID: number;
   matchDateTimeUTC?: string;
@@ -66,14 +71,20 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
       ? { home: r.pointsTeam1, away: r.pointsTeam2 }
       : undefined;
 
+  // Typ-Nummern wie im echten Feed (EM 2024): 4 = nach Verlängerung, 5 = Elfmeterschießen.
   const pens = toScore(byKind("AfterPenalties", 5));
-  const afterEt = toScore(byKind("AfterExtraTime", 3));
+  const afterEt = toScore(byKind("AfterExtraTime", 4));
   const after90 = toScore(byKind("After90Minutes", 2));
   const half = toScore(byKind("HalfTime", 1));
   // Zwischenstand = Tor mit dem höchsten Gesamtstand (bei Gleichstand das
   // zuletzt gelieferte). Unabhängig von Reihenfolge oder fehlender Minute.
+  // Tore aus dem Elfmeterschießen stehen in derselben Liste (Elfmeter ab der
+  // 120. Minute) – sie zählen nicht zum Spielstand.
+  const isShootout = (g: OlGoal) => g.isPenalty === true && (g.matchMinute ?? 0) >= 120;
+  const shootout = (m.goals ?? []).some(isShootout);
   let lastGoal: OlGoal | undefined;
   for (const g of m.goals ?? []) {
+    if (isShootout(g)) continue;
     if (!lastGoal || g.scoreTeam1 + g.scoreTeam2 >= lastGoal.scoreTeam1 + lastGoal.scoreTeam2)
       lastGoal = g;
   }
@@ -99,7 +110,8 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
       if (penalties.home === penalties.away) penalties = pens;
     }
   } else if (status === "live") {
-    score = fromGoals ?? afterEt ?? after90 ?? half ?? { home: 0, away: 0 };
+    // Steht der Stand nach Verlängerung schon fest, läuft das Elfmeterschießen.
+    score = afterEt ?? fromGoals ?? after90 ?? half ?? { home: 0, away: 0 };
   }
 
   let phase: LivePhase | undefined;
@@ -114,6 +126,7 @@ export function fromOpenLiga(m: OpenLigaMatch, now: number): LiveFixture {
           : minute <= MATCH_MS / 60_000
             ? "second"
             : "extra";
+    if (shootout || afterEt) phase = "penalties";
   }
 
   return {

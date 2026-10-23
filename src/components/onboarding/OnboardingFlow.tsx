@@ -4,12 +4,15 @@ import {
   ArrowRight,
   BellRing,
   CalendarClock,
+  Check,
   EyeOff,
+  Moon,
+  Sun,
   Sparkles,
   Star,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogoMark, Wordmark } from "@/components/layout/Logo";
 import { WeekEditor } from "@/components/settings/WeekEditor";
 import { Flag } from "@/components/team/Flag";
@@ -25,7 +28,7 @@ import { getNation } from "@/tournament/nations";
 import { InstallStep } from "./InstallStep";
 import { PushStep } from "./PushStep";
 
-type StepId = "welcome" | "install" | "teams" | "time" | "push" | "done";
+type StepId = "welcome" | "install" | "theme" | "teams" | "time" | "push" | "done";
 
 export function OnboardingFlow() {
   // Installieren nur im Browser auf Handy/Tablet – und gleich am Anfang, weil die
@@ -33,6 +36,7 @@ export function OnboardingFlow() {
   const [steps] = useState<StepId[]>(() => [
     "welcome",
     ...(shouldOfferInstall() ? (["install"] as const) : []),
+    "theme",
     "teams",
     "time",
     ...(shouldOfferPush() ? (["push"] as const) : []),
@@ -104,6 +108,7 @@ export function OnboardingFlow() {
           >
             {current === "welcome" && <Welcome onStart={() => go(1)} />}
             {current === "install" && <InstallStep />}
+            {current === "theme" && <ThemeStep />}
             {current === "teams" && (
               <>
                 <StepTitle
@@ -150,9 +155,10 @@ export function OnboardingFlow() {
                 Später jederzeit änderbar
               </span>
             )}
-            {(current === "done" || current === "install" || current === "push") && (
-              <span className="flex-1" />
-            )}
+            {(current === "done" ||
+              current === "install" ||
+              current === "push" ||
+              current === "theme") && <span className="flex-1" />}
             <button
               type="button"
               disabled={current === "teams" && teamCount === 0}
@@ -238,6 +244,95 @@ function Welcome({ onStart }: { onStart: () => void }) {
         Ohne Anmeldung · Daten bleiben auf deinem Gerät
       </p>
     </div>
+  );
+}
+
+/** Hell oder dunkel – dunkel empfohlen und vorausgewählt. */
+function ThemeStep() {
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
+  // Noch nichts gewählt („wie System“) → dunkel vorauswählen.
+  useEffect(() => {
+    if (useAppStore.getState().theme === "system") setTheme("dark");
+  }, [setTheme]);
+  const options = [
+    { id: "dark" as const, label: "Dunkel", icon: <Moon />, hint: "Empfohlen" },
+    { id: "light" as const, label: "Hell", icon: <Sun />, hint: null },
+  ];
+  return (
+    <>
+      <StepTitle
+        icon={<Moon />}
+        title="Hell oder dunkel?"
+        text="Wie soll KickTime aussehen? Dunkel schont abends die Augen und den Akku – ideal fürs Flutlicht. Später jederzeit unter Profil → Darstellung änderbar."
+      />
+      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Darstellung">
+        {options.map((o) => {
+          const active = theme === o.id;
+          const dark = o.id === "dark";
+          return (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setTheme(o.id)}
+              className={cn(
+                "relative flex flex-col items-center gap-3 rounded-2xl border-2 bg-card p-3 pb-4 transition-colors",
+                active ? "border-primary" : "border-border",
+              )}
+            >
+              {/* Mini-Vorschau der App */}
+              <span
+                aria-hidden
+                className={cn(
+                  "flex h-36 w-full flex-col gap-2 rounded-xl p-3",
+                  dark ? "bg-[#070b18]" : "bg-[#f3f6fa] ring-1 ring-black/5",
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-2.5 w-14 rounded-full",
+                    dark ? "bg-white/80" : "bg-[#0b1220]/80",
+                  )}
+                />
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      "flex flex-1 items-center gap-2 rounded-lg px-2",
+                      dark ? "bg-white/[0.07]" : "bg-white shadow-sm",
+                    )}
+                  >
+                    <span className="h-3 w-3 rounded-full bg-primary" />
+                    <span
+                      className={cn(
+                        "h-1.5 flex-1 rounded-full",
+                        dark ? "bg-white/25" : "bg-black/15",
+                      )}
+                    />
+                  </span>
+                ))}
+              </span>
+              <span className="flex items-center gap-1.5 text-[16px] font-semibold [&_svg]:h-4 [&_svg]:w-4">
+                {o.icon}
+                {o.label}
+              </span>
+              {o.hint && (
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-primary-foreground">
+                  {o.hint}
+                </span>
+              )}
+              {active && (
+                <span className="absolute right-2.5 top-2.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <Check className="h-4 w-4" strokeWidth={3} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
