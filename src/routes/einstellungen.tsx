@@ -813,7 +813,13 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
           Tastatur anwählbar, kein Fokus-Rahmen, kein Eindrücken; liest sich wie Text. */}
       <p
         className="mx-auto mt-5 w-fit touch-manipulation px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
+        // Schnelles Klicken am Computer markiert sonst Wörter bzw. die ganze Zeile.
+        onMouseDown={(e) => {
+          if (e.detail > 1) e.preventDefault();
+        }}
         onClick={() => {
+          // Text markiert (z. B. zum Kopieren der Version) zählt nicht als Tippen.
+          if (window.getSelection()?.toString()) return;
           const now = Date.now();
           if (now - taps.current.t > 1500) taps.current.n = 0;
           taps.current.n++;
