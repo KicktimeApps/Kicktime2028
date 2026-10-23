@@ -7,7 +7,7 @@ export type Pills = Record<PillId, MatchView[]>;
 
 /**
  * Die drei Pillen der Startseite (wie „Perfect / Nacht / Verpasst“ bei
- * KickTime 2026), jeweils nur Spiele deiner Teams bzw. vorgemerkte:
+ * KickTime 2026), jeweils nur Spiele deiner Teams:
  *
  * - **perfect**: anstehend und komplett oder teilweise in deiner Zeit
  * - **outside**: anstehend, aber außerhalb deiner Zeit

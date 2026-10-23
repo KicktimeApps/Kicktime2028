@@ -8,7 +8,6 @@ import { DEFAULT_AVAILABILITY, fitFor } from "./time";
 const prefs = {
   favorites: ["GER"],
   interesting: ["ESP"],
-  pinned: [],
   availability: DEFAULT_AVAILABILITY,
   timeZone: "Europe/Berlin",
 };

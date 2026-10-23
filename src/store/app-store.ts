@@ -26,8 +26,6 @@ type State = {
   onboarded: boolean;
   favorites: string[];
   interesting: string[];
-  /** Vorgemerkte Einzelspiele (Match-IDs). */
-  pinned: string[];
   availability: WeekAvailability;
   /** null = automatisch aus dem Gerät. */
   timeZoneOverride: string | null;
@@ -85,7 +83,6 @@ type State = {
 type Actions = {
   setTeamMark: (code: string, mark: TeamMark) => void;
   cycleTeamMark: (code: string) => void;
-  togglePinned: (matchId: string) => void;
   setDay: (index: number, w: DayWindow) => void;
   setAvailability: (w: WeekAvailability) => void;
   setTimeZoneOverride: (tz: string | null) => void;
@@ -132,7 +129,6 @@ export const useAppStore = create<State & Actions>()(
       onboarded: false,
       favorites: [],
       interesting: [],
-      pinned: [],
       availability: DEFAULT_AVAILABILITY,
       timeZoneOverride: null,
       spoilerProtection: true,
@@ -187,10 +183,6 @@ export const useAppStore = create<State & Actions>()(
           }
           return { favorites: addUnique(s.favorites, code) };
         }),
-      togglePinned: (id) =>
-        set((s) => ({
-          pinned: s.pinned.includes(id) ? s.pinned.filter((x) => x !== id) : [...s.pinned, id],
-        })),
       setDay: (index, w) =>
         set((s) => {
           const next = [...s.availability];
@@ -315,6 +307,8 @@ export const useAppStore = create<State & Actions>()(
         if (merged.demo?.enabled) merged.demo = { ...merged.demo, startedAt: Date.now() };
         // Vorschau-Runden aus älteren Versionen (nur auf dem Gerät) verwerfen.
         delete (merged as Partial<State> & { demoGroups?: unknown }).demoGroups;
+        // „Vormerken“ gibt es seit 2.14.2 nicht mehr.
+        delete (merged as Partial<State> & { pinned?: unknown }).pinned;
         return merged;
       },
     },

@@ -6,14 +6,11 @@ import type { MatchView } from "./types";
 export type Prefs = {
   favorites: string[];
   interesting: string[];
-  /** Einzelne Spiele, die der Nutzer vorgemerkt hat (Match-IDs). */
-  pinned: string[];
   availability: WeekAvailability;
   timeZone: string;
 };
 
-export type Reason =
-  "favorite" | "interesting" | "pinned" | "topDuel" | "knockout" | "opener" | "final";
+export type Reason = "favorite" | "interesting" | "topDuel" | "knockout" | "opener" | "final";
 
 export type Recommendation = {
   match: MatchView;
@@ -21,7 +18,7 @@ export type Recommendation = {
   /** 0..100 – wie sehr lohnt sich das Spiel für diesen Nutzer? */
   score: number;
   reasons: Reason[];
-  /** Spiel betrifft eigene Teams oder ist vorgemerkt. */
+  /** Spiel betrifft eigene Teams (Favorit oder gefolgt). */
   mine: boolean;
 };
 
@@ -37,10 +34,6 @@ export function recommend(m: MatchView, p: Prefs): Recommendation {
   } else if (involves(m, p.interesting)) {
     reasons.push("interesting");
     score += 35;
-  }
-  if (p.pinned.includes(m.id)) {
-    reasons.push("pinned");
-    score += 30;
   }
   const tierA = getNation(m.home)?.tier;
   const tierB = getNation(m.away)?.tier;
@@ -67,8 +60,7 @@ export function recommend(m: MatchView, p: Prefs): Recommendation {
     fit,
     score: Math.min(100, score),
     reasons,
-    mine:
-      reasons.includes("favorite") || reasons.includes("interesting") || reasons.includes("pinned"),
+    mine: reasons.includes("favorite") || reasons.includes("interesting"),
   };
 }
 
@@ -114,7 +106,7 @@ export function buildFeed(
 }
 
 /**
- * Nächstes noch nicht begonnenes Spiel mit eigenem Team (oder vorgemerkt),
+ * Nächstes noch nicht begonnenes Spiel mit eigenem Team,
  * unabhängig vom Zeitfenster. Laufende Spiele zeigt „Jetzt live“.
  */
 export function nextOwnMatch(matches: MatchView[], p: Prefs): MatchView | null {

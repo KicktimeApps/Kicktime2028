@@ -1,4 +1,4 @@
-import { Bell, Bookmark, CalendarPlus } from "lucide-react";
+import { Bell, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { isAlarmActive } from "@/domain/alarms";
 import { teamDisplay } from "@/domain/labels";
@@ -49,8 +49,6 @@ export function MatchActions({
   match: MatchView;
   calendar?: boolean;
 }) {
-  const pinned = useAppStore((s) => s.pinned.includes(m.id));
-  const togglePinned = useAppStore((s) => s.togglePinned);
   const alarms = useAppStore((s) => s.alarms);
   const autoFav = useAppStore((s) => s.autoAlarmFavorites);
   const favorites = useAppStore((s) => s.favorites);
@@ -104,22 +102,6 @@ export function MatchActions({
           <Bell className={cn(alarmOn && "fill-current")} />
         </IconButton>
       )}
-      <IconButton
-        label={pinned ? "Nicht mehr vormerken" : "Vormerken"}
-        active={pinned}
-        onClick={() => {
-          haptics.tap();
-          togglePinned(m.id);
-          toast(pinned ? "Nicht mehr vorgemerkt" : "Vorgemerkt – erscheint bei „Für dich“", {
-            description: title,
-            // Versehentlich entfernt? Mit einem Tipp zurückholen.
-            action: pinned ? { label: "Rückgängig", onClick: () => togglePinned(m.id) } : undefined,
-            duration: pinned ? 6000 : undefined,
-          });
-        }}
-      >
-        <Bookmark className={cn(pinned && "fill-current")} />
-      </IconButton>
     </div>
   );
 }

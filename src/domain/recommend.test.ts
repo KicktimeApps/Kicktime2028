@@ -17,7 +17,6 @@ const state = resolveTournament({
 const prefs: Prefs = {
   favorites: ["GER"],
   interesting: ["ESP"],
-  pinned: [],
   availability: DEFAULT_AVAILABILITY,
   timeZone: "Europe/Berlin",
 };
@@ -52,12 +51,6 @@ describe("buildFeed", () => {
 
   it("Bonus-Spiele enthalten keine eigenen Teams", () => {
     expect(feed.bonus.every((r) => !r.mine)).toBe(true);
-  });
-
-  it("Vormerken macht ein beliebiges Spiel zum eigenen", () => {
-    const other = state.matches.find((m) => m.home === "SCO")!;
-    const f = buildFeed(state.matches, { ...prefs, pinned: [other.id] });
-    expect([...f.perfect, ...f.outside].some((r) => r.match.id === other.id)).toBe(true);
   });
 });
 

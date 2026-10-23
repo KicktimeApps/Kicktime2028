@@ -1,4 +1,4 @@
-import { Clock3, Eye, Star, Tv } from "lucide-react";
+import { Check, Clock3, Eye, Star, Tv } from "lucide-react";
 import { LiveDot } from "@/components/common/LiveDot";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
@@ -18,7 +18,9 @@ import { useSpoiler } from "./useSpoiler";
 
 /**
  * Einheitliche Spielkarte für alle Listen: Zeit, Teams, Ergebnis und eine
- * schmale Zeile mit Runde, Sender, Erinnern und Vormerken.
+ * schmale Zeile mit Runde, Sender und Erinnern. Eigene Teams tragen ein
+ * Schild mit Text („★ Favorit“, „✓ Gefolgt“ – wie die Knöpfe der Team-Auswahl),
+ * damit man ohne Erklärung versteht, warum das Spiel hier steht.
  */
 export function MatchCard({
   match: m,
@@ -142,15 +144,7 @@ export function MatchCard({
                 >
                   {t.name}
                 </span>
-                {mark === "fav" && (
-                  <Star className="h-3.5 w-3.5 shrink-0 fill-gold text-gold" aria-label="Favorit" />
-                )}
-                {mark === "int" && (
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                    aria-label="Dein Team"
-                  />
-                )}
+                {mark && <TeamMark kind={mark} />}
                 {s !== undefined && m.status !== "scheduled" && !hidden && (
                   <span
                     className={cn(
@@ -197,5 +191,24 @@ export function MatchCard({
         {actions && <MatchActions match={m} />}
       </div>
     </article>
+  );
+}
+
+/** Schild am eigenen Team: Favorit (gold) oder gefolgt (grün). */
+function TeamMark({ kind }: { kind: "fav" | "int" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-[3px] text-[11px] font-semibold leading-none",
+        kind === "fav" ? "bg-gold/15 text-gold" : "bg-primary/12 text-primary",
+      )}
+    >
+      {kind === "fav" ? (
+        <Star className="h-3 w-3 fill-current" aria-hidden />
+      ) : (
+        <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+      )}
+      {kind === "fav" ? "Favorit" : "Gefolgt"}
+    </span>
   );
 }

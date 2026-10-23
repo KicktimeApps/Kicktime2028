@@ -16,7 +16,6 @@ export function seedState(extra: Record<string, unknown> = {}) {
       onboarded: true,
       favorites: ["GER"],
       interesting: [],
-      pinned: [],
       tipsTourDone: true,
       roundTourDone: true,
       spoilerProtection: false,
