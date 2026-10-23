@@ -236,6 +236,10 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   Auf Touch erst nach 70 ms, Bewegung > 10 px oder Scrollen bricht ab (Scrollen löst nichts
   aus); sehr kurze Tipper blinken einmal auf. Web Animations API, daher unabhängig von
   transition-Klassen. Ausnahme: `data-no-press` am Element oder einem Vorfahren.
+- **Spoilerschutz Tabellen/K.-o.-Baum/Teams** (`turnier.tsx`, `domain/table-spoiler.ts`): „Anzeigen“
+  speichert den Ergebnisstand (`tablesSeen`, je Spiel „id:status:h-a“) – bleibt über Seitenwechsel
+  und Neustart offen, bis ein neues Ergebnis/Tor kommt. Einzeln aufgedeckte Spiele zählen mit.
+  Aufdecken animiert: Hinweis klappt zu, Zahlen werden weich scharf, Zeilen gleiten an den Platz.
 - **Feinschliff (ab 2.7.0):** iPhone-Startbilder `public/startup/` (aus dem echten Ladebildschirm
   gerendert, je Gerät hell/dunkel, in `__root.tsx` verlinkt – bei Änderungen am Ladebildschirm
   neu erzeugen). Seitenwechsel überblenden (`defaultViewTransition`). Tor-Moment: Ziffer rutscht

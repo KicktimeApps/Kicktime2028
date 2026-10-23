@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { Flag } from "@/components/team/Flag";
 import { hostHint, teamDisplay } from "@/domain/labels";
@@ -5,6 +6,9 @@ import type { GroupTable } from "@/domain/standings";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
 import { useUi } from "@/store/ui-store";
+
+/** Beim Aufdecken (Spoilerschutz) werden die Zahlen weich scharf statt zu springen. */
+const FADE_IN = "transition-[filter] duration-500 ease-out";
 
 /**
  * Gruppentabelle. Farbcodes: Platz 1–2 direkt weiter (Primär), Platz 3
@@ -76,7 +80,14 @@ export function GroupTableCard({
             const hl = !placeholder && highlight.includes(r.code);
             const blur = hideScores && !placeholder;
             return (
-              <tr key={r.code} className={cn("border-t border-border/50", hl && "bg-primary/8")}>
+              // Beim Aufdecken gleiten die Teams von der alphabetischen Reihenfolge an
+              // ihren Tabellenplatz, statt zu springen.
+              <motion.tr
+                key={r.code}
+                layout="position"
+                transition={{ duration: 0.45, ease: [0.32, 0.72, 0, 1] }}
+                className={cn("border-t border-border/50", hl && "bg-primary/8")}
+              >
                 <td className="py-2.5 pl-4">
                   <span
                     className={cn(
@@ -131,7 +142,7 @@ export function GroupTableCard({
                     <td
                       className={cn(
                         "text-center tabular text-muted-foreground",
-                        blur && "blur-[5px]",
+                        blur ? "blur-[5px]" : FADE_IN,
                       )}
                     >
                       {r.played}
@@ -140,26 +151,26 @@ export function GroupTableCard({
                       <td
                         className={cn(
                           "hidden text-center tabular text-muted-foreground sm:table-cell",
-                          blur && "blur-[5px]",
+                          blur ? "blur-[5px]" : FADE_IN,
                         )}
                       >
                         {r.goalsFor}:{r.goalsAgainst}
                       </td>
                     )}
-                    <td className={cn("text-center tabular", blur && "blur-[5px]")}>
+                    <td className={cn("text-center tabular", blur ? "blur-[5px]" : FADE_IN)}>
                       {r.goalDiff > 0 ? `+${r.goalDiff}` : r.goalDiff}
                     </td>
                     <td
                       className={cn(
                         "pr-4 text-right font-display text-[17px] font-bold tabular",
-                        blur && "blur-[5px]",
+                        blur ? "blur-[5px]" : FADE_IN,
                       )}
                     >
                       {r.points}
                     </td>
                   </>
                 )}
-              </tr>
+              </motion.tr>
             );
           })}
         </tbody>

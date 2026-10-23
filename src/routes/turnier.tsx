@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AnimatePresence, motion } from "framer-motion";
 import { Eye, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -8,6 +9,7 @@ import { statusChip } from "@/components/team/statusChip";
 import { Bracket } from "@/components/tournament/Bracket";
 import { GroupTableCard } from "@/components/tournament/GroupTableCard";
 import { rankThirds } from "@/domain/standings";
+import { resultKeys, tablesHidden } from "@/domain/table-spoiler";
 import type { TeamStatus } from "@/domain/status";
 import { useTeamStatuses } from "@/hooks/useTeamStatuses";
 import { cn } from "@/lib/utils";
@@ -51,29 +53,66 @@ function TournamentPage() {
   );
 }
 
-/** Spoilerschutz für Tabellen: Tabellen verraten Ergebnisse. */
+/**
+ * Spoilerschutz für Tabellen: Sie verraten Ergebnisse. „Anzeigen“ wird
+ * gespeichert (auch über Seitenwechsel und Neustart) – bis ein neues Ergebnis
+ * oder Tor dazukommt (domain/table-spoiler).
+ */
 function useTableSpoiler() {
   const protect = useAppStore((s) => s.spoilerProtection);
-  const [shown, setShown] = useState(false);
-  return { hidden: protect && !shown, show: () => setShown(true) };
+  const seen = useAppStore((s) => s.tablesSeen);
+  const revealed = useAppStore((s) => s.revealed);
+  const setSeen = useAppStore((s) => s.setTablesSeen);
+  const { matches } = useTournament();
+  const hidden = protect && tablesHidden(matches, seen, revealed);
+  return { hidden, show: () => setSeen(resultKeys(matches)) };
 }
 
 type Spoiler = ReturnType<typeof useTableSpoiler>;
 
-function SpoilerGate({ text, onShow }: { text: string; onShow: () => void }) {
+const EASE = [0.32, 0.72, 0, 1] as const;
+
+/** Hinweis mit „Anzeigen“ – klappt beim Aufdecken weich zu statt zu verschwinden. */
+function SpoilerGate({ show, text, onShow }: { show: boolean; text: string; onShow: () => void }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/8 px-4 py-3">
-      <p className="text-[13px]">
-        <strong>Spoilerschutz:</strong> {text}
-      </p>
-      <button
-        type="button"
-        onClick={onShow}
-        className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-[14px] font-semibold text-primary-foreground"
-      >
-        <Eye className="h-4 w-4" /> Anzeigen
-      </button>
-    </div>
+    <AnimatePresence initial={false}>
+      {show && (
+        <motion.div
+          key="gate"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.35, ease: EASE }}
+          className="overflow-hidden"
+        >
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/8 px-4 py-3">
+            <p className="text-[13px]">
+              <strong>Spoilerschutz:</strong> {text}
+            </p>
+            <button
+              type="button"
+              onClick={onShow}
+              className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-[14px] font-semibold text-primary-foreground"
+            >
+              <Eye className="h-4 w-4" /> Anzeigen
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Inhalt, der hinter dem Spoilerschutz steckt – blendet beim Aufdecken weich ein. */
+function Reveal({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -95,7 +134,7 @@ function Groups({ spoiler }: { spoiler: Spoiler }) {
 
   return (
     <div>
-      {blur && <SpoilerGate text="Die Tabellen verraten Ergebnisse." onShow={show} />}
+      <SpoilerGate show={blur} text="Die Tabellen verraten Ergebnisse." onShow={show} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {t.tables.map((table) => (
           <GroupTableCard
@@ -111,7 +150,12 @@ function Groups({ spoiler }: { spoiler: Spoiler }) {
       <Legend />
 
       {anyPlayed && !blur && (
-        <section className="mt-8">
+        <motion.section
+          className="mt-8"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+        >
           <h2 className="mb-1 font-display text-xl font-bold uppercase tracking-wide">
             Die besten Gruppendritten
           </h2>
@@ -158,7 +202,7 @@ function Groups({ spoiler }: { spoiler: Spoiler }) {
               );
             })}
           </div>
-        </section>
+        </motion.section>
       )}
     </div>
   );
@@ -188,10 +232,15 @@ function BracketView({ spoiler }: { spoiler: Spoiler }) {
         Die Paarungen füllen sich automatisch, sobald Gruppen und Spiele entschieden sind. Seitlich
         wischen für den ganzen Baum.
       </p>
-      {spoiler.hidden && anyPlayed ? (
-        <SpoilerGate text="Der K.-o.-Baum verrät, wer weitergekommen ist." onShow={spoiler.show} />
-      ) : (
-        <Bracket matches={ko} />
+      <SpoilerGate
+        show={spoiler.hidden && anyPlayed}
+        text="Der K.-o.-Baum verrät, wer weitergekommen ist."
+        onShow={spoiler.show}
+      />
+      {!(spoiler.hidden && anyPlayed) && (
+        <Reveal>
+          <Bracket matches={ko} />
+        </Reveal>
       )}
     </div>
   );
@@ -233,12 +282,34 @@ function Teams({ spoiler }: { spoiler: Spoiler }) {
     ];
   }, [statuses, drawn, favorites, interesting]);
 
-  if (spoiler.hidden && anyPlayed) {
-    return (
-      <SpoilerGate text="Die Teamliste verrät, wer ausgeschieden ist." onShow={spoiler.show} />
-    );
-  }
+  const gated = spoiler.hidden && anyPlayed;
+  return (
+    <>
+      <SpoilerGate
+        show={gated}
+        text="Die Teamliste verrät, wer ausgeschieden ist."
+        onShow={spoiler.show}
+      />
+      {!gated && (
+        <Reveal>
+          <TeamGroups drawn={drawn} groups={groups} openTeam={openTeam} favorites={favorites} />
+        </Reveal>
+      )}
+    </>
+  );
+}
 
+function TeamGroups({
+  drawn,
+  groups,
+  openTeam,
+  favorites,
+}: {
+  drawn: boolean;
+  groups: { title: string; items: { n: (typeof NATIONS)[number]; s: TeamStatus }[] }[];
+  openTeam: (code: string) => void;
+  favorites: string[];
+}) {
   return (
     <div className="space-y-6">
       {!drawn && (

@@ -33,6 +33,8 @@ type State = {
   spoilerProtection: boolean;
   /** Spiele, deren Ergebnis der Nutzer bewusst aufgedeckt hat. */
   revealed: Record<string, true>;
+  /** Tabellen/K.-o.-Baum aufgedeckt – für diese Ergebnisstände („id:status:h-a“). */
+  tablesSeen: string[];
 
   theme: ThemeMode;
   accent: AccentId;
@@ -91,6 +93,7 @@ type Actions = {
   setSpoiler: (v: boolean) => void;
   reveal: (matchId: string) => void;
   revealMany: (matchIds: string[]) => void;
+  setTablesSeen: (keys: string[]) => void;
   setTheme: (t: ThemeMode) => void;
   setAccent: (a: AccentId) => void;
   setLargeText: (v: boolean) => void;
@@ -133,6 +136,7 @@ export const useAppStore = create<State & Actions>()(
       timeZoneOverride: null,
       spoilerProtection: true,
       revealed: {},
+      tablesSeen: [],
       theme: "system",
       accent: "floodlight",
       largeText: false,
@@ -194,6 +198,7 @@ export const useAppStore = create<State & Actions>()(
       completeOnboarding: () => set({ onboarded: true }),
       restartOnboarding: () => set({ onboarded: false }),
       setSpoiler: (v) => set({ spoilerProtection: v }),
+      setTablesSeen: (tablesSeen) => set({ tablesSeen }),
       revealMany: (ids) =>
         set((s) => ({
           revealed: { ...s.revealed, ...Object.fromEntries(ids.map((id) => [id, true as const])) },
