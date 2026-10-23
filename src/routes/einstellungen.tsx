@@ -541,6 +541,37 @@ function DemoContent() {
               <div className="text-[13px] text-muted-foreground">{sc.hint}</div>
             </button>
           ))}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                className="mt-2 inline-flex h-12 items-center justify-center gap-2 rounded-full border border-border bg-card text-[15px] font-semibold"
+              >
+                <RotateCcw className="h-4 w-4" /> Vorschau neu starten
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Vorschau neu starten?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Alles in der Vorschau beginnt von vorn: Uhr, deine Vorschau-Tipps und die
+                  Europameister-Feier. Deine Tipprunden sind echt und bleiben, wie sie sind.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    useAppStore.getState().restartDemo();
+                    // Neu laden: auch alles im Arbeitsspeicher (Tor-Hinweise, Zwischenstände) frisch.
+                    window.location.reload();
+                  }}
+                >
+                  Neu starten
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </div>

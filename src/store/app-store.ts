@@ -116,6 +116,8 @@ type Actions = {
   setPrediction: (matchId: string, home: number, away: number) => void;
   clearPrediction: (matchId: string) => void;
   setDemo: (enabled: boolean, scenario?: DemoScenario) => void;
+  /** Vorschau von vorn: Uhr neu, Vorschau-Tipps und -Feier vergessen. */
+  restartDemo: () => void;
   setCelebrated: (code: string) => void;
   setTipsTourDone: (v: boolean) => void;
   setRoundTourDone: (v: boolean) => void;
@@ -280,6 +282,15 @@ export const useAppStore = create<State & Actions>()(
           demo: { enabled, scenario: scenario ?? s.demo.scenario, startedAt: Date.now() },
           // Vorschau an oder aus → Vorschau-Tipps (allein) verwerfen.
           ...(enabled === s.demo.enabled ? {} : dropDemo()),
+        })),
+      restartDemo: () =>
+        set((s) => ({
+          demo: { ...s.demo, startedAt: Date.now() },
+          ...dropDemo(),
+          // Nur die Vorschau-Feier vergessen – die echte bleibt gefeiert.
+          celebratedChampion: s.celebratedChampion?.startsWith("demo:")
+            ? null
+            : s.celebratedChampion,
         })),
       setCelebrated: (code) => set({ celebratedChampion: code }),
       setTipsTourDone: (v) => set({ tipsTourDone: v }),

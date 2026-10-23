@@ -1,6 +1,6 @@
 {
   "name": "kicktime-2028",
-  "version": "2.12.1",
+  "version": "2.13.0",
   "private": true,
   "sideEffects": false,
   "type": "module",
