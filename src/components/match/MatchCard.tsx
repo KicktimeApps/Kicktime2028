@@ -144,7 +144,7 @@ export function MatchCard({
                 >
                   {t.name}
                 </span>
-                {mark && <TeamMark kind={mark} />}
+                {mark && <TeamMark kind={mark} compact={hidden} />}
                 {s !== undefined && m.status !== "scheduled" && !hidden && (
                   <span
                     className={cn(
@@ -194,21 +194,28 @@ export function MatchCard({
   );
 }
 
-/** Schild am eigenen Team: Favorit (gold) oder gefolgt (grün). */
-function TeamMark({ kind }: { kind: "fav" | "int" }) {
+/**
+ * Schild am eigenen Team: Favorit (gold) oder gefolgt (grün). `compact`: nur
+ * das Zeichen – wenn rechts der „Zeigen“-Knopf (Spoilerschutz) Platz braucht.
+ */
+function TeamMark({ kind, compact = false }: { kind: "fav" | "int"; compact?: boolean }) {
+  const label = kind === "fav" ? "Favorit" : "Gefolgt";
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-[3px] text-[11px] font-semibold leading-none",
+        "inline-flex shrink-0 items-center gap-1 rounded-full py-[3px] text-[11px] font-semibold leading-none",
+        compact ? "px-[3px]" : "px-1.5",
         kind === "fav" ? "bg-gold/15 text-gold" : "bg-primary/12 text-primary",
       )}
+      aria-label={compact ? label : undefined}
+      title={compact ? label : undefined}
     >
       {kind === "fav" ? (
         <Star className="h-3 w-3 fill-current" aria-hidden />
       ) : (
         <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
       )}
-      {kind === "fav" ? "Favorit" : "Gefolgt"}
+      {!compact && label}
     </span>
   );
 }

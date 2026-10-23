@@ -18,6 +18,7 @@ import { MatchCard } from "@/components/match/MatchCard";
 import { Flag } from "@/components/team/Flag";
 import { teamDisplay } from "@/domain/labels";
 import { buildPills, type PillId } from "@/domain/pills";
+import { useTeamStatuses } from "@/hooks/useTeamStatuses";
 import { nextOwnMatch } from "@/domain/recommend";
 import { currentStage, tournamentWinner } from "@/domain/status";
 import {
@@ -171,7 +172,8 @@ const PILLS: { id: PillId; label: string; hint: string; empty: string }[] = [
 ];
 
 function Drawn({ started }: { started: boolean }) {
-  const { matches } = useTournament();
+  const tournament = useTournament();
+  const { matches } = tournament;
   const prefs = usePrefs();
   const now = useNow();
   const live = matches.filter((m) => m.status === "live");
@@ -181,9 +183,40 @@ function Drawn({ started }: { started: boolean }) {
     pills.perfect.length ? "perfect" : pills.outside.length ? "outside" : "results",
   );
   const hasTeams = prefs.favorites.length + prefs.interesting.length > 0;
+  // Deine Teams spielen nicht mehr (ausgeschieden oder Turnier vorbei)?
+  // Dann passen „Passt mir“/„Andere Zeit“ nicht mehr – ehrliche Texte statt
+  // „gerade kein Spiel“, nach dem Finale ganz ohne Pillen als Rückblick.
+  const done = hasTeams && pills.perfect.length + pills.outside.length === 0;
+  // „Ausgeschieden“ nur, wenn es wirklich stimmt – sonst steht der nächste
+  // Gegner nur noch nicht fest (z. B. zwischen Gruppenphase und Achtelfinale).
+  const statuses = useTeamStatuses();
+  // Bei Spoilerschutz nichts verraten – „ausgeschieden“ wäre ein Ergebnis.
+  const spoilerOn = useAppStore((s) => s.spoilerProtection);
+  const allOut =
+    hasTeams &&
+    [...prefs.favorites, ...prefs.interesting].every((c) => {
+      const phase = statuses.get(c)?.phase;
+      return phase === "out" || phase === "missed";
+    });
+  const over = !!tournamentWinner(tournament);
+  const retro = over && pills.results.length > 0;
   const meta = PILLS.find((p) => p.id === pill)!;
-  const list = pills[pill];
+  const active = retro ? "results" : pill;
+  const list = pills[active];
   const mine = [...pills.perfect, ...pills.outside];
+  const hint = retro
+    ? `Alle Spiele deiner Teams bei der ${TOURNAMENT.name} – neueste zuerst.`
+    : meta.hint;
+  const empty =
+    done && active !== "results"
+      ? over
+        ? "Die EM ist vorbei – alle Spiele deiner Teams findest du unter „Ergebnisse“."
+        : spoilerOn
+          ? "Gerade steht kein weiteres Spiel deiner Teams an."
+          : allOut
+            ? "Deine Teams sind ausgeschieden – sie haben kein Spiel mehr. Unter „Ergebnisse“ siehst du ihre Spiele, im Spielplan alle weiteren."
+            : "Das nächste Spiel deiner Teams steht noch nicht fest – es erscheint hier, sobald der Gegner feststeht."
+      : meta.empty;
 
   return (
     <>
@@ -207,43 +240,47 @@ function Drawn({ started }: { started: boolean }) {
         </div>
       )}
 
-      <div
-        role="tablist"
-        aria-label="Deine Spiele"
-        className="grid grid-cols-3 gap-1 rounded-full border border-border bg-card p-1"
-      >
-        {PILLS.map((p) => {
-          const active = p.id === pill;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setPill(p.id)}
-              className={cn(
-                "flex h-9 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-1 text-[13px] font-semibold transition-colors min-[380px]:text-[14px]",
-                active ? "bg-primary text-primary-foreground" : "text-foreground",
-              )}
-            >
-              <span className="truncate">{p.label}</span>
-              <span
+      {retro ? (
+        <h2 className="text-[19px] font-bold tracking-tight">Deine EM im Rückblick</h2>
+      ) : (
+        <div
+          role="tablist"
+          aria-label="Deine Spiele"
+          className="grid grid-cols-3 gap-1 rounded-full border border-border bg-card p-1"
+        >
+          {PILLS.map((p) => {
+            const active = p.id === pill;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setPill(p.id)}
                 className={cn(
-                  "shrink-0 text-[12px] tabular",
-                  active ? "opacity-80" : "text-muted-foreground",
+                  "flex h-9 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-1 text-[13px] font-semibold transition-colors min-[380px]:text-[14px]",
+                  active ? "bg-primary text-primary-foreground" : "text-foreground",
                 )}
               >
-                {pills[p.id].length}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      <p className="mb-4 mt-2 px-1 text-[13px] text-muted-foreground">{meta.hint}</p>
+                <span className="truncate">{p.label}</span>
+                <span
+                  className={cn(
+                    "shrink-0 text-[12px] tabular",
+                    active ? "opacity-80" : "text-muted-foreground",
+                  )}
+                >
+                  {pills[p.id].length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <p className="mb-4 mt-2 px-1 text-[13px] text-muted-foreground">{hint}</p>
 
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-[15px] text-muted-foreground">
-          {meta.empty}
+          {empty}
         </div>
       ) : (
         <DayGroups matches={list} />

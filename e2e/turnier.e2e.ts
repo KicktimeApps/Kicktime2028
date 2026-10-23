@@ -28,3 +28,14 @@ test("Tabellen aufdecken bleibt gemerkt – auch nach Seitenwechsel und Neuladen
   await expect(show).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test("Nach dem Finale: Startseite als Rückblick statt leerer Pillen", async ({ page }) => {
+  const errors = await setup(page, {
+    state: { ...state, state: { ...state.state, favorites: ["GER"] } },
+  });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Deine EM im Rückblick" })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Deine Spiele" })).toHaveCount(0);
+  await expect(page.getByText("Deutschland").first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
