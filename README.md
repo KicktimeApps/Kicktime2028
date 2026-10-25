@@ -7,7 +7,7 @@ Du sagst KickTime zwei Dinge: **wem du die Daumen drückst** und **wann du Zeit 
 zeigt dir dann, welche der 51 Spiele in deinen Alltag passen, erinnert dich rechtzeitig und hält
 Ergebnisse geheim, bis du sie sehen willst.
 
-> Nachfolger von [KickTime 2026](https://github.com/phantom-35/kicktime2026) (WM 2026).
+> Nachfolger von [KickTime 2026](https://github.com/KicktimeApps/Kicktime2026) (WM 2026).
 > Was sich geändert hat: [docs/AENDERUNGEN.md](docs/AENDERUNGEN.md).
 
 ## Funktionen

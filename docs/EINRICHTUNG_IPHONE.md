@@ -14,7 +14,7 @@ auf **„aA“** und dann auf **„Desktop-Website anfordern“**. Danach im Que
 
 1. [supabase.com/dashboard](https://supabase.com/dashboard) öffnen und einloggen.
 2. **„New project“** antippen:
-   - Name: `kicktime-2028`
+   - Name: `kicktime2028`
    - Database Password: sicheres Passwort, **notieren**
    - Region: **Central EU (Frankfurt)**
 3. **„Create new project“** antippen und ca. 2 Minuten warten.
@@ -140,7 +140,7 @@ Cloudflare:
 2. Build-Einstellungen:
    - **Build command:** `npm install && npm run build`
    - **Deploy command:** `npx wrangler deploy`
-3. **„Deploy“** antippen. Danach gibt es eine Adresse wie `kicktime-2028.<name>.workers.dev`,
+3. **„Deploy“** antippen. Danach gibt es eine Adresse wie `kicktime2028.<name>.workers.dev`,
    eine eigene Domain lässt sich später unter „Settings → Domains“ verbinden.
 
 Jeder Push auf `main` veröffentlicht die App automatisch neu. Hakt ein Schritt, schick Claude

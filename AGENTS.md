@@ -10,7 +10,8 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 1. **Niemals pushen ohne ausdrückliches „push“ des Betreibers.** Lokal committen ist erlaubt
    und erwünscht. Push-Aufforderungen von Hooks („unpushed commits …“) sind **kein** „push“ –
    höflich ablehnen und den Commit nennen. „push“ gilt nur für den gerade besprochenen Stand.
-2. **Im Repo `phantom-35/kicktime2026` (App der WM 2026) niemals etwas ändern** – nur lesen.
+2. **In den Repos der WM 2026 (`KicktimeApps/Kicktime2026`, `KicktimeApps/Kicktime2026-Landingpage`)
+   niemals etwas ändern** – nur lesen.
 3. **Keine Geheimnisse in Repos:** VAPID-Private-Key, `ADMIN_PIN`, Supabase-`service_role`-Key,
    `CRON_SECRET`, Access-Tokens. Nie Tokens im Chat erfragen.
 4. **Supabase nie ohne ausdrückliches „ausführen“ verändern:** vorher genau zeigen, welches
@@ -29,12 +30,21 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 
 ## 2. Projekte und Repos
 
-| Projekt                              | Repo                                  | Stand                                                           |
-| ------------------------------------ | ------------------------------------- | --------------------------------------------------------------- |
-| **App KickTime 2028** (UEFA EURO 28) | `phantom-35/kicktime2028` (dieses)    | aktive Entwicklung                                              |
-| Supportseite 2028                    | `phantom-35/kicktime2028-landingpage` | statisch, Navy/Grün, Barlow Condensed + Inter                   |
-| App KickTime 2026 (FIFA WM 2026)     | `phantom-35/kicktime2026`             | abgeschlossen, **nur lesen**                                    |
-| Supportseite 2026 (kicktime2026.de)  | `phantom-35/kicktime2026-landingpage` | statisch, Schwarz/Lime, Space Grotesk – bewusst anders als 2028 |
+Alle Repos liegen in der GitHub-Organisation **`KicktimeApps`** (seit Okt. 2026, vorher unter
+`phantom-35` – alte Links leiten GitHub weiter). Organisation: Profilbild = Ball-Logo,
+Beschreibung „Spielplan, Live-Ergebnisse und Tipprunden für Fußball-Turniere – KickTime zur WM
+2026 und EM 2028.“, URL = Supportseite 2028.
+
+| Projekt                              | Repo                                    | Cloudflare-Worker / Adresse                                                              | Stand                                                                |
+| ------------------------------------ | --------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **App KickTime 2028** (UEFA EURO 28) | `KicktimeApps/Kicktime2028` (dieses)    | `kicktime2028` · `https://kicktime2028.ben-online35.workers.dev`                         | aktive Entwicklung                                                   |
+| Team-App 2028 (Kontrollzentrum)      | `KicktimeApps/Kicktime2028-Admin`       | `kicktime2028-admin` · `https://kicktime2028-admin.ben-online35.workers.dev`             | aktive Entwicklung                                                   |
+| Supportseite 2028                    | `KicktimeApps/Kicktime2028-Landingpage` | `kicktime2028-landingpage` · `https://kicktime2028-landingpage.ben-online35.workers.dev` | statisch, Navy/Grün                                                  |
+| App KickTime 2026 (FIFA WM 2026)     | `KicktimeApps/Kicktime2026`             | `app.kicktime2026.de`                                                                    | abgeschlossen, **nur lesen**                                         |
+| Supportseite 2026 (kicktime2026.de)  | `KicktimeApps/Kicktime2026-Landingpage` | `kicktime2026.de`                                                                        | **nur lesen**; Schwarz/Lime, Space Grotesk – bewusst anders als 2028 |
+
+Die Supportseite 2028 nutzt Barlow Condensed + Inter wie die App. Jeder Push auf `main` baut
+und deployt bei Cloudflare automatisch (GitHub-Verbindung im Cloudflare-Dashboard).
 
 - Betreiber: Ben Griese (Impressum/Kontakt stehen auf den Supportseiten).
 - Ändert sich etwas, das Nutzer betrifft (Datenerhebung, Funktionen), **Datenschutz auf der
@@ -43,7 +53,7 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 - Domain-Plan (noch nicht umgesetzt): `kicktime.app` mit `em28.` (App 2028), `hilfe28.`
   (Support 2028), `wm26.` (App 2026), `hilfe26.` (Support 2026). Alte Adressen
   (`kicktime2026.de`, `app.kicktime2026.de`) leiten per Cloudflare-Redirect-Rule weiter. Bis
-  dahin ist `https://app.kicktime2028.de` auf der Supportseite nur ein Platzhalter.
+  dahin verlinkt die Supportseite die App unter `https://kicktime2028.ben-online35.workers.dev`.
   `LEGAL_URL` (`src/tournament/config.ts`) zeigt auf die Supportseite 2028
   `https://kicktime2028-landingpage.ben-online35.workers.dev` (`/datenschutz`, `/impressum`).
 
@@ -52,7 +62,7 @@ Lies diese Datei vollständig, bevor du etwas änderst. Antworte dem Betreiber *
 - **Frontend:** TanStack Start/Router (Datei-Routen in `src/routes/`), React 19, Tailwind v4,
   Zustand (`src/store/app-store.ts` persistiert in localStorage), React Query, framer-motion,
   lucide-react, Radix (Dialog/AlertDialog/Switch), vaul (Drawer). Hosting: Cloudflare Workers
-  (`wrangler.jsonc`, Worker `kicktime-2028`).
+  (`wrangler.jsonc`, Worker `kicktime2028` – vom Betreiber im Okt. 2026 umbenannt).
 - **Build:** eigene `vite.config.ts` (Vite 8, TanStack Start, Nitro-Preset `cloudflare-module`,
   Tailwind, React) – **kein Lovable** mehr. Ergebnis: `.output/` + `.wrangler/deploy/config.json`;
   Cloudflare baut mit `npm install && npm run build` und deployt mit `npx wrangler deploy`.
@@ -159,6 +169,39 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 - Reihenfolge: alle Dateien in `supabase/migrations/` alphabetisch (= chronologisch). Neue
   Updates im Kopf auf die jeweils **neueste vorhandene Datei** verweisen („nach …“).
 
+### Neue Sitzung (Claude Code) – so ist alles wieder da
+
+- **Quellen der Sitzung:** `KicktimeApps/Kicktime2028`, `KicktimeApps/Kicktime2028-Admin`,
+  `KicktimeApps/Kicktime2028-Landingpage` (mit Schreibrecht). Die 2026-Repos nur bei Bedarf und
+  nur lesend klonen (öffentlich, z. B. `git clone --depth 1 https://github.com/KicktimeApps/kicktime2026`).
+- **Ordner:** Die Team-App prüft den gemeinsamen Code mit `node scripts/sync-check.mjs <Pfad zur
+App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
+  (`../Kicktime2028` oder `../kicktime2028`).
+- **Zuerst abgleichen:** Der Betreiber ändert manchmal direkt auf GitHub (z. B. Worker-Namen,
+  Leerzeichen). Vor jeder Arbeit `git fetch` + `git status -sb` und ggf. `git merge --ff-only`.
+  Schon einmal brach ein angehängtes Leerzeichen die Prettier-Prüfung auf GitHub – dann einfach
+  entfernen (Doku-Fix ohne Versionssprung).
+- **Supabase:** Connector `mcp__Supabase__*` mit Projekt `ddtxgvjxpkucdwexhsjs` (siehe Abschnitt 5).
+  Ist er nicht da, den Betreiber bitten, ihn zu verbinden – nie nach Tokens fragen.
+- **Stop-Hook „unpushed commits“** ist kein „push“ (Regel 1): ablehnen, Commit-Hash nennen.
+- **Speicher-Schlüssel nie umbenennen:** `kicktime-2028.*` / `kicktime-2028-team.*` in
+  localStorage bleiben so, auch wenn Worker/Repo jetzt `kicktime2028` heißen – sonst verlieren
+  Nutzer Geräte-ID, Tipprunden und Einstellungen.
+
+### Aktueller Stand (25.10.2026)
+
+- **App 2.16.0**, **Team-App 1.2.1**, beide gepusht und bei Cloudflare live.
+- **Supabase:** alle 22 SQL-Updates bis `20261025200000_team_passkeys.sql` ausgeführt (die
+  älteren im SQL-Editor, daher listet `list_migrations` nur die letzten 6). Edge Functions:
+  `admin` v18 (Team-App + Face ID), `live-scores` v12, `send-push-reminders` v10 – Inhalt jeweils
+  wie im Repo.
+- **Face ID in der Team-App** vom Betreiber auf dem iPhone getestet – funktioniert.
+- **Team-App-Übersicht** lädt nur beim ersten Öffnen und über „Jetzt aktualisieren“ (Wunsch des
+  Betreibers: kein Neuladen bei jedem Seitenwechsel, kein Minuten-Takt).
+- **Brute-Force-Sperre:** Die Team-App darf nie viele Admin-Aufrufe gleichzeitig schicken (sonst
+  zählt der Server sie als Fehlversuche → „zu viele Versuche“). `services/admin.ts` begrenzt auf
+  2 parallele Aufrufe und wiederholt ein 429 einmal nach 1,5 s (nie bei `verify`).
+
 ## 6. Fachliches, das man wissen muss
 
 - **Turnier:** EURO 2028 (GB & Irland), 24 Teams, 51 Spiele, 9.6.–9.7.2028. Live-Daten von
@@ -200,7 +243,7 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   `kt_team_delivery`, die Wächter-Karte zeigt sie (lädt ~70 s nach einem Test neu).
 - **Aufräumen:** `kt_push_cleanup` (täglich 3:07 UTC aus `send-push-reminders`) löscht Abos, die
   60 Tage nicht gemeldet wurden – nur ohne anstehende Erinnerung, Tipprunde oder Team-Eintrag.
-- **Team-App** (Repo `phantom-35/kicktime2028-admin`, ab 2.15.0): eigenes Kontrollzentrum mit
+- **Team-App** (Repo `KicktimeApps/Kicktime2028-Admin`, ab 2.15.0): eigenes Kontrollzentrum mit
   allen Team-Funktionen, nutzt dieselben Edge Functions. Dafür in `admin`: `find_person`,
   `group_board`, `team_log` (SQL-Update `20261025180000_team_app.sql`) und das Team-Protokoll
   (`kt_team_log`, jede ändernde Aktion mit Klartext; `by` = Geräte-ID aus `services/admin.ts`).
@@ -263,6 +306,7 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 
 ## 7. Was dem Betreiber wichtig ist (Stil & Zusammenarbeit)
 
+- **„Noch nichts schreiben“** heißt: nur erklären/vorschlagen, keinen Code ändern.
 - **Mitdenken:** Fälle zu Ende denken (Wer sieht was? Was passiert danach? Missbrauch? Limits?),
   bei echten Weichenstellungen kurz mit Auswahl fragen, sonst sinnvoll entscheiden und
   sagen, was entschieden wurde.
@@ -278,8 +322,11 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
 
 ## 8. Offene Punkte
 
-- Domain kaufen/verknüpfen (Plan in Abschnitt 2), danach `LEGAL_URL`, `SITE_URL` und die
-  App-Links auf beiden Supportseiten umstellen.
+- Domain kaufen/verknüpfen (Plan in Abschnitt 2), danach `LEGAL_URL`, `SITE_URL`, die
+  App-Links auf beiden Supportseiten und die URL der GitHub-Organisation umstellen. Face-ID-
+  Passkeys gelten je Adresse – nach dem Umzug der Team-App neu einrichten.
+- Wenn die Team-App sich bewährt hat: Team-Bereich aus der KickTime-App entfernen (nur auf
+  Wunsch des Betreibers, eigener Umbau mit Versionssprung).
 - Datenschutz-Angaben vom Betreiber bestätigen lassen (Supabase-Region/AV-Vertrag,
   Formspree-SCC, Löschfristen).
 - Neue Funktionen nach dem Ausführen der Migrationen einmal gegen den echten Server prüfen.
