@@ -77,10 +77,12 @@ und deployt bei Cloudflare automatisch (GitHub-Verbindung im Cloudflare-Dashboar
   - `admin` – alle Admin-Aktionen, PIN-geprüft (Secret `ADMIN_PIN`, Brute-Force-Sperre).
   - `send-push-reminders` – per Cron (Header `x-cron-secret`): Erinnerungen, Tipprunden-
     Nachrichten, Einzel-Mitteilungen (`kt_push_queue`). Supabase erlaubt 2 s Rechenzeit pro
-    Aufruf: höchstens `MAX_REMINDERS_PER_RUN` (300) Spiel- + Tipp-Erinnerungen je Lauf, der Rest
-    wird wieder freigegeben (nächste Minute); VAPID-Signatur je Push-Dienst zwischengespeichert
-    (~0,4 ms je Nachricht). Staut es sich (≥ 600 fällig), meldet der Wächter „push-stau“ – dann
-    mehrere Aufrufe je Minute einplanen. Lasttest: 1000 gleichzeitige in 4 Minuten, keine verloren.
+    Aufruf: höchstens `MAX_REMINDERS_PER_RUN` (600) Spiel- + Tipp-Erinnerungen je Lauf, der Rest
+    wird wieder freigegeben (nächste Minute); VAPID-Signatur je Push-Dienst zwischengespeichert,
+    20 Nachrichten gleichzeitig. Gemessen (Okt. 2026) ~1 ms Rechenzeit je Nachricht; zusätzlich
+    Sicherung `CPU_BUDGET_MS` (1200): wird die Verschlüsselung teurer, bleibt der Rest liegen
+    und geht in den nächsten Lauf (lokaler Lasttest mit 3 ms/Nachricht: keine verloren). Staut es
+    sich (≥ 1200 fällig), meldet der Wächter „push-stau“ – dann mehrere Aufrufe je Minute einplanen.
   - Jede Function ist **eine Datei** (wird im Dashboard einzeln kopiert) – Helfer bewusst
     dupliziert.
 - **Ohne Konten:** Ein Nutzer ist eine zufällige Geräte-ID (`src/lib/device-id.ts`). Sperren
@@ -90,7 +92,9 @@ und deployt bei Cloudflare automatisch (GitHub-Verbindung im Cloudflare-Dashboar
   `groupsOfDevice` die Runden zum Code. Lokale Einstellungen wandern nicht mit. Der Code ist
   geheim (wer ihn hat, tippt im Namen des Geräts). Neu installiert = neue ID = Runden weg, daher
   einmaliger Hinweis „Sichere deinen Code“ in der Rundenliste (`BackupCodeHint`,
-  `codeBackupDone`) und Eintrag „Code für neues Handy“ in den Runden-Einstellungen.
+  `codeBackupDone`) und Eintrag „Code für neues Handy“ in den Runden-Einstellungen. Wer ihn nur
+  weggeklickt und den Code nie angesehen hat (`codeBackupSeen`), sieht ab 14 Tage vor dem
+  Eröffnungsspiel bis Turnierende einmal „Bald geht's los – Code gesichert?“ (`lib/backup-hint.ts`).
 - **Architektur-Details:** `docs/ARCHITEKTUR.md`. Pflege/Abläufe: `docs/PFLEGE.md`.
   Kernprinzip: Turnierzustand wird immer rein funktional aus Eingaben berechnet
   (`src/domain/resolve.ts`).
@@ -108,7 +112,7 @@ bun audit                    # nach Paket-Änderungen: keine bekannten Sicherhei
 
 (`npm run check` = Typen + Lint + Tests; Paketmanager ist eigentlich bun – `bun run check`.)
 Dieselben Prüfungen laufen bei jedem Push auf GitHub (`.github/workflows/pruefungen.yml`),
-dazu **Browser-Tests** der wichtigsten Abläufe (`e2e/*.e2e.ts`, Playwright 1.56.1, Handy + Desktop,
+dazu **Browser-Tests** der wichtigsten Abläufe (`e2e/*.e2e.ts`, Playwright 1.63.0, Handy + Desktop,
 Server per `page.route` nachgestellt – nie echte Daten). Lokal:
 `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers bunx playwright test`. Neue Abläufe dort mit abdecken.
 
@@ -190,7 +194,9 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
 
 ### Aktueller Stand (25.10.2026)
 
-- **App 2.17.0**, **Team-App 1.2.2**, alles gepusht (Cloudflare baut automatisch).
+- **App 2.18.0**, **Team-App 1.3.0** – lokal committet. Noch zu deployen: Edge Functions
+  `admin` (fixtures_list, PIN-Sperre) und `send-push-reminders` (600/Lauf, Missbrauchs-Check);
+  kein SQL-Update nötig. Live: App 2.17.0, Team-App 1.2.2.
 - **Supabase:** alle 23 SQL-Updates bis `20261025220000_geraet_vergessen_waechter.sql`
   ausgeführt (die älteren im SQL-Editor, daher listet `list_migrations` nicht alle). Edge
   Functions: `admin` v19, `live-scores` v12, `send-push-reminders` v11 – Inhalt jeweils wie im Repo.
@@ -207,16 +213,15 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   OpenLigaDB (`em/2028`), Admin-Korrekturen überbrücken nur, bis die Quelle Neues meldet.
   Geprüft mit echten EM-2024-Daten (Okt. 2026): `em/2024` und ESPN `uefa.euro` lieferten alle 51
   Spiele, Ergebnisse identisch. `em/2028` ist dort noch leer – die Community legt die Liga erst
-  vor dem Turnier an; vorher im KickTime-Team-Bereich → Live-Daten → „Testen“ prüfen, ggf.
+  vor dem Turnier an; vorher in der Team-App → Live-Daten → „Testen“ prüfen, ggf.
   Kürzel umstellen. Achtung: OpenLigaDB-Teamnamen können falsch sein (2024 hieß Frankreich
   „SV Großefehn“) – die Zuordnung fällt dann auf Tag + Stadion/Uhrzeit zurück. Elfmeterschießen-
   Tore stehen in der normalen Torliste (Minute 120, `isPenalty`) und zählen nicht zum Spielstand.
 - **Vorschau-Modus:** Ergebnisse simuliert, **Tipprunden sind echt** (Server) – der Betreiber
   testet meist darin und lädt echte Leute ein. „Vorschau neu starten“ (Einstellungen → Vorschau-Modus,
   `restartDemo`) setzt Uhr, Vorschau-Tipps und Vorschau-Feier zurück und lädt neu. Die Vorschau übernimmt
-  **keine** Live-Daten und keine Korrekturen. Korrekturen (Team-Bereich → Korrektur) gelten immer
-  für die echten Spiele (gleiche Spielnummern!) – darum dort im Vorschau-Modus gesperrt, nur
-  „Echte Korrekturen entfernen“ bleibt.
+  **keine** Live-Daten und keine Korrekturen. Korrekturen (Team-App → Korrektur) gelten immer
+  für die echten Spiele.
 - **Tipprunden:** Code (6 Zeichen), Beitritt = Anfrage, Ersteller nimmt an. Tipps je Runde,
   Sperre ab Anpfiff (Server prüft, `kt_fixtures`), fremde Tipps erst ab Anpfiff sichtbar,
   Europameister-Bonustipp bis zum Eröffnungsspiel. Pillen „Tippen“ · „Vergleich“ · „Tabelle“:
@@ -257,11 +262,11 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   Paket `npm:@simplewebauthn/server@13.2.2`). Nach Face ID gilt eine signierte Freigabe
   `s1.…` (HMAC mit `SUPABASE_SERVICE_ROLE_KEY`, 4 Std.) statt der PIN; Einrichten nur mit PIN.
   Die KickTime-App selbst nutzt das nicht.
-- **Admin-Bereich:** Einstellungen → 5× auf die Versionsnummer tippen → PIN (Zählung in
-  `lib/secret-taps.ts`; die Zeile ist bewusst kein Knopf und nicht markierbar, damit nichts
-  die Stelle verrät – die Version schickt das Feedback ohnehin automatisch mit). PIN bleibt nur im
-  Speicher des offenen App-Fensters (30 Min.), nie gespeichert. Bereiche: Übersicht,
-  Live-Daten, Korrektur, Tipprunden, Anträge, Mitteilungen, Statistik, System.
+- **Kein Team-Bereich mehr in der App (ab 2.18.0):** Der frühere versteckte Bereich (5× auf die
+  Versionszeile) ist entfernt – alle Team-Funktionen gibt es nur noch in der Team-App
+  (`https://kicktime2028-admin.ben-online35.workers.dev`). Die App selbst kennt keine PIN mehr; `services/admin.ts` bleibt als
+  gemeinsamer Code für die Team-App im Repo (Tests, `sync-check`). Team-Mitteilungen nennen
+  weiterhin `/einstellungen` – die Team-App öffnet dafür die passende Seite (`sw.js`).
 - **Statistik:** zählt alle echten Nutzer (nicht nur Push), Bots/Automatisierung werden
   ausgefiltert, gemeldet erst nach echter Bedienung. Keine IP, kein User-Agent gespeichert.
 - **Einführung:** Willkommen → Installieren (nur im Browser auf Handy/Tablet, Browser-
@@ -276,17 +281,19 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   wertet Meldungen der Geräte aus (`kt_report_source`: ESPN/Server, `services/source-report.ts`).
   Probleme und „wieder in Ordnung“ gehen per `kt_alert_set` → `kt_push_team` an die
   eingetragenen Team-Geräte (bei Fortbestehen alle 30 Min.). Vor dem Turnier täglich 8 Uhr UTC
-  Prüfung „Liga leer“. Anzeige + Test-Mitteilung im Team-Bereich → Live-Daten (`WatchCard`).
+  Prüfung „Liga leer“. Anzeige + Test-Mitteilung in der Team-App → Live-Daten (`WatchCard`).
   Ab 2.17.0 zusätzlich „anstosszeiten“: vergleicht die Tipp-Sperre (`kt_fixtures`, Spielort in
   `city`) Spiel für Spiel mit OpenLigaDB (Tag + Ort) und bittet ums „Anstoßzeiten abgleichen“.
   Geräte-Meldungen zählen nur von Geräten mit Push-Abo oder seit 6 Std. bekanntem Ping; ihr
-  Text geht nie in die Mitteilung (nur ein HTTP-Fehlercode).
-- **Face ID und PIN-Sperre:** Die Sammel-Sperre (30 Fehlversuche/15 Min. von allen) kann jeder
-  auslösen – `passkey_login` zählt deshalb nur je IP, damit das Team per Face ID immer
-  hineinkommt.
+  Text geht nie in die Mitteilung (nur ein HTTP-Fehlercode). Ab 2.18.0 alle 10 Min. Missbrauchs-
+  Check: „auffaellig-runden“ (≥ 150 neue Runden/Std. oder ≥ 20 von Geräten ohne Ping) und
+  „auffaellig-anfragen“ (≥ 500 Beitritte/Std.), Grenzen oben in `send-push-reminders`.
+- **Face ID und PIN-Sperre:** IP aus `cf-connecting-ip` (setzt Cloudflare, nicht
+  fälschbar), 5 Fehlversuche je IP, Sammel-Sperre 150/15 Min. (ab 2.18.0, vorher 30).
+  `passkey_login` zählt nur je IP, damit das Team per Face ID immer hineinkommt.
 - **Tipp-Erinnerung:** eine Stunde vor Anpfiff „Noch kein Tipp“ an bestätigte Mitglieder ohne
   Tipp (`kt_claim_tip_reminders`, je Gerät und Spiel einmal, abschaltbar unter Erinnerungen).
-  Paarung kommt aus `kt_fixtures.title` (Team-Bereich → „Anstoßzeiten abgleichen“, nie aus
+  Paarung kommt aus `kt_fixtures.title` (Team-App → „Anstoßzeiten abgleichen“, nie aus
   dem Vorschau-Modus).
 - **Update-Hinweis:** `/version.json` (Server-Version) – `useUpdateCheck` bietet bei neuerer
   Version „Aktualisieren“ an. `sw.js` speichert `/version.json` nie.
@@ -335,8 +342,6 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
 - Domain kaufen/verknüpfen (Plan in Abschnitt 2), danach `LEGAL_URL`, `SITE_URL`, die
   App-Links auf beiden Supportseiten und die URL der GitHub-Organisation umstellen. Face-ID-
   Passkeys gelten je Adresse – nach dem Umzug der Team-App neu einrichten.
-- Wenn die Team-App sich bewährt hat: Team-Bereich aus der KickTime-App entfernen (nur auf
-  Wunsch des Betreibers, eigener Umbau mit Versionssprung).
 - Datenschutz-Angaben vom Betreiber bestätigen lassen (Supabase-Region/AV-Vertrag,
   Formspree-SCC, Löschfristen).
 - Neue Funktionen nach dem Ausführen der Migrationen einmal gegen den echten Server prüfen.

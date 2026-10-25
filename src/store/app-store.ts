@@ -76,6 +76,10 @@ type State = {
   roundTourDone: boolean;
   /** Wiederherstellungs-Code angesehen/kopiert (oder Hinweis weggeklickt). */
   codeBackupDone: boolean;
+  /** Code wirklich angesehen (nicht nur weggeklickt) – dann keine Erinnerung vor dem Turnier. */
+  codeBackupSeen: boolean;
+  /** Erinnerung „Code gesichert?“ vor dem Turnier schon gezeigt und weggeklickt. */
+  codeBackupReminded: boolean;
 
   demo: { enabled: boolean; scenario: DemoScenario; startedAt: number };
   /** Für welchen Europameister die Feier schon gezeigt wurde. */
@@ -124,6 +128,8 @@ type Actions = {
   setTipsTourDone: (v: boolean) => void;
   setRoundTourDone: (v: boolean) => void;
   setCodeBackupDone: (v: boolean) => void;
+  setCodeBackupSeen: () => void;
+  setCodeBackupReminded: () => void;
 };
 
 export const useAppStore = create<State & Actions>()(
@@ -154,6 +160,8 @@ export const useAppStore = create<State & Actions>()(
       tipsTourDone: false,
       roundTourDone: false,
       codeBackupDone: false,
+      codeBackupSeen: false,
+      codeBackupReminded: false,
       pushEnabled: false,
       autoAlarmFavorites: true,
       tipReminders: true,
@@ -297,6 +305,8 @@ export const useAppStore = create<State & Actions>()(
       setTipsTourDone: (v) => set({ tipsTourDone: v }),
       setRoundTourDone: (v) => set({ roundTourDone: v }),
       setCodeBackupDone: (v) => set({ codeBackupDone: v }),
+      setCodeBackupSeen: () => set({ codeBackupDone: true, codeBackupSeen: true }),
+      setCodeBackupReminded: () => set({ codeBackupReminded: true }),
     }),
     {
       name: TOURNAMENT.storagePrefix,

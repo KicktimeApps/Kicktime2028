@@ -152,8 +152,8 @@ die Fehlermeldung aus dem Build-Log.
    Home-Bildschirm“**. KickTime danach **über das neue Icon** starten (nötig für Push auf dem
    iPhone).
 2. Einrichtung durchklicken.
-3. **Profil** → ganz unten **5× schnell auf die Versionszeile** tippen → Admin-PIN eingeben →
-   Reiter **„System“**: Bei **Quelle** muss `backend` stehen.
+3. Die **Team-App** (`https://kicktime2028-admin.ben-online35.workers.dev`) öffnen → PIN eingeben → **„Live-Daten“**:
+   Bei **Quelle** muss `backend` stehen.
 4. **Profil → Erinnerungen** einschalten und die Mitteilungen erlauben.
 5. In Supabase → **„Table Editor“** → `push_subscriptions`: Hier steht jetzt ein Eintrag.
 6. **Profil → Erinnerungen → „Test-Benachrichtigung senden“** antippen, dann zum

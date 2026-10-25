@@ -22,7 +22,6 @@ import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Segmented } from "@/components/common/Segmented";
-import { AdminPanel } from "@/components/admin/AdminPanel";
 import { DeviceTransfer } from "@/components/settings/DeviceTransfer";
 import { PRESETS, presetMatches } from "@/components/settings/presets";
 import { WeekEditor } from "@/components/settings/WeekEditor";
@@ -47,7 +46,6 @@ import { usePrefs } from "@/hooks/usePrefs";
 import { downloadIcs } from "@/lib/calendar";
 import { submitFeedback, type FeedbackCategory, type FeedbackRating } from "@/lib/feedback";
 import { haptics } from "@/lib/haptics";
-import { nextTap } from "@/lib/secret-taps";
 import { detectPushSupport } from "@/lib/notifications";
 import {
   hasPushBackend,
@@ -782,8 +780,6 @@ function FeedbackContent() {
 
 /** Abschluss der Übersicht: Rechtliches, Neustart, Löschen und Versionszeile. */
 function MoreList({ onRestart }: { onRestart: () => void }) {
-  const [adminOpen, setAdminOpen] = useState(false);
-  const taps = useRef({ n: 0, t: 0 });
   const row =
     "flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px] transition-colors hover:bg-muted/40";
   return (
@@ -886,26 +882,13 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
         </AlertDialog>
       </div>
 
-      {/* 5× tippen öffnet den Team-Bereich (secret-taps.ts). Geheim: bewusst kein
-          Knopf (nicht per Tastatur anwählbar, kein Fokus-Rahmen, kein Eindrücken) und
-          nicht markierbar – schnelles Tippen markiert sonst Text. Die Version braucht
-          niemand zu kopieren: Feedback schickt sie automatisch mit. */}
-      <p
-        className="mx-auto mt-5 w-fit touch-manipulation select-none px-4 text-center text-[12px] leading-relaxed text-muted-foreground"
-        onClick={() => {
-          const r = nextTap(taps.current, Date.now());
-          taps.current = r.state;
-          if (r.open) {
-            haptics.success();
-            setAdminOpen(true);
-          }
-        }}
-      >
+      {/* Der frühere versteckte Team-Bereich (5× tippen) ist seit 2.18.0 die eigene
+          Team-App (KicktimeApps/Kicktime2028-Admin). */}
+      <p className="mx-auto mt-5 w-fit px-4 text-center text-[12px] leading-relaxed text-muted-foreground">
         KickTime {TOURNAMENT.year} · Version {APP_VERSION} · PhanDev Studios
         <br />
         Privates Fan-Projekt ohne Verbindung zur UEFA
       </p>
-      <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
     </div>
   );
 }

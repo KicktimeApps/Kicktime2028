@@ -3,10 +3,10 @@
  *
  * Einziger Schreibweg für Admin-Korrekturen + Statistik/Feedback-Abfrage.
  * Die PIN liegt nur als Secret ADMIN_PIN auf dem Server. Brute-Force-Schutz:
- * nach 5 Fehlversuchen pro IP (bzw. 30 insgesamt) ist der Zugang 15 Minuten gesperrt.
+ * nach 5 Fehlversuchen pro IP (bzw. 150 insgesamt) ist der Zugang 15 Minuten gesperrt.
  *
  * Aktionen:
- *  verify | set | clear | clear_overrides | stats | feedback | feedback_delete | fixtures
+ *  verify | set | clear | clear_overrides | stats | feedback | feedback_delete | fixtures | fixtures_list
  *  config | set_source | test_source | clear_cache | reset_results | set_announcement | broadcast
  *  groups | group | group_delete | member_remove | member_unban | owner_transfer | delete_tip_groups
  *  requests | decide | ban_global | unban_global | global_bans | team_device
@@ -69,7 +69,7 @@ function env(name: string, fallback?: string): string {
 }
 
 const MAX_FAILURES = 5;
-const MAX_GLOBAL_FAILURES = 30;
+const MAX_GLOBAL_FAILURES = 150;
 const LOCK_MS = 15 * 60_000;
 const STATUSES = ["scheduled", "live", "finished"];
 const PHASES = ["first", "half", "second", "extra", "penalties"];
@@ -456,10 +456,19 @@ Deno.serve(async (req) => {
   if (!body) return json({ error: "Ungültige Anfrage" }, 400);
 
   // ---- Brute-Force-Schutz ----
-  // Pro IP 5 Fehlversuche / 15 min. Da Header gefälscht werden können, gilt
-  // zusätzlich eine globale Obergrenze (30 / 15 min) – damit ist Durchprobieren
-  // einer 6-stelligen PIN praktisch ausgeschlossen.
-  const ip = (req.headers.get("x-forwarded-for") ?? "unbekannt").split(",")[0].trim();
+  // Pro IP 5 Fehlversuche / 15 min. Die IP setzt Cloudflare vor Supabase selbst
+  // (cf-connecting-ip) – anders als x-forwarded-for, dessen erster Eintrag vom
+  // Absender stammen kann. Dazu eine Obergrenze für alle zusammen (150 / 15 min):
+  // Selbst mit vielen IPs dauert Durchprobieren einer 6-stelligen PIN Wochen, und
+  // aussperren kann das Team nur, wer Fehlversuche von 30+ IPs schickt.
+  const ip = (
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-real-ip") ??
+    req.headers.get("x-forwarded-for") ??
+    "unbekannt"
+  )
+    .split(",")[0]
+    .trim();
   const keys = [
     { key: `ip:${ip}`, max: MAX_FAILURES },
     { key: "global", max: MAX_GLOBAL_FAILURES },
@@ -474,7 +483,7 @@ Deno.serve(async (req) => {
   // Anmelden zählt wie ein PIN-Versuch – aber nur je IP, nicht für die
   // Sammel-Sperre: Ein Passkey lässt sich nicht durchprobieren. So kommt das
   // Team per Face ID auch dann noch hinein, wenn jemand mit falschen PINs die
-  // Sammel-Sperre (30 Versuche) ausgelöst hat.
+  // Sammel-Sperre (150 Versuche) ausgelöst hat.
   if (action === "passkey_login") {
     const ipKeys = [`ip:${ip}`];
     const { data: counted } = await db.rpc("kt_admin_attempt", { p_keys: ipKeys });
@@ -694,6 +703,15 @@ Deno.serve(async (req) => {
         return error
           ? json({ error: "Speichern fehlgeschlagen (SQL-Update Tipprunde ausgeführt?)" }, 500)
           : json({ ok: true, count: rows.length });
+      }
+
+      // Anstoßzeiten der Tipp-Sperre lesen (Team-App vergleicht sie mit den eigenen).
+      case "fixtures_list": {
+        const { data, error } = await db
+          .from("kt_fixtures")
+          .select("match_id, kickoff_utc, title")
+          .order("match_id");
+        return error ? json({ error: "Lesen fehlgeschlagen" }, 500) : json({ rows: data ?? [] });
       }
 
       case "feedback": {

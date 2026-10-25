@@ -88,29 +88,29 @@ Halbfinale, Finale) oder „MagentaTV“ (Free-TV noch offen).
 
 - OpenLigaDB hat die EURO 2024 unter `em/2024` geführt, für 2028 ist `em/2028` voreingestellt.
   Testen mit: `https://api.openligadb.de/getmatchdata/em/2028`. Falls OpenLigaDB ein anderes
-  Kürzel nutzt: **Admin-Bereich → Live-Daten → API-Quelle** (Liga, Saison, optional Endung),
+  Kürzel nutzt: **Team-App → Live-Daten → API-Quelle** (Liga, Saison, optional Endung),
   erst „Testen“, dann „Speichern“ – gilt sofort für alle. Alternativ die Secrets
   `OPENLIGA_LEAGUE`/`OPENLIGA_SEASON` (Edge Function) bzw. `VITE_OPENLIGA_*` (ohne Backend).
 - OpenLigaDB wird von der Community gepflegt. Fehlerhafte Einträge (etwa Testteams wie
   „SV Großefehn“ bei der EM 2024) ignoriert KickTime. Falsche Spielstände korrigierst du im
-  **Admin-Bereich → Korrektur**. OpenLigaDB gibt grundsätzlich vor; eine Korrektur überbrückt
+  **Team-App → Korrektur**. OpenLigaDB gibt grundsätzlich vor; eine Korrektur überbrückt
   nur, wenn die Quelle hängt. Sie merkt sich, was OpenLigaDB beim Speichern gemeldet hat –
   sobald dort etwas Neues ankommt (das Tor, das Spielende …), gilt automatisch wieder
   OpenLigaDB. Neben jedem Spiel steht, was OpenLigaDB gerade meldet.
 - Elfmeterschießen: OpenLigaDB führt das Ergebnis „nach Elfmeterschießen“ nicht immer
   einheitlich (mal mit, mal ohne die Tore aus dem Spiel). Der **Sieger** wird in beiden Fällen
-  richtig erkannt; sollte die angezeigte Elfmeterzahl nicht stimmen, im Admin-Bereich korrigieren.
+  richtig erkannt; sollte die angezeigte Elfmeterzahl nicht stimmen, im Team-App korrigieren.
 - **Zweitquelle ESPN** (kostenlos, ohne Anmeldung): An Tagen mit EM-Spiel fragt die App
   zusätzlich ESPN nach den Spielen des Tages (`uefa.euro`). ESPN meldet Tore meist schneller.
   Pro Spiel gilt die Quelle, die „weiter“ ist (live statt geplant, beendet statt live); laufen
   beide, zählt ESPN, sind beide beendet, zählt OpenLigaDB. Dauerhaft gespeichert werden nur
   OpenLigaDB-Endergebnisse. Die App fragt ESPN **direkt** (nicht über Supabase), weil ESPN
   Anfragen aus Rechenzentren sperrt – deshalb steht ESPN auch in der Datenschutzerklärung.
-  Ein-/ausschalten bzw. Liga ändern: **Admin-Bereich → Live-Daten → API-Quellen →
+  Ein-/ausschalten bzw. Liga ändern: **Team-App → Live-Daten → API-Quellen →
   Zweitquelle ESPN** (gilt für alle). Mit einer anderen Liga, z. B. `ger.1` (Bundesliga), fragt
   die App jeden Tag – gut zum Ausprobieren, die Spiele werden aber nicht zugeordnet. ESPN ist
   eine inoffizielle Schnittstelle; fällt sie aus, läuft alles mit OpenLigaDB weiter.
-- Im Admin-Bereich → Live-Daten siehst du Quelle, abgefragte Adresse, letzten Abruf und die Zahl
+- Im Team-App → Live-Daten siehst du Quelle, abgefragte Adresse, letzten Abruf und die Zahl
   der Spiele, die die App nicht zuordnen konnte. Liefert die Quelle Unsinn, dort „Live-Abruf
   anhalten“ – dann gelten nur gespeicherter Stand und Korrekturen.
 
@@ -138,16 +138,16 @@ Der Server nimmt Tipps nur bis zum Anpfiff an. Dafür kennt er die Anstoßzeiten
 `kt_fixtures`). Sobald offizielle Zeiten in `src/tournament/draw.ts` stehen (oder
 OpenLigaDB sie liefert), die Zeiten abgleichen – eine der beiden Möglichkeiten:
 
-- **Admin-Bereich → Live-Daten → „Anstoßzeiten abgleichen“** (übernimmt die Zeiten,
+- **Team-App → Live-Daten → „Anstoßzeiten abgleichen“** (übernimmt die Zeiten,
   die die App gerade anzeigt), oder
 - `npm run fixtures:sql` und die Ausgabe im Supabase SQL-Editor ausführen.
 
-## Admin-Bereich
+## Team-App (früher Team-App)
 
-Öffnen: Einstellungen → fünfmal auf die Versionsnummer tippen, PIN eingeben (Secret `ADMIN_PIN`).
-Die PIN bleibt 30 Minuten gemerkt, solange die App offen ist. In der App heißt der Bereich
-„KickTime-Team“. Mehr Platz und alle Funktionen bietet die eigene Team-App
-(`https://kicktime2028-admin.ben-online35.workers.dev`).
+Alle Team-Funktionen gibt es in der eigenen Team-App (`https://kicktime2028-admin.ben-online35.workers.dev`), entsperrt mit
+PIN (Secret `ADMIN_PIN`) oder Face ID. Den versteckten Bereich in der KickTime-App gibt es seit
+2.18.0 nicht mehr. Die wichtigsten Bereiche (die Team-App hat dazu Spiele-Check, Personen,
+Feedback und Protokoll):
 
 | Bereich      | Was du dort machst                                                                                                                                                                                             |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -179,18 +179,18 @@ werden.
 Feedback mit Kategorie (Idee, Fehler, Lob, Sonstiges): `20261023090000_feedback_kategorie.sql`
 ausführen, danach die Edge Functions `admin` und `live-scores` (meldet die ESPN-Liga) neu deployen.
 
-Wer im Admin-Bereich gesperrt wird, sieht in der App einen eigenen
+Wer im Team-App gesperrt wird, sieht in der App einen eigenen
 Hinweis „Gesperrt“; wer vom Ersteller entfernt wird, „Nicht mehr dabei“.
 
 Der Ersteller einer Runde wählt beim Rauswerfen zwischen **Entfernen** (darf mit dem Code wieder
 anfragen) und **Sperren** (kommt nicht wieder rein). Seine Sperren hebt er in den
-Runden-Einstellungen unter „Gesperrt“ wieder auf; Sperren aus dem Admin-Bereich kann nur der
+Runden-Einstellungen unter „Gesperrt“ wieder auf; Sperren aus dem Team-App kann nur der
 Admin aufheben. „Push an alle“ nutzt dieselben
 VAPID-Secrets wie `send-push-reminders`.
 
 ### Sperren und Entsperrungsanträge
 
-- **Sperren durch das Team:** im Admin-Bereich → Tipprunden beim Mitglied „Sperren“ (nur diese
+- **Sperren durch das Team:** im Team-App → Tipprunden beim Mitglied „Sperren“ (nur diese
   Runde) oder „Überall sperren“ (keine Runde mehr beitreten oder erstellen). Leitet die Person
   Runden, übernimmt das älteste Mitglied; allein → Runde gelöscht. Die Runde zeigt allen einen
   Hinweis, der Ersteller bekommt eine Mitteilung. Tipps bleiben für ein Entsperren erhalten.

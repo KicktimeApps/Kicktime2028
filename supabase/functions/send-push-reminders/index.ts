@@ -73,10 +73,13 @@ type Due = {
 /**
  * Höchstens so viele Erinnerungen (Spiel + Tipp) je Lauf. Supabase erlaubt einer
  * Edge Function 2 s Rechenzeit pro Aufruf; jede Nachricht wird verschlüsselt
- * (~1–3 ms). Wird es mehr, geben wir den Rest wieder frei – er geht im nächsten
- * Lauf (eine Minute später) raus, statt bei einem Abbruch verloren zu gehen.
+ * (gemessen Okt. 2026: ~1 ms, mit zwischengespeicherter VAPID-Signatur). 600 lassen
+ * reichlich Reserve. Wird es mehr, geben wir den Rest wieder frei – er geht im
+ * nächsten Lauf (eine Minute später) raus, statt bei einem Abbruch verloren zu gehen.
  */
-const MAX_REMINDERS_PER_RUN = 300;
+const MAX_REMINDERS_PER_RUN = 600;
+/** Rechenzeit (ms) fürs Verschlüsseln je Lauf – danach Rest in den nächsten Lauf. */
+const CPU_BUDGET_MS = 1200;
 
 /** VAPID-Signatur je Push-Dienst (Apple, Google …) einmal pro Lauf statt je Nachricht. */
 function vapidCache(subject: string, publicKey: string, privateKey: string) {
@@ -146,12 +149,11 @@ Deno.serve(async (req) => {
     const now = Date.now();
     const { list: claimed, atomic } = await claimDue(db, now);
 
-    // Zu viele auf einmal? Den Rest freigeben – kommt im nächsten Lauf.
-    const list = claimed.slice(0, MAX_REMINDERS_PER_RUN);
-    const laterAlarms = claimed.slice(MAX_REMINDERS_PER_RUN);
-    if (atomic && laterAlarms.length > 0) {
+    // Erinnerungen wieder freigeben – sie gehen im nächsten Lauf raus.
+    const releaseAlarms = async (rows: Due[]) => {
+      if (!atomic || rows.length === 0) return;
       const byMatch = new Map<string, string[]>();
-      for (const r of laterAlarms)
+      for (const r of rows)
         byMatch.set(r.match_id, [...(byMatch.get(r.match_id) ?? []), r.device_id]);
       for (const [match, devices] of byMatch)
         await db
@@ -159,7 +161,22 @@ Deno.serve(async (req) => {
           .update({ notified_for: null })
           .eq("match_id", match)
           .in("device_id", devices);
-    }
+    };
+    // Zu viele auf einmal? Den Rest freigeben – kommt im nächsten Lauf.
+    const list = claimed.slice(0, MAX_REMINDERS_PER_RUN);
+    const laterAlarms = claimed.slice(MAX_REMINDERS_PER_RUN);
+    await releaseAlarms(laterAlarms);
+
+    // Sicherung gegen die 2-s-Grenze: Rechenzeit fürs Verschlüsseln mitzählen
+    // (läuft synchron beim Aufruf von sendNotification). Ist das Budget erreicht,
+    // bleibt der Rest liegen und wird für den nächsten Lauf freigegeben.
+    let cpuMs = 0;
+    const encrypt = <T>(fn: () => Promise<T>): Promise<T> => {
+      const t = performance.now();
+      const p = fn();
+      cpuMs += performance.now() - t;
+      return p;
+    };
 
     let sent = 0;
     const expired = new Set<string>();
@@ -167,20 +184,22 @@ Deno.serve(async (req) => {
       const kickoff = Date.parse(row.kickoff_utc);
       const minutes = Math.max(1, Math.round((kickoff - now) / 60_000));
       try {
-        await webpush.sendNotification(
-          { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
-          JSON.stringify({
-            title: "Gleich geht's los ⚽",
-            body: `${row.title} – Anpfiff in ${minutes} Minuten.`,
-            url: "/",
-            tag: `match-${row.match_id}`,
-          }),
-          // Nur bis zum Anpfiff zustellen – danach wäre die Nachricht falsch.
-          {
-            TTL: Math.max(60, Math.round((kickoff - now) / 1000)),
-            urgency: "high",
-            ...pushOpts(row.endpoint),
-          },
+        await encrypt(() =>
+          webpush.sendNotification(
+            { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+            JSON.stringify({
+              title: "Gleich geht's los ⚽",
+              body: `${row.title} – Anpfiff in ${minutes} Minuten.`,
+              url: "/",
+              tag: `match-${row.match_id}`,
+            }),
+            // Nur bis zum Anpfiff zustellen – danach wäre die Nachricht falsch.
+            {
+              TTL: Math.max(60, Math.round((kickoff - now) / 1000)),
+              urgency: "high",
+              ...pushOpts(row.endpoint),
+            },
+          ),
         );
         sent++;
         if (!atomic) {
@@ -202,16 +221,19 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Parallel, aber begrenzt (10 gleichzeitig).
-    const parallel = async <T>(rows: T[], send: (row: T) => Promise<void>) => {
+    // Parallel, aber begrenzt (20 gleichzeitig – das Warten aufs Netz kostet keine
+    // Rechenzeit). Gibt zurück, was wegen des Rechenzeit-Budgets liegen blieb.
+    const parallel = async <T>(rows: T[], send: (row: T) => Promise<void>): Promise<T[]> => {
       const queue = [...rows];
       await Promise.all(
-        Array.from({ length: Math.min(10, queue.length) }, async () => {
-          for (let row = queue.shift(); row; row = queue.shift()) await send(row);
+        Array.from({ length: Math.min(20, queue.length) }, async () => {
+          while (queue.length > 0 && cpuMs < CPU_BUDGET_MS) await send(queue.shift()!);
         }),
       );
+      return queue;
     };
-    await parallel(list, sendOne);
+    const leftAlarms = await parallel(list, sendOne);
+    await releaseAlarms(leftAlarms);
 
     // Zustell-Bestätigung für Team-Geräte (SQL-Update „Zustell-Bestätigung“):
     // Der Team-Bereich zeigt so, ob Warnungen wirklich bei Apple/Google ankommen.
@@ -234,10 +256,12 @@ Deno.serve(async (req) => {
      */
     const sendMessage = async (row: TipPush, label: string): Promise<boolean | "gone"> => {
       try {
-        await webpush.sendNotification(
-          { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
-          JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
-          { TTL: 86_400, urgency: "normal", ...pushOpts(row.endpoint) },
+        await encrypt(() =>
+          webpush.sendNotification(
+            { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+            JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
+            { TTL: 86_400, urgency: "normal", ...pushOpts(row.endpoint) },
+          ),
         );
         note(row, true, null);
         return true;
@@ -254,24 +278,32 @@ Deno.serve(async (req) => {
     };
 
     // Tipprunden-Nachrichten (SQL-Update „Push bei Beitrittsanfrage“).
+    // Was liegen bleibt (vorübergehender Fehler, Rechenzeit-Budget), kommt in die
+    // Warteschlange der Einzel-Mitteilungen – der nächste Lauf versucht es erneut.
+    const retry: (TipPush & { created_at?: string })[] = [];
     let tipSent = 0;
     const { data: tipRows, error: tipErr } = await db.rpc("kt_claim_tip_push");
     if (!tipErr)
-      await parallel((tipRows ?? []) as TipPush[], async (row) => {
-        if ((await sendMessage(row, "Tipprunden-Nachricht")) === true) tipSent++;
-      });
+      retry.push(
+        ...(await parallel((tipRows ?? []) as TipPush[], async (row) => {
+          if ((await sendMessage(row, "Tipprunden-Nachricht")) === true) tipSent++;
+        })),
+      );
 
     // Einzel-Mitteilungen (Sperren, Entsperrungsanträge, neuer Ersteller).
-    // Vorübergehender Fehler → zurück in die Warteschlange, nächster Lauf versucht es erneut.
     let directSent = 0;
-    const retry: (TipPush & { created_at?: string })[] = [];
     const { data: directRows, error: directErr } = await db.rpc("kt_claim_direct_push");
     if (!directErr)
-      await parallel((directRows ?? []) as (TipPush & { created_at?: string })[], async (row) => {
-        const res = await sendMessage(row, "Einzel-Mitteilung");
-        if (res === true) directSent++;
-        else if (res === false) retry.push(row);
-      });
+      retry.push(
+        ...(await parallel(
+          (directRows ?? []) as (TipPush & { created_at?: string })[],
+          async (row) => {
+            const res = await sendMessage(row, "Einzel-Mitteilung");
+            if (res === true) directSent++;
+            else if (res === false) retry.push(row);
+          },
+        )),
+      );
     if (retry.length > 0)
       await db.from("kt_push_queue").insert(
         retry.map((r) => ({
@@ -293,25 +325,31 @@ Deno.serve(async (req) => {
     if (!remindErr) {
       const all = (remindRows ?? []) as (TipPush & { tag: string })[];
       const room = Math.max(0, MAX_REMINDERS_PER_RUN - list.length);
-      const later = all.slice(room);
+      // Freigeben = Merker „schon erinnert“ löschen, dann kommt sie im nächsten Lauf.
+      const releaseTips = async (rows: typeof all) => {
+        const byMatch = new Map<string, string[]>();
+        // tag = "tipp-<Spiel>" (kt_claim_tip_reminders)
+        for (const r of rows) {
+          const match = r.tag.replace(/^tipp-/, "");
+          byMatch.set(match, [...(byMatch.get(match) ?? []), r.device_id]);
+        }
+        for (const [match, devices] of byMatch)
+          await db
+            .from("kt_tip_reminders_sent")
+            .delete()
+            .eq("match_id", match)
+            .in("device_id", devices);
+      };
+      const later = [
+        ...all.slice(room),
+        ...(await parallel(all.slice(0, room), async (row) => {
+          if ((await sendMessage(row, "Tipp-Erinnerung")) === true) tipReminded++;
+        })),
+      ];
       laterTips = later.length;
-      const byMatch = new Map<string, string[]>();
-      // tag = "tipp-<Spiel>" (kt_claim_tip_reminders)
-      for (const r of later) {
-        const match = r.tag.replace(/^tipp-/, "");
-        byMatch.set(match, [...(byMatch.get(match) ?? []), r.device_id]);
-      }
-      for (const [match, devices] of byMatch)
-        await db
-          .from("kt_tip_reminders_sent")
-          .delete()
-          .eq("match_id", match)
-          .in("device_id", devices);
-      await parallel(all.slice(0, room), async (row) => {
-        if ((await sendMessage(row, "Tipp-Erinnerung")) === true) tipReminded++;
-      });
+      await releaseTips(later);
     }
-    const deferred = (atomic ? laterAlarms.length : 0) + laterTips;
+    const deferred = (atomic ? laterAlarms.length + leftAlarms.length : 0) + laterTips;
 
     if (expired.size > 0)
       await db
@@ -400,6 +438,10 @@ type LiveFixture = {
 };
 
 const MIN = 60_000;
+/** Ab hier gilt eine Stunde als auffällig (Missbrauch, Skripte). */
+const GROUPS_PER_HOUR = 150;
+const GROUPS_WITHOUT_APP = 20;
+const JOINS_PER_HOUR = 500;
 const berlinTime = (t: number) =>
   new Intl.DateTimeFormat("de-DE", {
     timeZone: "Europe/Berlin",
@@ -495,6 +537,43 @@ async function watchdog(db: Db, now: number): Promise<string> {
           : "",
       );
     }
+  }
+
+  // Missbrauch: Geräte-IDs kosten nichts – auffällig viele neue Runden oder
+  // Beitrittsanfragen melden (alle 10 Minuten, Blick auf die letzte Stunde).
+  if (minute % 10 === 5) {
+    const hourAgo = new Date(now - 60 * MIN).toISOString();
+    const { data: groups } = await db
+      .from("tip_groups")
+      .select("owner_device")
+      .gte("created_at", hourAgo)
+      .limit(1000);
+    const owners = [
+      ...new Set(((groups ?? []) as { owner_device: string }[]).map((g) => g.owner_device)),
+    ];
+    // Runden von Geräten, die die App nie benutzt haben (kein Ping) – typisch für Skripte.
+    const { count: seen } = owners.length
+      ? await db
+          .from("app_pings")
+          .select("client_id", { count: "exact", head: true })
+          .in("client_id", owners.slice(0, 300))
+      : { count: 0 };
+    const unseen = Math.min(owners.length, 300) - (seen ?? 0);
+    const n = groups?.length ?? 0;
+    await alert(
+      "auffaellig-runden",
+      n >= GROUPS_PER_HOUR || unseen >= GROUPS_WITHOUT_APP,
+      `Auffällig viele neue Tipprunden: ${n} in der letzten Stunde (${unseen} Geräte ohne App-Nutzung). Bitte im Team-Bereich → Tipprunden prüfen.`,
+    );
+    const { count: joins } = await db
+      .from("tip_members")
+      .select("member_id", { count: "exact", head: true })
+      .gte("joined_at", hourAgo);
+    await alert(
+      "auffaellig-anfragen",
+      (joins ?? 0) >= JOINS_PER_HOUR,
+      `Auffällig viele Beitritte/Anfragen: ${joins} in der letzten Stunde. Bitte im Team-Bereich → Tipprunden prüfen.`,
+    );
   }
 
   if ((around.length === 0 || minute % 2 !== 0) && !dailyCheck) return "ruhig";

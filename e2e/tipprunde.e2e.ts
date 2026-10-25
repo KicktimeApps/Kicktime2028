@@ -54,3 +54,18 @@ test("Rundenliste zeigt den Hinweis „Code sichern“", async ({ page }) => {
   await expect(page.getByText("Sichere deinen Code")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test("Kurz vor dem Turnier: Erinnerung „Code gesichert?“ für alle, die ihn nur weggeklickt haben", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2028-06-01T10:00:00Z"));
+  const errors = await setup(page, { state: seedState({ codeBackupDone: true }), mock });
+  await page.goto("/tipps");
+  await expect(page.getByText("Bald geht's los – Code gesichert?")).toBeVisible();
+  await page.getByRole("button", { name: "Hinweis schließen" }).click();
+  await expect(page.getByText("Bald geht's los – Code gesichert?")).toHaveCount(0);
+  await page.goto("/tipps");
+  await expect(page.getByText(GROUP.name)).toBeVisible();
+  await expect(page.getByText("Bald geht's los – Code gesichert?")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

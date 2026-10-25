@@ -83,8 +83,7 @@ Wird einmal im Root eingehängt und kümmert sich um:
 ### Seiten (`src/routes/`)
 
 `/` Für dich · `/spielplan` · `/turnier` (Gruppen · K.-o.-Baum · Teams) · `/tipps` (eigene
-Tipps und Tipprunden) · `/runde/$code` (Einladungslink) · `/einstellungen` (dort auch der
-versteckte Team-Bereich) · `/sitemap.xml` · `/version.json` (Update-Hinweis). Die App rendert erst nach dem Laden des lokalen Zustands
+Tipps und Tipprunden) · `/runde/$code` (Einladungslink) · `/einstellungen` · `/sitemap.xml` · `/version.json` (Update-Hinweis). Die App rendert erst nach dem Laden des lokalen Zustands
 (kein Hydration-Flackern). Die Dark/Light-Klasse wird per Inline-Script vor dem ersten Paint
 gesetzt.
 

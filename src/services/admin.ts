@@ -139,6 +139,11 @@ export const syncFixtures = (
   fixtures: { matchId: string; kickoffUtc: string; title?: string }[],
 ) => invoke<{ ok: true; count: number }>({ action: "fixtures", pin, fixtures });
 
+/** Anstoßzeiten, nach denen der Server Tipps sperrt (kt_fixtures) – zum Vergleich mit der App. */
+export type ServerFixture = { match_id: string; kickoff_utc: string; title: string | null };
+export const fetchServerFixtures = (pin: string) =>
+  invoke<{ rows: ServerFixture[] }>({ action: "fixtures_list", pin });
+
 /** Wächter: aktuelle und kürzlich behobene Probleme der Live-Daten. */
 export type WatchAlert = {
   key: string;

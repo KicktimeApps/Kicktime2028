@@ -44,9 +44,9 @@ Ergebnisse geheim, bis du sie sehen willst.
 - **Teilen** als Bild, **Vormerken** einzelner Spiele, **Dark/Light/System** und Akzentfarben.
 - **Vorschau-Modus**: spielt das Turnier mit erfundener Auslosung durch, um die App schon heute im
   Turnierzustand zu sehen. Tipprunden sind dort echt (Einladen, Anfragen, Verwaltung wie später),
-  nur Ergebnisse und Punkte sind simuliert. Aufräumen: Admin-Bereich → „Alle Tipprunden löschen“.
-- **Admin-Bereich** (5× auf die Versionsnummer tippen): Live-Status, Korrekturen inkl.
-  Elfmeterschießen, Statistik, Feedback.
+  nur Ergebnisse und Punkte sind simuliert. Aufräumen: Team-App → „Alle Tipprunden löschen“.
+- **Team-App** (eigenes Repo `KicktimeApps/Kicktime2028-Admin`): Live-Status, Wächter,
+  Korrekturen inkl. Elfmeterschießen, Tipprunden, Anträge, Statistik, Feedback.
 
 ## Schnellstart
 
