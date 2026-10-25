@@ -206,6 +206,11 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   (`kt_team_log`, jede ändernde Aktion mit Klartext; `by` = Geräte-ID aus `services/admin.ts`).
   `src/domain/`, `src/tournament/`, `services/admin.ts` u. a. sind dort Kopien – nach Änderungen
   dort mit `node scripts/sync-check.mjs ../Kicktime2028 --copy` übernehmen.
+  **Face ID (ab 2.16.0, nur Team-App):** `admin` kennt `passkey_*`-Aktionen (Tabellen
+  `kt_team_passkeys`, `kt_team_challenges`, SQL-Update `20261025200000_team_passkeys.sql`,
+  Paket `npm:@simplewebauthn/server@13.2.2`). Nach Face ID gilt eine signierte Freigabe
+  `s1.…` (HMAC mit `SUPABASE_SERVICE_ROLE_KEY`, 4 Std.) statt der PIN; Einrichten nur mit PIN.
+  Die KickTime-App selbst nutzt das nicht.
 - **Admin-Bereich:** Einstellungen → 5× auf die Versionsnummer tippen → PIN (Zählung in
   `lib/secret-taps.ts`; die Zeile ist bewusst kein Knopf und nicht markierbar, damit nichts
   die Stelle verrät – die Version schickt das Feedback ohnehin automatisch mit). PIN bleibt nur im

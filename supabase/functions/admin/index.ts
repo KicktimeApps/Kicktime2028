@@ -12,7 +12,11 @@
  *  requests | decide | ban_global | unban_global | global_bans | team_device
  *  alerts | alert_test   (Wächter: Probleme der Live-Daten, Test-Mitteilung)
  *  find_person | group_board | team_log   (Team-App: Personensuche, Rundentabelle, Protokoll)
+ *  passkey_register_options | passkey_register | passkey_list | passkey_delete
+ *  passkey_login_options | passkey_login   (Team-App: Entsperren mit Face ID, ohne PIN)
  *
+ * Face ID: Nach passkey_login gibt es eine signierte Freigabe „s1.…“ (4 Stunden),
+ * die die Team-App statt der PIN mitschickt. Einrichten nur mit echter PIN.
  * Jede ändernde Aktion landet mit Klartext im Team-Protokoll (kt_team_log);
  * `by` = Geräte-ID des Absenders (nur zur Anzeige „dieses Gerät“).
  * Für „broadcast“ (Push an alle) dieselben Secrets wie send-push-reminders:
@@ -20,6 +24,13 @@
  */
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import webpush from "npm:web-push@3.6.7";
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+} from "npm:@simplewebauthn/server@13.2.2";
+import { isoBase64URL } from "npm:@simplewebauthn/server@13.2.2/helpers";
 
 // ---------- Helfer (bewusst in dieser Datei, damit sie sich einzeln ins Dashboard kopieren lässt) ----------
 
@@ -99,9 +110,11 @@ const LOGGED = new Set([
   "unban_global",
   "team_device",
   "alert_test",
+  "passkey_register",
+  "passkey_delete",
 ]);
 
-type LogCtx = { group?: string; member?: string; request?: string };
+type LogCtx = { group?: string; member?: string; request?: string; passkey?: string };
 
 /** Namen von Runde, Mitglied bzw. Antrag – vor der Aktion, danach sind sie evtl. gelöscht. */
 // deno-lint-ignore no-explicit-any
@@ -140,6 +153,14 @@ async function logContext(db: any, body: Record<string, unknown>): Promise<LogCt
           .maybeSingle();
         ctx.request = `${m?.name ?? "?"}${data.scope === "global" ? " (überall)" : ""}`;
       }
+    }
+    if (body.action === "passkey_delete") {
+      const { data } = await db
+        .from("kt_team_passkeys")
+        .select("label")
+        .eq("id", String(body.id ?? ""))
+        .maybeSingle();
+      ctx.passkey = data?.label ?? undefined;
     }
     if (body.action === "unban_global" && !body.memberId && body.device) {
       const { data } = await db
@@ -215,6 +236,12 @@ function describe(
             : null; // nur abgefragt
     case "alert_test":
       return "Test-Mitteilung an Team-Geräte";
+    case "passkey_register":
+      return `Face ID eingerichtet${body.label ? ` („${String(body.label).slice(0, 40)}“)` : ""}`;
+    case "passkey_delete":
+      return `Face ID entfernt${ctx.passkey ? ` („${ctx.passkey}“)` : ""}`;
+    case "passkey_login":
+      return `Mit Face ID entsperrt${res.label ? ` („${res.label}“)` : ""}`;
     default:
       return null;
   }
@@ -247,6 +274,170 @@ async function writeLog(
   }
 }
 
+// ---------- Face ID (Passkeys) für die Team-App ----------
+
+const SESSION_MS = 4 * 3600_000;
+const CHALLENGE_MS = 5 * 60_000;
+const MAX_PASSKEYS = 10;
+const te = new TextEncoder();
+
+const b64url = (buf: ArrayBuffer | Uint8Array) =>
+  btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+/** Signatur der Freigabe – Schlüssel ist ein Server-Geheimnis (nie die kurze PIN). */
+async function sign(data: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    te.encode(`${env("SUPABASE_SERVICE_ROLE_KEY")}|kt-team-session`),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  return b64url(await crypto.subtle.sign("HMAC", key, te.encode(data)));
+}
+
+async function issueSession(passkeyId: string) {
+  const expiresAt = Date.now() + SESSION_MS;
+  const payload = `s1.${passkeyId}.${expiresAt}`;
+  return { token: `${payload}.${await sign(payload)}`, expiresAt };
+}
+
+/** Freigabe prüfen: Signatur, Ablauf und ob der Passkey noch existiert. */
+// deno-lint-ignore no-explicit-any
+async function checkSession(db: any, token: string): Promise<boolean> {
+  const parts = token.split(".");
+  if (parts.length !== 4 || parts[0] !== "s1") return false;
+  const [, id, exp, sig] = parts;
+  if (!(Number(exp) > Date.now())) return false;
+  if (!safeEqual(sig, await sign(`s1.${id}.${exp}`))) return false;
+  const { data } = await db.from("kt_team_passkeys").select("id").eq("id", id).maybeSingle();
+  return !!data;
+}
+
+/** Adresse der Team-App aus dem Origin-Header (setzt der Browser, nicht fälschbar per Skript). */
+function originOf(req: Request): { origin: string; rpID: string } | null {
+  try {
+    const u = new URL(req.headers.get("origin") ?? "");
+    if (u.protocol !== "https:" && u.hostname !== "localhost") return null;
+    return { origin: u.origin, rpID: u.hostname };
+  } catch {
+    return null;
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function saveChallenge(db: any, challenge: string, kind: "register" | "login") {
+  await db
+    .from("kt_team_challenges")
+    .delete()
+    .lt("created_at", new Date(Date.now() - CHALLENGE_MS).toISOString());
+  await db.from("kt_team_challenges").insert({ challenge, kind });
+}
+
+/** Zufallswert aus der Antwort holen und verbrauchen (nur einmal, nur 5 Minuten gültig). */
+// deno-lint-ignore no-explicit-any
+async function takeChallenge(db: any, clientDataJSON: unknown, kind: string) {
+  let challenge = "";
+  try {
+    const text = new TextDecoder().decode(isoBase64URL.toBuffer(String(clientDataJSON)));
+    challenge = String(JSON.parse(text).challenge ?? "");
+  } catch {
+    return null;
+  }
+  if (!challenge) return null;
+  const { data } = await db
+    .from("kt_team_challenges")
+    .delete()
+    .eq("challenge", challenge)
+    .eq("kind", kind)
+    .gte("created_at", new Date(Date.now() - CHALLENGE_MS).toISOString())
+    .select("challenge");
+  return data && data.length > 0 ? challenge : null;
+}
+
+/** Ohne PIN: Zufallswert und die Passkeys, die für diese Adresse eingerichtet sind. */
+// deno-lint-ignore no-explicit-any
+async function passkeyLoginOptions(db: any, req: Request): Promise<Response> {
+  const o = originOf(req);
+  if (!o) return json({ available: false });
+  const { data, error } = await db
+    .from("kt_team_passkeys")
+    .select("id, transports")
+    .eq("rp_id", o.rpID);
+  if (error || !data?.length) return json({ available: false }); // nichts eingerichtet / SQL-Update fehlt
+  // Schutz gegen Fluten: höchstens 50 offene Anmelde-Zufallswerte.
+  const { count } = await db
+    .from("kt_team_challenges")
+    .select("challenge", { count: "exact", head: true })
+    .eq("kind", "login")
+    .gte("created_at", new Date(Date.now() - CHALLENGE_MS).toISOString());
+  if ((count ?? 0) > 50) return json({ error: "Zu viele Anfragen – bitte kurz warten" }, 429);
+  const options = await generateAuthenticationOptions({
+    rpID: o.rpID,
+    allowCredentials: (data as { id: string; transports: string[] | null }[]).map((c) => ({
+      id: c.id,
+      // deno-lint-ignore no-explicit-any
+      transports: (c.transports ?? undefined) as any,
+    })),
+    userVerification: "required",
+    timeout: 60_000,
+  });
+  await saveChallenge(db, options.challenge, "login");
+  return json({ available: true, options });
+}
+
+/** Face-ID-Antwort prüfen → Freigabe für 4 Stunden. */
+async function passkeyLogin(
+  // deno-lint-ignore no-explicit-any
+  db: any,
+  req: Request,
+  body: Record<string, unknown>,
+): Promise<
+  | { ok: true; token: string; expiresAt: number; label: string | null }
+  | { ok: false; error: string }
+> {
+  const o = originOf(req);
+  // deno-lint-ignore no-explicit-any
+  const resp = body.response as any;
+  if (!o || !resp?.id || !resp?.response?.clientDataJSON)
+    return { ok: false, error: "Ungültige Anmeldung" };
+  const { data: pk } = await db
+    .from("kt_team_passkeys")
+    .select("id, public_key, counter, transports, label, rp_id, origin")
+    .eq("id", String(resp.id))
+    .maybeSingle();
+  if (!pk || pk.rp_id !== o.rpID || pk.origin !== o.origin)
+    return { ok: false, error: "Dieses Gerät ist für Face ID nicht (mehr) eingerichtet" };
+  const challenge = await takeChallenge(db, resp.response.clientDataJSON, "login");
+  if (!challenge) return { ok: false, error: "Abgelaufen – bitte noch einmal versuchen" };
+  try {
+    const v = await verifyAuthenticationResponse({
+      response: resp,
+      expectedChallenge: challenge,
+      expectedOrigin: o.origin,
+      expectedRPID: o.rpID,
+      credential: {
+        id: pk.id,
+        publicKey: isoBase64URL.toBuffer(pk.public_key),
+        counter: Number(pk.counter),
+        transports: pk.transports ?? undefined,
+      },
+      requireUserVerification: true,
+    });
+    if (!v.verified) return { ok: false, error: "Face ID nicht bestätigt" };
+    await db
+      .from("kt_team_passkeys")
+      .update({ counter: v.authenticationInfo.newCounter, last_used_at: new Date().toISOString() })
+      .eq("id", pk.id);
+    return { ok: true, ...(await issueSession(pk.id)), label: pk.label ?? null };
+  } catch {
+    return { ok: false, error: "Face ID nicht bestätigt" };
+  }
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -275,13 +466,38 @@ Deno.serve(async (req) => {
   ];
   const keyNames = keys.map((k) => k.key);
   const provided = String(body.pin ?? "");
+  const action = String(body.action ?? "");
+
+  // ---- Face ID (Team-App) ----
+  // Anmeldeoptionen brauchen keine PIN: Sie enthalten nur einen Zufallswert.
+  if (action === "passkey_login_options") return passkeyLoginOptions(db, req);
+  // Anmelden zählt wie ein PIN-Versuch (Sperre nach zu vielen Fehlversuchen).
+  if (action === "passkey_login") {
+    const { data: counted } = await db.rpc("kt_admin_attempt", { p_keys: keyNames });
+    const rows = (counted ?? []) as { r_key: string; r_failures: number }[];
+    if (keys.some(({ key, max }) => (rows.find((r) => r.r_key === key)?.r_failures ?? 0) > max))
+      return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
+    const result = await passkeyLogin(db, req, body);
+    if (!result.ok) return json({ error: result.error }, 401);
+    await db.rpc("kt_admin_ok", { p_keys: keyNames });
+    await writeLog(db, body, {}, { label: result.label });
+    return json({ ok: true, token: result.token, expiresAt: result.expiresAt });
+  }
+  // Freigabe nach Face ID statt PIN.
+  const viaSession = provided.startsWith("s1.");
+  if (viaSession && !(await checkSession(db, provided)))
+    return json({ error: "Sitzung abgelaufen – bitte neu entsperren" }, 401);
+  if (viaSession && (action === "passkey_register_options" || action === "passkey_register"))
+    return json({ error: "Face ID einrichten geht nur nach Entsperren mit der PIN" }, 403);
 
   // Bevorzugt: atomar hochzählen, BEVOR die PIN geprüft wird (SQL-Update
   // „Härtung“). So hilft auch das gleichzeitige Senden vieler Anfragen nicht.
-  const { data: counted, error: rpcError } = await db.rpc("kt_admin_attempt", {
-    p_keys: keyNames,
-  });
-  if (!rpcError) {
+  const { data: counted, error: rpcError } = viaSession
+    ? { data: null, error: null }
+    : await db.rpc("kt_admin_attempt", { p_keys: keyNames });
+  if (viaSession) {
+    // schon geprüft (checkSession)
+  } else if (!rpcError) {
     const rows = (counted ?? []) as { r_key: string; r_failures: number }[];
     const over = keys.some(
       ({ key, max }) => (rows.find((r) => r.r_key === key)?.r_failures ?? 0) > max,
@@ -912,6 +1128,98 @@ Deno.serve(async (req) => {
           .limit(200);
         if (error) return json({ rows: null }); // SQL-Update fehlt noch
         return json({ rows: data ?? [] });
+      }
+
+      // ---- Face ID (Passkeys) ----
+
+      case "passkey_register_options": {
+        const o = originOf(req);
+        if (!o) return json({ error: "Nur aus der Team-App (https) möglich" }, 400);
+        const { data: existing, error } = await db
+          .from("kt_team_passkeys")
+          .select("id, transports")
+          .eq("rp_id", o.rpID);
+        if (error) return json({ error: "Server-Funktion fehlt – SQL-Updates ausgeführt?" }, 500);
+        if ((existing ?? []).length >= MAX_PASSKEYS)
+          return json({ error: `Höchstens ${MAX_PASSKEYS} Geräte – erst eins entfernen` }, 400);
+        const options = await generateRegistrationOptions({
+          rpName: "KickTime-Team",
+          rpID: o.rpID,
+          userName: "kicktime-team",
+          userDisplayName: "KickTime-Team",
+          userID: te.encode("kicktime-team"),
+          attestationType: "none",
+          excludeCredentials: (existing as { id: string; transports: string[] | null }[]).map(
+            (c) => ({
+              id: c.id,
+              // deno-lint-ignore no-explicit-any
+              transports: (c.transports ?? undefined) as any,
+            }),
+          ),
+          authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
+          timeout: 60_000,
+        });
+        await saveChallenge(db, options.challenge, "register");
+        return json({ ok: true, options });
+      }
+
+      case "passkey_register": {
+        const o = originOf(req);
+        // deno-lint-ignore no-explicit-any
+        const resp = body.response as any;
+        if (!o || !resp?.response?.clientDataJSON) return json({ error: "Ungültige Daten" }, 400);
+        const challenge = await takeChallenge(db, resp.response.clientDataJSON, "register");
+        if (!challenge) return json({ error: "Abgelaufen – bitte noch einmal" }, 400);
+        try {
+          const v = await verifyRegistrationResponse({
+            response: resp,
+            expectedChallenge: challenge,
+            expectedOrigin: o.origin,
+            expectedRPID: o.rpID,
+            requireUserVerification: true,
+          });
+          if (!v.verified || !v.registrationInfo)
+            return json({ error: "Face ID nicht bestätigt" }, 400);
+          const c = v.registrationInfo.credential;
+          const { error } = await db.from("kt_team_passkeys").upsert({
+            id: c.id,
+            public_key: isoBase64URL.fromBuffer(c.publicKey),
+            counter: c.counter,
+            transports: c.transports ?? resp.response.transports ?? null,
+            label:
+              String(body.label ?? "")
+                .trim()
+                .slice(0, 40) || null,
+            rp_id: o.rpID,
+            origin: o.origin,
+          });
+          return error
+            ? json({ error: "Speichern fehlgeschlagen" }, 500)
+            : json({ ok: true, id: c.id });
+        } catch {
+          return json({ error: "Face ID nicht bestätigt" }, 400);
+        }
+      }
+
+      case "passkey_list": {
+        const o = originOf(req);
+        const { data, error } = await db
+          .from("kt_team_passkeys")
+          .select("id, label, rp_id, created_at, last_used_at")
+          .order("created_at", { ascending: true });
+        if (error) return json({ ok: true, data: null }); // SQL-Update fehlt noch
+        return json({
+          ok: true,
+          data: (data ?? []).map((r: { rp_id: string }) => ({ ...r, here: r.rp_id === o?.rpID })),
+        });
+      }
+
+      case "passkey_delete": {
+        const { error } = await db
+          .from("kt_team_passkeys")
+          .delete()
+          .eq("id", String(body.id ?? ""));
+        return error ? json({ error: "Löschen fehlgeschlagen" }, 500) : json({ ok: true });
       }
 
       default:
