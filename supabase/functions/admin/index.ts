@@ -111,7 +111,15 @@ Deno.serve(async (req) => {
     const over = keys.some(
       ({ key, max }) => (rows.find((r) => r.r_key === key)?.r_failures ?? 0) > max,
     );
-    if (over) return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
+    if (over) {
+      // Auch abgewiesen: Bei richtiger PIN den Versuch wieder abziehen. Sonst
+      // treiben gleichzeitige Anfragen des Teams den Zähler hoch und sperren
+      // es 15 Minuten aus. Antwort und Aufwand sind in beiden Fällen gleich
+      // (auch bei falscher PIN ein Aufruf, dann ohne Wirkung) – so verrät
+      // weder Inhalt noch Antwortzeit, ob die PIN gestimmt hat.
+      await db.rpc("kt_admin_ok", { p_keys: safeEqual(provided, pin) ? keyNames : [] });
+      return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
+    }
     if (!safeEqual(provided, pin)) return json({ error: "Falsche PIN" }, 401);
     await db.rpc("kt_admin_ok", { p_keys: keyNames });
   } else {

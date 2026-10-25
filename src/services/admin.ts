@@ -2,14 +2,47 @@ import type { LivePhase, MatchStatus } from "@/domain/types";
 import type { Announcement } from "./announcement";
 import { getSupabase } from "./supabase";
 
+type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+
 /**
  * Admin-Aktionen laufen ausschließlich über die Edge Function `admin`, die
  * die PIN serverseitig prüft (Secret ADMIN_PIN) und Fehlversuche drosselt.
  * Der Client kennt die PIN nie.
+ *
+ * Der Server zählt jede Anfrage vorab als möglichen Fehlversuch (5 je Gerät
+ * gleichzeitig). Darum höchstens {@link MAX_PARALLEL} Anfragen auf einmal –
+ * sonst sperrt sich das Team beim Laden vieler Bereiche selbst aus.
  */
-async function invoke<T>(
+const MAX_PARALLEL = 2;
+let running = 0;
+const waiting: (() => void)[] = [];
+
+async function limited<T>(fn: () => Promise<T>): Promise<T> {
+  if (running >= MAX_PARALLEL) await new Promise<void>((r) => waiting.push(r));
+  running++;
+  try {
+    return await fn();
+  } finally {
+    running--;
+    waiting.shift()?.();
+  }
+}
+
+async function invoke<T>(body: Record<string, unknown>): Promise<Result<T>> {
+  const first = await limited(() => invokeOnce<T>(body));
+  // Kurz zu viele gleichzeitig (429): einmal etwas später wiederholen. Bei
+  // falscher PIN antwortet der Server mit 401 – das wird nie wiederholt.
+  if (first.ok || first.status !== 429 || body.action === "verify") return strip(first);
+  await new Promise((r) => setTimeout(r, 1500));
+  return strip(await limited(() => invokeOnce<T>(body)));
+}
+
+const strip = <T>(r: Result<T> & { status?: number }): Result<T> =>
+  r.ok ? r : { ok: false, error: r.error };
+
+async function invokeOnce<T>(
   body: Record<string, unknown>,
-): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+): Promise<Result<T> & { status?: number }> {
   const sb = await getSupabase();
   if (!sb) return { ok: false, error: "Kein Backend konfiguriert" };
   try {
@@ -22,7 +55,7 @@ async function invoke<T>(
         .json()
         .then((b: { error?: string }) => b?.error)
         .catch(() => undefined);
-      return { ok: false, error: detail ?? error.message };
+      return { ok: false, error: detail ?? error.message, status: res?.status };
     }
     if (data && typeof data === "object" && "error" in data)
       return { ok: false, error: String(data.error) };
