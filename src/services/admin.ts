@@ -1,5 +1,6 @@
 import type { LivePhase, MatchStatus } from "@/domain/types";
 import type { Announcement } from "./announcement";
+import { getDeviceId } from "@/lib/device-id";
 import { getSupabase } from "./supabase";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -46,7 +47,10 @@ async function invokeOnce<T>(
   const sb = await getSupabase();
   if (!sb) return { ok: false, error: "Kein Backend konfiguriert" };
   try {
-    const { data, error } = await sb.functions.invoke("admin", { body });
+    // `by`: welches Gerät handelt – nur für das Team-Protokoll („dieses Gerät“).
+    const { data, error } = await sb.functions.invoke("admin", {
+      body: { ...body, by: getDeviceId() },
+    });
     if (error) {
       // Bei 4xx/5xx steckt die verständliche Meldung im Antwort-Text.
       const res = (error as { context?: Response }).context;
@@ -314,3 +318,62 @@ export type TeamDeviceDelivery = {
 /** Team-Mitteilungen an dieses Gerät: abfragen ("") oder ändern. */
 export const teamDevice = (pin: string, deviceId: string, mode: "" | "on" | "off" | "only") =>
   invoke<TeamDeviceState>({ action: "team_device", pin, deviceId, mode });
+
+/* ---------- Team-App: Personensuche, Rundentabelle, Protokoll ---------- */
+
+export type PersonMembership = {
+  groupId: string;
+  groupName: string;
+  code: string;
+  memberId: string;
+  name: string;
+  owner: boolean;
+  approved: boolean;
+  banned: boolean;
+  bannedBy: "owner" | "admin" | "global" | null;
+  joinedAt: string;
+  tips: number;
+};
+export type PersonHit = {
+  /** Geräte-ID – eine Person = ein Gerät. */
+  device: string;
+  ban: { label: string; reason: string | null; createdAt: string } | null;
+  memberships: PersonMembership[];
+  requests: {
+    id: number;
+    scope: "group" | "global";
+    status: "open" | "accepted" | "rejected";
+    groupName: string | null;
+    message: string | null;
+    reply: string | null;
+    createdAt: string;
+  }[];
+};
+/** Nach einem Namen über alle Tipprunden suchen (mind. 2 Zeichen). */
+export const findPerson = (pin: string, query: string) =>
+  invoke<{ data: PersonHit[] }>({ action: "find_person", pin, query });
+
+export type GroupBoard = {
+  group: { id: string; code: string; name: string };
+  members: {
+    id: string;
+    name: string;
+    isOwner: boolean;
+    champion: string | null;
+    /** Tipps nur für angepfiffene Spiele – wie die Mitglieder sie sehen. */
+    tips: Record<string, { home: number; away: number }>;
+  }[];
+};
+export const fetchGroupBoard = (pin: string, groupId: string) =>
+  invoke<{ data: GroupBoard }>({ action: "group_board", pin, groupId });
+
+export type TeamLogRow = {
+  id: number;
+  at: string;
+  action: string;
+  detail: string | null;
+  device_id: string | null;
+};
+/** Protokoll der Team-Aktionen; rows = null → SQL-Update fehlt noch. */
+export const fetchTeamLog = (pin: string) =>
+  invoke<{ rows: TeamLogRow[] | null }>({ action: "team_log", pin });

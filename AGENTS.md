@@ -200,6 +200,12 @@ authenticated` + `grant … to service_role`; App-Funktionen `grant … to anon,
   `kt_team_delivery`, die Wächter-Karte zeigt sie (lädt ~70 s nach einem Test neu).
 - **Aufräumen:** `kt_push_cleanup` (täglich 3:07 UTC aus `send-push-reminders`) löscht Abos, die
   60 Tage nicht gemeldet wurden – nur ohne anstehende Erinnerung, Tipprunde oder Team-Eintrag.
+- **Team-App** (Repo `phantom-35/kicktime2028-admin`, ab 2.15.0): eigenes Kontrollzentrum mit
+  allen Team-Funktionen, nutzt dieselben Edge Functions. Dafür in `admin`: `find_person`,
+  `group_board`, `team_log` (SQL-Update `20261025180000_team_app.sql`) und das Team-Protokoll
+  (`kt_team_log`, jede ändernde Aktion mit Klartext; `by` = Geräte-ID aus `services/admin.ts`).
+  `src/domain/`, `src/tournament/`, `services/admin.ts` u. a. sind dort Kopien – nach Änderungen
+  dort mit `node scripts/sync-check.mjs ../Kicktime2028 --copy` übernehmen.
 - **Admin-Bereich:** Einstellungen → 5× auf die Versionsnummer tippen → PIN (Zählung in
   `lib/secret-taps.ts`; die Zeile ist bewusst kein Knopf und nicht markierbar, damit nichts
   die Stelle verrät – die Version schickt das Feedback ohnehin automatisch mit). PIN bleibt nur im
