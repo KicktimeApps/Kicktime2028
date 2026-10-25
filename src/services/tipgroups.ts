@@ -56,6 +56,7 @@ const MESSAGES: [string, string][] = [
   ["not owner", "Das darf nur, wer die Runde erstellt hat."],
   ["not a member", "Du bist (nicht mehr) in dieser Runde."],
   ["match started", "Das Spiel hat schon begonnen – Tippen ist nicht mehr möglich."],
+  ["invalid score", "Bitte ein Ergebnis zwischen 0 und 30 Toren eingeben."],
   ["champion locked", "Das Eröffnungsspiel hat begonnen – der Europameister-Tipp ist fest."],
   ["unknown match", "Dieses Spiel kennt der Server noch nicht."],
   ["pending", "Der Ersteller der Runde muss dich noch annehmen."],

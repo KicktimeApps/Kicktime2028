@@ -192,7 +192,7 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
 
 - **App 2.17.0** (lokal, noch nicht ausgeführt: SQL-Update
   `20261025220000_geraet_vergessen_waechter.sql` + `admin` + `send-push-reminders`),
-  **Team-App 1.2.1**. Bei Cloudflare live: App 2.16.0.
+  **Team-App 1.2.2** (undici-Override). Bei Cloudflare live: App 2.16.0, Team-App 1.2.1.
 - **Supabase:** 22 SQL-Updates bis `20261025200000_team_passkeys.sql` ausgeführt (die
   älteren im SQL-Editor, daher listet `list_migrations` nur die letzten 6). Edge Functions:
   `admin` v18 (Team-App + Face ID), `live-scores` v12, `send-push-reminders` v10 – Stand 2.16.0.
