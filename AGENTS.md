@@ -194,12 +194,10 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
 
 ### Aktueller Stand (25.10.2026)
 
-- **App 2.18.0**, **Team-App 1.3.0** – lokal committet. Noch zu deployen: Edge Functions
-  `admin` (fixtures_list, PIN-Sperre) und `send-push-reminders` (600/Lauf, Missbrauchs-Check);
-  kein SQL-Update nötig. Live: App 2.17.0, Team-App 1.2.2.
+- **App 2.18.0**, **Team-App 1.3.0**, alles gepusht (Cloudflare baut automatisch).
 - **Supabase:** alle 23 SQL-Updates bis `20261025220000_geraet_vergessen_waechter.sql`
   ausgeführt (die älteren im SQL-Editor, daher listet `list_migrations` nicht alle). Edge
-  Functions: `admin` v19, `live-scores` v12, `send-push-reminders` v11 – Inhalt jeweils wie im Repo.
+  Functions: `admin` v20, `live-scores` v12, `send-push-reminders` v12 – Inhalt jeweils wie im Repo.
 - **Face ID in der Team-App** vom Betreiber auf dem iPhone getestet – funktioniert.
 - **Team-App-Übersicht** lädt nur beim ersten Öffnen und über „Jetzt aktualisieren“ (Wunsch des
   Betreibers: kein Neuladen bei jedem Seitenwechsel, kein Minuten-Takt).
