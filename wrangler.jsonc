@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kicktime-2028",
+  "name": "kicktime2028",
   "compatibility_date": "2026-06-16",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
