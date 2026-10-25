@@ -145,17 +145,20 @@ OpenLigaDB sie liefert), die Zeiten abgleichen – eine der beiden Möglichkeite
 ## Admin-Bereich
 
 Öffnen: Einstellungen → fünfmal auf die Versionsnummer tippen, PIN eingeben (Secret `ADMIN_PIN`).
-Die PIN bleibt 30 Minuten gemerkt, solange die App offen ist.
+Die PIN bleibt 30 Minuten gemerkt, solange die App offen ist. In der App heißt der Bereich
+„KickTime-Team“. Mehr Platz und alle Funktionen bietet die eigene Team-App
+(`https://kicktime2028-admin.ben-online35.workers.dev`).
 
-| Bereich      | Was du dort machst                                                                                                                                                          |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Übersicht    | Ampel für Live-Daten, Nutzer, offene Anfragen, Korrekturen, Hinweis, Fehler                                                                                                 |
-| Live-Daten   | API-Quelle (Liga/Saison/Endung) ändern und testen, Abruf anhalten, sofort neu laden, Anstoßzeiten abgleichen, Zwischenspeicher leeren, gespeicherte Ergebnisse zurücksetzen |
-| Korrektur    | Spielstände überbrücken, alle Korrekturen auf einmal entfernen                                                                                                              |
-| Tipprunden   | Alle Runden mit Mitgliedern, Mitglieder entfernen/sperren/entsperren, Ersteller übertragen, einzelne oder alle Runden löschen                                               |
-| Mitteilungen | Hinweis-Banner für alle (mit Ablaufzeit), Push an alle bzw. Test an dich                                                                                                    |
-| Statistik    | Nutzer heute/7/30 Tage, Verlauf pro Tag, Geräte, Browser, Versionen, installiert/Push, Feedback löschen                                                                     |
-| System       | Geräte-Infos, Fehlerprotokoll, Admin sperren                                                                                                                                |
+| Bereich      | Was du dort machst                                                                                                                                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Übersicht    | Ampel für Live-Daten, Nutzer, offene Anfragen, Korrekturen, Hinweis, Fehler                                                                                                                                    |
+| Live-Daten   | API-Quelle (Liga/Saison/Endung) ändern und testen, Abruf anhalten, sofort neu laden, Anstoßzeiten abgleichen, Zwischenspeicher leeren, gespeicherte Ergebnisse zurücksetzen, Wächter (Status, Test-Mitteilung) |
+| Korrektur    | Spielstände überbrücken, alle Korrekturen auf einmal entfernen                                                                                                                                                 |
+| Tipprunden   | Alle Runden mit Mitgliedern, Mitglieder entfernen/sperren/entsperren, Ersteller übertragen, einzelne oder alle Runden löschen                                                                                  |
+| Anträge      | Entsperrungsanträge annehmen/ablehnen, Liste „Überall gesperrt“, Team-Geräte für Mitteilungen eintragen                                                                                                        |
+| Mitteilungen | Hinweis-Banner für alle (mit Ablaufzeit), Push an alle bzw. Test an dich                                                                                                                                       |
+| Statistik    | Nutzer heute/7/30 Tage, Verlauf pro Tag, Geräte, Browser, Versionen, installiert/Push, Feedback löschen                                                                                                        |
+| System       | Geräte-Infos, Fehlerprotokoll, Admin sperren                                                                                                                                                                   |
 
 Die Statistik zählt jedes Gerät, das die App wirklich benutzt – mit oder ohne Push. Bots,
 Link-Vorschauen und automatisierte Browser zählen nicht; gemeldet wird erst nach der ersten

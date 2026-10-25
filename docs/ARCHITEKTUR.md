@@ -43,17 +43,21 @@ abgedeckt.
 
 ### `src/domain/` – Logik (getestet)
 
-| Datei            | Aufgabe                                                                                |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `time.ts`        | Zeitzonen, Zeitfenster pro Wochentag, „wie viele Minuten sind schaubar?“               |
-| `standings.ts`   | Gruppentabellen nach UEFA-Reglement (direkter Vergleich), Rangliste der Dritten        |
-| `resolve.ts`     | Gesamtzustand: Status aus Daten/Uhr, Slots → Teams, Sieger inkl. Elfmeter              |
-| `recommend.ts`   | Relevanz-Score mit Gründen, Feed (Für dich / Später / Bonus / Rückblick)               |
-| `status.ts`      | Team-Status (Quali läuft, dabei, raus in Runde X, Europameister)                       |
-| `live.ts`        | OpenLigaDB → normalisiert, Zuordnung zu Spielnummern (Paarung → Tag+Stadion → Uhrzeit) |
-| `predictions.ts` | Tipp-Wertung 4/3/2                                                                     |
-| `alarms.ts`      | Erinnerungen (an / bewusst aus / automatisch für Favoriten)                            |
-| `labels.ts`      | Anzeigenamen für Platzhalter („Sieger Gruppe A“, „Dritter A/D/E/F“)                    |
+| Datei              | Aufgabe                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `time.ts`          | Zeitzonen, Zeitfenster pro Wochentag, „wie viele Minuten sind schaubar?“               |
+| `standings.ts`     | Gruppentabellen nach UEFA-Reglement (direkter Vergleich), Rangliste der Dritten        |
+| `resolve.ts`       | Gesamtzustand: Status aus Daten/Uhr, Slots → Teams, Sieger inkl. Elfmeter              |
+| `recommend.ts`     | Relevanz-Score mit Gründen, Feed (Für dich / Später / Bonus / Rückblick)               |
+| `status.ts`        | Team-Status (Quali läuft, dabei, raus in Runde X, Europameister)                       |
+| `live.ts`          | OpenLigaDB → normalisiert, Zuordnung zu Spielnummern (Paarung → Tag+Stadion → Uhrzeit) |
+| `predictions.ts`   | Tipp-Wertung 4/3/2                                                                     |
+| `alarms.ts`        | Erinnerungen (an / bewusst aus / automatisch für Favoriten)                            |
+| `labels.ts`        | Anzeigenamen für Platzhalter („Sieger Gruppe A“, „Dritter A/D/E/F“)                    |
+| `pills.ts`         | Filter-Pillen der Startseite (passt perfekt / außerhalb / Ergebnisse)                  |
+| `rounds.ts`        | Tipp-Abschnitte wie bei Kicktipp (drei Spieltage, dann K.-o.-Runden)                   |
+| `compare.ts`       | Tipp-Vergleich und Rundentabelle (`buildBoard`, auch vorläufig mit Live-Stand)         |
+| `table-spoiler.ts` | Spoilerschutz für Tabellen, K.-o.-Baum und Teams (gemerkter Ergebnisstand)             |
 
 ### Zustand (`src/store/`)
 
@@ -78,29 +82,41 @@ Wird einmal im Root eingehängt und kümmert sich um:
 
 ### Seiten (`src/routes/`)
 
-`/` Für dich · `/spielplan` · `/turnier` (Gruppen · K.-o.-Baum · Teams) · `/tipps` ·
-`/einstellungen` · `/sitemap.xml`. Die App rendert erst nach dem Laden des lokalen Zustands
+`/` Für dich · `/spielplan` · `/turnier` (Gruppen · K.-o.-Baum · Teams) · `/tipps` (eigene
+Tipps und Tipprunden) · `/runde/$code` (Einladungslink) · `/einstellungen` (dort auch der
+versteckte Team-Bereich) · `/sitemap.xml` · `/version.json` (Update-Hinweis). Die App rendert erst nach dem Laden des lokalen Zustands
 (kein Hydration-Flackern). Die Dark/Light-Klasse wird per Inline-Script vor dem ersten Paint
 gesetzt.
 
-## Backend (optional)
+## Backend (Supabase)
 
 ```
 Browser ──invoke──▶ live-scores ──▶ OpenLigaDB
    │                   │  live_cache (60 s / 5 min), match_results (beendet = unveränderlich)
-   ├──select──▶ match_overrides (öffentlich lesbar)
-   ├──invoke──▶ admin (PIN + Sperre pro IP + global) ──▶ match_overrides, Statistik, Feedback
-   ├──rpc──▶ kt_save_subscription / kt_sync_alarms / kt_ping (SECURITY DEFINER)
-   └──insert──▶ app_feedback
+   ├──fetch──▶ ESPN (direkt, nur an EM-Spieltagen; ESPN sperrt Rechenzentren)
+   ├──select──▶ match_overrides, app_config (öffentlich lesbar)
+   ├──rpc──▶ kt_* (SECURITY DEFINER): Push-Abo, Erinnerungen, Statistik-Ping, Feedback,
+   │          Tipprunden (kt_tip_*), Sperren/Anträge, Quellen-Meldungen (kt_report_source)
+   └──invoke──▶ admin (PIN oder Face-ID-Freigabe; Sperre nach Fehlversuchen je IP und
+                insgesamt) ──▶ Korrekturen, Tipprunden, Anträge, Statistik, Team-Protokoll
 pg_cron (jede Minute) ──▶ send-push-reminders ──▶ Web Push (VAPID) ──▶ public/sw.js
+                           ├─ Spiel- und Tipp-Erinnerungen, Tipprunden-Nachrichten
+                           ├─ Wächter rund um jedes Spiel ──▶ Team-Geräte (kt_alerts)
+                           └─ täglich: Aufräumen alter Abos (kt_push_cleanup)
 ```
+
+Alle Tabellen sind per RLS gesperrt; die App schreibt nur über die geprüften `kt_*`-Funktionen.
+Die Team-App (`KicktimeApps/Kicktime2028-Admin`) nutzt dieselben Edge Functions. Die IP aus
+`admin` dient nur der PIN-Sperre (`admin_attempts`), die Statistik speichert keine IP.
 
 Ohne Supabase holt der Browser die Daten direkt bei OpenLigaDB (CORS erlaubt). Erinnerungen
 gibt es dann nur bei geöffneter App, als Alternative bietet sich der Kalender-Export an.
 
 ## Qualitätssicherung
 
-- `bun run check`: TypeScript, ESLint (inkl. Prettier) und 62 Tests
+- `bun run check`: TypeScript, ESLint (inkl. Prettier) und Unit-Tests (Okt. 2026: 156)
+- Browser-Tests der wichtigsten Abläufe (`e2e/`, Playwright, Handy + Desktop, Server
+  nachgestellt), auch bei jedem Push auf GitHub (`.github/workflows/pruefungen.yml`)
 - Edge Functions: `deno check` (Deno 2)
 - Visuelle Prüfung mit Playwright (mobil 390 px und Desktop 1440 px, Dark und Light) über alle
   Seiten und Demo-Szenarien
