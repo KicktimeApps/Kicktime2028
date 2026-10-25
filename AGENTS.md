@@ -190,11 +190,12 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
 
 ### Aktueller Stand (25.10.2026)
 
-- **App 2.16.0**, **Team-App 1.2.1**, beide gepusht und bei Cloudflare live.
-- **Supabase:** alle 22 SQL-Updates bis `20261025200000_team_passkeys.sql` ausgeführt (die
+- **App 2.17.0** (lokal, noch nicht ausgeführt: SQL-Update
+  `20261025220000_geraet_vergessen_waechter.sql` + `admin` + `send-push-reminders`),
+  **Team-App 1.2.1**. Bei Cloudflare live: App 2.16.0.
+- **Supabase:** 22 SQL-Updates bis `20261025200000_team_passkeys.sql` ausgeführt (die
   älteren im SQL-Editor, daher listet `list_migrations` nur die letzten 6). Edge Functions:
-  `admin` v18 (Team-App + Face ID), `live-scores` v12, `send-push-reminders` v10 – Inhalt jeweils
-  wie im Repo.
+  `admin` v18 (Team-App + Face ID), `live-scores` v12, `send-push-reminders` v10 – Stand 2.16.0.
 - **Face ID in der Team-App** vom Betreiber auf dem iPhone getestet – funktioniert.
 - **Team-App-Übersicht** lädt nur beim ersten Öffnen und über „Jetzt aktualisieren“ (Wunsch des
   Betreibers: kein Neuladen bei jedem Seitenwechsel, kein Minuten-Takt).
@@ -241,6 +242,10 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   ohne Mitteilungs-Abo aus, der Wächter-Test überspringt sie. Zustell-Bestätigung:
   `send-push-reminders` schreibt je Team-Gerät die letzte Zustellung bzw. den letzten Fehler in
   `kt_team_delivery`, die Wächter-Karte zeigt sie (lädt ~70 s nach einem Test neu).
+- **Alle Daten löschen (ab 2.17.0):** Einstellungen → „Alle Daten löschen“ ruft vorher
+  `kt_forget_device` (aus allen Runden austreten wie `kt_tip_leave`, Push-Abo, Erinnerungen und
+  Warteschlangen löschen; Sperren bleiben) und meldet das Push-Abo im Browser ab. Ohne Verbindung
+  wird nichts gelöscht (Hinweis), ohne SQL-Update einzeln ausgetreten (`forgetDevice`).
 - **Aufräumen:** `kt_push_cleanup` (täglich 3:07 UTC aus `send-push-reminders`) löscht Abos, die
   60 Tage nicht gemeldet wurden – nur ohne anstehende Erinnerung, Tipprunde oder Team-Eintrag.
 - **Team-App** (Repo `KicktimeApps/Kicktime2028-Admin`, ab 2.15.0): eigenes Kontrollzentrum mit
@@ -274,6 +279,13 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   Probleme und „wieder in Ordnung“ gehen per `kt_alert_set` → `kt_push_team` an die
   eingetragenen Team-Geräte (bei Fortbestehen alle 30 Min.). Vor dem Turnier täglich 8 Uhr UTC
   Prüfung „Liga leer“. Anzeige + Test-Mitteilung im Team-Bereich → Live-Daten (`WatchCard`).
+  Ab 2.17.0 zusätzlich „anstosszeiten“: vergleicht die Tipp-Sperre (`kt_fixtures`, Spielort in
+  `city`) Spiel für Spiel mit OpenLigaDB (Tag + Ort) und bittet ums „Anstoßzeiten abgleichen“.
+  Geräte-Meldungen zählen nur von Geräten mit Push-Abo oder seit 6 Std. bekanntem Ping; ihr
+  Text geht nie in die Mitteilung (nur ein HTTP-Fehlercode).
+- **Face ID und PIN-Sperre:** Die Sammel-Sperre (30 Fehlversuche/15 Min. von allen) kann jeder
+  auslösen – `passkey_login` zählt deshalb nur je IP, damit das Team per Face ID immer
+  hineinkommt.
 - **Tipp-Erinnerung:** eine Stunde vor Anpfiff „Noch kein Tipp“ an bestätigte Mitglieder ohne
   Tipp (`kt_claim_tip_reminders`, je Gerät und Spiel einmal, abschaltbar unter Erinnerungen).
   Paarung kommt aus `kt_fixtures.title` (Team-Bereich → „Anstoßzeiten abgleichen“, nie aus

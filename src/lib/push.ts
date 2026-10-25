@@ -38,6 +38,15 @@ export async function ensureServiceWorker(): Promise<ServiceWorkerRegistration |
   }
 }
 
+/** Push-Abo dieses Browsers beenden (vor „Alle Daten löschen“). Der Push-Dienst
+ *  meldet die Adresse danach als ungültig, der Server löscht sie dann auch. */
+export async function unsubscribePush(): Promise<void> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  const reg = await navigator.serviceWorker.getRegistration(SW_PATH);
+  const sub = await reg?.pushManager.getSubscription();
+  await sub?.unsubscribe();
+}
+
 function b64ToBytes(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));

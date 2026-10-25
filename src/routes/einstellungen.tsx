@@ -49,12 +49,19 @@ import { submitFeedback, type FeedbackCategory, type FeedbackRating } from "@/li
 import { haptics } from "@/lib/haptics";
 import { nextTap } from "@/lib/secret-taps";
 import { detectPushSupport } from "@/lib/notifications";
-import { hasPushBackend, sendTestPush, syncServerAlarms, syncTipReminders } from "@/lib/push";
+import {
+  hasPushBackend,
+  sendTestPush,
+  syncServerAlarms,
+  syncTipReminders,
+  unsubscribePush,
+} from "@/lib/push";
 import { enableReminders } from "@/lib/reminders";
 import { ACCENTS, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/version";
 import { isBackendConfigured } from "@/services/supabase";
+import { forgetDevice, TipError } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
 import { useTournament } from "@/store/match-store";
 import { LEGAL_URL, TOURNAMENT } from "@/tournament/config";
@@ -834,8 +841,10 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
             <AlertDialogHeader>
               <AlertDialogTitle>Wirklich alles löschen?</AlertDialogTitle>
               <AlertDialogDescription>
-                Teams, Zeitfenster, Tipps und Erinnerungen werden von diesem Gerät entfernt. Das
-                lässt sich nicht rückgängig machen.
+                Teams, Zeitfenster, Tipps und Erinnerungen werden von diesem Gerät entfernt. Aus
+                deinen Tipprunden trittst du aus – Runden, die du leitest, übernimmt das älteste
+                Mitglied. Das lässt sich nicht rückgängig machen. Nur das Handy wechseln? Dann nimm
+                lieber „Handy wechseln“.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -843,8 +852,23 @@ function MoreList({ onRestart }: { onRestart: () => void }) {
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={async () => {
-                  // Erst die Server-Erinnerungen stoppen, solange die Geräte-ID noch da ist.
+                  // Erst den Server aufräumen, solange die Geräte-ID noch da ist –
+                  // sonst bliebe das Gerät Mitglied seiner Runden und bekäme weiter
+                  // Mitteilungen, die es nicht mehr abbestellen kann.
                   if (hasPushBackend()) await syncServerAlarms([]).catch(() => {});
+                  if (isBackendConfigured()) {
+                    try {
+                      await forgetDevice();
+                    } catch (err) {
+                      if (!(err instanceof TipError && err.notInstalled)) {
+                        toast.error(
+                          "Ohne Verbindung zum KickTime-Server kann ich dich nicht aus deinen Tipprunden austragen. Bitte mit Internet noch einmal versuchen.",
+                        );
+                        return;
+                      }
+                    }
+                  }
+                  await unsubscribePush().catch(() => {});
                   try {
                     Object.keys(localStorage)
                       .filter((k) => k.startsWith(TOURNAMENT.storagePrefix))

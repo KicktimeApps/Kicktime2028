@@ -386,8 +386,18 @@ Deno.serve(async (req) => {
 
 // ---------------------------------------------------------------- Wächter
 
-type Fixture = { match_id: string; kickoff_utc: string; title?: string | null };
-type LiveFixture = { kickoffUtc?: string; status?: string };
+type Fixture = {
+  match_id: string;
+  kickoff_utc: string;
+  title?: string | null;
+  city?: string | null;
+};
+type LiveFixture = {
+  kickoffUtc?: string;
+  status?: string;
+  city?: string | null;
+  stadium?: string | null;
+};
 
 const MIN = 60_000;
 const berlinTime = (t: number) =>
@@ -396,6 +406,35 @@ const berlinTime = (t: number) =>
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(t));
+/** Kalendertag in Berlin als „2028-06-09“. */
+const berlinDay = (t: number) =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date(t));
+
+/**
+ * Spiele, deren Anstoßzeit bei OpenLigaDB nicht zur Tipp-Sperre (kt_fixtures)
+ * passt. Zuordnung über Tag und Spielort (Spalte city, SQL-Update
+ * „Gerät vergessen …“); ohne Ort zählt jede Anstoßzeit des Tages.
+ * Spiele an Tagen ohne EM-Spiel (andere Liga eingestellt) werden ignoriert.
+ */
+function kickoffMismatches(fixtures: (Fixture & { t: number })[], list: LiveFixture[]): string[] {
+  const off: string[] = [];
+  for (const x of list) {
+    const t = x.kickoffUtc ? Date.parse(x.kickoffUtc) : NaN;
+    if (Number.isNaN(t)) continue;
+    const day = berlinDay(t);
+    const sameDay = fixtures.filter((f) => berlinDay(f.t) === day);
+    if (sameDay.length === 0) continue;
+    const place = `${x.city ?? ""} ${x.stadium ?? ""}`.toLowerCase();
+    const here = sameDay.filter((f) => f.city && place.includes(f.city.toLowerCase()));
+    const candidates = here.length > 0 ? here : sameDay;
+    if (candidates.some((f) => Math.abs(f.t - t) <= 5 * MIN)) continue;
+    const ours = candidates.map((f) => berlinTime(f.t)).join("/");
+    off.push(
+      `${day.slice(8, 10)}.${day.slice(5, 7)}.${x.city ? ` in ${x.city}` : ""}: OpenLigaDB ${berlinTime(t)}, Tipp-Sperre ${ours} Uhr`,
+    );
+  }
+  return off;
+}
 
 /**
  * Prüft die Live-Daten und meldet Probleme ans KickTime-Team. Rund um Spiele
@@ -438,18 +477,21 @@ async function watchdog(db: Db, now: number): Promise<string> {
       last_detail: string | null;
     }[];
     const label: Record<string, string> = {
-      espn: "Zweitquelle ESPN",
+      espn: "Die Zweitquelle ESPN macht auf den Geräten Probleme",
       backend: "Die App erreicht die Live-Daten des Servers nicht",
     };
     for (const src of ["espn", "backend"]) {
       const r = rows.find((x) => x.source === src);
       // Ab 2 Geräten oder wenn ein Gerät 15 Minuten lang immer wieder Fehler hat.
       const bad = !!r && (r.devices >= 2 || r.reports >= 3);
+      // Den Text der Geräte nie ungeprüft weitergeben (er kommt von außen) –
+      // nur einen HTTP-Fehlercode daraus übernehmen.
+      const code = r?.last_detail?.match(/\b([1-5]\d\d)\b/)?.[1];
       await alert(
         `quelle-${src}`,
         bad,
         bad
-          ? `${label[src]}: ${r!.last_detail ?? "Fehler"} (${r!.devices} Gerät${r!.devices === 1 ? "" : "e"}, letzte 15 Min.)`
+          ? `${label[src]}${code ? ` (Fehler ${code})` : ""} – ${r!.devices} Gerät${r!.devices === 1 ? "" : "e"}, letzte 15 Min.`
           : "",
       );
     }
@@ -501,6 +543,15 @@ async function watchdog(db: Db, now: number): Promise<string> {
     "liga-leer",
     list.length === 0,
     `OpenLigaDB liefert für ${body.url ?? "die eingestellte Liga"} keine Spiele. Bitte im Team-Bereich → Live-Daten prüfen und ggf. das Kürzel umstellen.`,
+  );
+  // Die Tipp-Sperre des Servers richtet sich nach kt_fixtures. Weichen die
+  // Zeiten von OpenLigaDB ab, könnte man zu lange (oder zu kurz) tippen.
+  const off = kickoffMismatches(fixtures, list);
+  await alert(
+    "anstosszeiten",
+    off.length > 0,
+    // Wichtigstes zuerst – die Mitteilung zeigt nur die ersten 200 Zeichen.
+    `Bitte im Team-Bereich → Live-Daten „Anstoßzeiten abgleichen“: Die Tipp-Sperre nutzt bei ${off.length} Spiel${off.length === 1 ? "" : "en"} eine andere Zeit als OpenLigaDB (${off.slice(0, 2).join("; ")}${off.length > 2 ? " …" : ""}).`,
   );
   if (dailyCheck || list.length === 0) return `geprüft: ${list.length} Spiele`;
 

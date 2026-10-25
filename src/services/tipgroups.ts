@@ -111,6 +111,21 @@ export const leaveGroup = (groupId: string) => {
   leftByMe.add(groupId);
   return rpc<null>("kt_tip_leave", { p_group: groupId });
 };
+/**
+ * Vor „Alle Daten löschen“: Gerät auf dem Server vergessen – aus allen Runden
+ * austreten (Leitung geht ans älteste Mitglied), Push-Abo und Erinnerungen
+ * löschen. Ohne SQL-Update „Gerät vergessen“ wird einzeln ausgetreten.
+ */
+export async function forgetDevice(): Promise<void> {
+  try {
+    await rpc<unknown>("kt_forget_device", {});
+    return;
+  } catch (err) {
+    if (!(err instanceof TipError && err.notInstalled)) throw err;
+  }
+  for (const g of await myGroups()) await leaveGroup(g.id);
+}
+
 export const deleteGroup = (groupId: string) => {
   leftByMe.add(groupId);
   return rpc<null>("kt_tip_delete", { p_group: groupId });

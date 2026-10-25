@@ -471,15 +471,19 @@ Deno.serve(async (req) => {
   // ---- Face ID (Team-App) ----
   // Anmeldeoptionen brauchen keine PIN: Sie enthalten nur einen Zufallswert.
   if (action === "passkey_login_options") return passkeyLoginOptions(db, req);
-  // Anmelden zählt wie ein PIN-Versuch (Sperre nach zu vielen Fehlversuchen).
+  // Anmelden zählt wie ein PIN-Versuch – aber nur je IP, nicht für die
+  // Sammel-Sperre: Ein Passkey lässt sich nicht durchprobieren. So kommt das
+  // Team per Face ID auch dann noch hinein, wenn jemand mit falschen PINs die
+  // Sammel-Sperre (30 Versuche) ausgelöst hat.
   if (action === "passkey_login") {
-    const { data: counted } = await db.rpc("kt_admin_attempt", { p_keys: keyNames });
+    const ipKeys = [`ip:${ip}`];
+    const { data: counted } = await db.rpc("kt_admin_attempt", { p_keys: ipKeys });
     const rows = (counted ?? []) as { r_key: string; r_failures: number }[];
-    if (keys.some(({ key, max }) => (rows.find((r) => r.r_key === key)?.r_failures ?? 0) > max))
+    if ((rows.find((r) => r.r_key === ipKeys[0])?.r_failures ?? 0) > MAX_FAILURES)
       return json({ error: "Zu viele Fehlversuche – bitte später erneut" }, 429);
     const result = await passkeyLogin(db, req, body);
     if (!result.ok) return json({ error: result.error }, 401);
-    await db.rpc("kt_admin_ok", { p_keys: keyNames });
+    await db.rpc("kt_admin_ok", { p_keys: ipKeys });
     await writeLog(db, body, {}, { label: result.label });
     return json({ ok: true, token: result.token, expiresAt: result.expiresAt });
   }
