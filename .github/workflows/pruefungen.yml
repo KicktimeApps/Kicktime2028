@@ -2,6 +2,8 @@
 # Typen, Lint, Unit-Tests, Formatierung und Build – dieselben wie lokal
 # (AGENTS.md, Abschnitt 4) – und Browser-Tests der wichtigsten Abläufe
 # (e2e/, Server nachgestellt). Rot = nicht ausliefern, erst beheben.
+# Runner fest auf Ubuntu 24.04: „ubuntu-latest“ ist inzwischen 26.04, dafür bringt
+# Playwright 1.56.1 keinen Chromium mit (Browser-Tests schlugen schon beim Installieren fehl).
 name: Prüfungen
 
 on:
@@ -19,7 +21,7 @@ concurrency:
 
 jobs:
   pruefen:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +43,7 @@ jobs:
 
   browser:
     name: Browser-Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
