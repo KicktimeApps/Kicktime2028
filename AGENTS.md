@@ -194,16 +194,15 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   localStorage bleiben so, auch wenn Worker/Repo jetzt `kicktime2028` heißen – sonst verlieren
   Nutzer Geräte-ID, Tipprunden und Einstellungen.
 
-### Aktueller Stand (25.10.2026)
+### Aktueller Stand (13.11.2026)
 
-- **App 2.18.0**, **Team-App 1.3.0**, alles gepusht (Cloudflare baut automatisch).
-- **Supabase:** alle 23 SQL-Updates bis `20261025220000_geraet_vergessen_waechter.sql`
+- **App 2.19.0**, **Team-App 1.5.0**, alles gepusht (Cloudflare baut automatisch).
+- **Supabase:** alle 24 SQL-Updates bis `20261112090000_aufraeumen_fehler_anstosszeiten.sql`
   ausgeführt (die älteren im SQL-Editor, daher listet `list_migrations` nicht alle). Edge
-  Functions: `admin` v20, `live-scores` v12, `send-push-reminders` v12 – Inhalt jeweils wie im Repo.
+  Functions: `admin` v21, `live-scores` v13, `send-push-reminders` v13 – Inhalt jeweils wie im Repo.
 - **Face ID in der Team-App** vom Betreiber auf dem iPhone getestet – funktioniert.
-- **In Arbeit (Nov. 2026):** App 2.19.0 / Team-App 1.5.0 – lokal committet, SQL-Update
-  `20261112090000_aufraeumen_fehler_anstosszeiten.sql` und Edge Functions `admin`, `live-scores`,
-  `send-push-reminders` noch **nicht** ausgeführt (erst nach „ausführen“).
+- **Supportseite 2028:** Cloudflare veröffentlicht seit Commit 9256101 (Okt. 2026) nichts mehr
+  (live noch alter Stand, README abrufbar) – Ursache im Cloudflare-Dashboard klären.
 - **Team-App-Übersicht** lädt nur beim ersten Öffnen und über „Jetzt aktualisieren“ (Wunsch des
   Betreibers: kein Neuladen bei jedem Seitenwechsel, kein Minuten-Takt).
 - **Brute-Force-Sperre:** Die Team-App darf nie viele Admin-Aufrufe gleichzeitig schicken (sonst
