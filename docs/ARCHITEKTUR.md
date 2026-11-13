@@ -95,16 +95,22 @@ Browser ──invoke──▶ live-scores ──▶ OpenLigaDB
    ├──fetch──▶ ESPN (direkt, nur an EM-Spieltagen; ESPN sperrt Rechenzentren)
    ├──select──▶ match_overrides, app_config (öffentlich lesbar)
    ├──rpc──▶ kt_* (SECURITY DEFINER): Push-Abo, Erinnerungen, Statistik-Ping, Feedback,
-   │          Tipprunden (kt_tip_*), Sperren/Anträge, Quellen-Meldungen (kt_report_source)
+   │          Tipprunden (kt_tip_*), Sperren/Anträge, Quellen-Meldungen (kt_report_source),
+   │          Fehlermeldungen (kt_report_error, begrenzt je Gerät und insgesamt)
    └──invoke──▶ admin (PIN oder Face-ID-Freigabe; Sperre nach Fehlversuchen je IP und
                 insgesamt) ──▶ Korrekturen, Tipprunden, Anträge, Statistik, Team-Protokoll
 pg_cron (jede Minute) ──▶ send-push-reminders ──▶ Web Push (VAPID) ──▶ public/sw.js
                            ├─ Spiel- und Tipp-Erinnerungen, Tipprunden-Nachrichten
                            ├─ Wächter rund um jedes Spiel ──▶ Team-Geräte (kt_alerts)
-                           └─ täglich: Aufräumen alter Abos (kt_push_cleanup)
+                           ├─ Anstoßzeiten der Quelle übernehmen (kt_fixture_propose)
+                           └─ täglich: alte Abos (kt_push_cleanup), Löschfristen
+                              (kt_retention_cleanup)
 ```
 
 Alle Tabellen sind per RLS gesperrt; die App schreibt nur über die geprüften `kt_*`-Funktionen.
+Korrekturen gelten nur, bis die Quelle Neues meldet – außer sie sind „festgehalten“
+(`match_overrides.locked`, gegen manipulierte Community-Daten). Ändert OpenLigaDB ein schon
+gesichertes Endergebnis, meldet `live-scores` das dem Team (`ergebnis-…`).
 Die Team-App (`KicktimeApps/Kicktime2028-Admin`) nutzt dieselben Edge Functions. Die IP aus
 `admin` dient nur der PIN-Sperre (`admin_attempts`), die Statistik speichert keine IP.
 
@@ -113,7 +119,11 @@ gibt es dann nur bei geöffneter App, als Alternative bietet sich der Kalender-E
 
 ## Qualitätssicherung
 
-- `bun run check`: TypeScript, ESLint (inkl. Prettier) und Unit-Tests (Okt. 2026: 156)
+- `bun run check`: TypeScript, ESLint (inkl. Prettier) und Unit-Tests (Nov. 2026: 174)
+- Server-Tests (`supabase/tests/`, laufen mit den Unit-Tests): alle SQL-Updates in PGlite,
+  das neueste zweimal; dann Rechte (Tabellen und Team-Funktionen für `anon` gesperrt,
+  `search_path` mit `pg_temp`), Tipprunden, Grenzen, Anstoßzeiten und Löschfristen mit echten
+  RPC-Aufrufen
 - Browser-Tests der wichtigsten Abläufe (`e2e/`, Playwright, Handy + Desktop, Server
   nachgestellt), auch bei jedem Push auf GitHub (`.github/workflows/pruefungen.yml`)
 - Edge Functions: `deno check` (Deno 2)

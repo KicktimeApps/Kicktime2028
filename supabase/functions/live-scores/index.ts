@@ -332,6 +332,28 @@ async function persistFinished(db: Db, list: LiveFixture[]) {
       updated_at: new Date().toISOString(),
     }));
   if (rows.length > 0) await db.from("match_results").upsert(rows);
+
+  // Ein schon gespeichertes Endergebnis hat sich geändert: Die Quelle wird von
+  // einer Community gepflegt – das kann eine Korrektur sein oder Unfug. Das Team
+  // bekommt eine Mitteilung und kann in der Team-App eine Korrektur festhalten.
+  const before = new Map<string, LiveFixture>(
+    (existing ?? []).map((r: { external_id: string; fixture: LiveFixture }) => [
+      r.external_id,
+      r.fixture,
+    ]),
+  );
+  const text = (f: LiveFixture) =>
+    `${f.score?.home ?? "?"}:${f.score?.away ?? "?"}${f.penalties ? ` (i. E. ${f.penalties.home}:${f.penalties.away})` : ""}`;
+  for (const f of done) {
+    const old = before.get(f.externalId);
+    if (!old || sig(old) === sig(f)) continue;
+    const { error } = await db.rpc("kt_alert_set", {
+      p_key: `ergebnis-${f.externalId}`,
+      p_active: true,
+      p_message: `OpenLigaDB hat ein Endergebnis nachträglich geändert: ${f.homeName ?? "?"} – ${f.awayName ?? "?"} jetzt ${text(f)}, vorher ${text(old)}. Bitte prüfen – falls falsch, in der Team-App eine Korrektur setzen und festhalten.`,
+    });
+    if (error) console.warn("[ergebnis geändert]", error.message); // Wächter-Update fehlt
+  }
 }
 
 /** Gespeicherte Endergebnisse haben Vorrang vor den aktuellen Upstream-Daten. */

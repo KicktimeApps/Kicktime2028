@@ -95,6 +95,8 @@ und deployt bei Cloudflare automatisch (GitHub-Verbindung im Cloudflare-Dashboar
   `codeBackupDone`) und Eintrag „Code für neues Handy“ in den Runden-Einstellungen. Wer ihn nur
   weggeklickt und den Code nie angesehen hat (`codeBackupSeen`), sieht ab 14 Tage vor dem
   Eröffnungsspiel bis Turnierende einmal „Bald geht's los – Code gesichert?“ (`lib/backup-hint.ts`).
+- **Große Seiten aufgeteilt (2.19.0):** `routes/runde.$code.tsx` nutzt `components/round/*`,
+  `routes/einstellungen.tsx` nutzt `components/settings/{SettingsContent,FeedbackContent,MoreList}`.
 - **Architektur-Details:** `docs/ARCHITEKTUR.md`. Pflege/Abläufe: `docs/PFLEGE.md`.
   Kernprinzip: Turnierzustand wird immer rein funktional aus Eingaben berechnet
   (`src/domain/resolve.ts`).
@@ -199,6 +201,9 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   ausgeführt (die älteren im SQL-Editor, daher listet `list_migrations` nicht alle). Edge
   Functions: `admin` v20, `live-scores` v12, `send-push-reminders` v12 – Inhalt jeweils wie im Repo.
 - **Face ID in der Team-App** vom Betreiber auf dem iPhone getestet – funktioniert.
+- **In Arbeit (Nov. 2026):** App 2.19.0 / Team-App 1.5.0 – lokal committet, SQL-Update
+  `20261112090000_aufraeumen_fehler_anstosszeiten.sql` und Edge Functions `admin`, `live-scores`,
+  `send-push-reminders` noch **nicht** ausgeführt (erst nach „ausführen“).
 - **Team-App-Übersicht** lädt nur beim ersten Öffnen und über „Jetzt aktualisieren“ (Wunsch des
   Betreibers: kein Neuladen bei jedem Seitenwechsel, kein Minuten-Takt).
 - **Brute-Force-Sperre:** Die Team-App darf nie viele Admin-Aufrufe gleichzeitig schicken (sonst
@@ -267,6 +272,26 @@ App>` – den echten Ordnernamen nehmen (`ls ..`), Groß-/Kleinschreibung zählt
   weiterhin `/einstellungen` – die Team-App öffnet dafür die passende Seite (`sw.js`).
 - **Statistik:** zählt alle echten Nutzer (nicht nur Push), Bots/Automatisierung werden
   ausgefiltert, gemeldet erst nach echter Bedienung. Keine IP, kein User-Agent gespeichert.
+  Vor dem Turnier in der Team-App → Statistik → „Vor dem Turnier“ zurücksetzen (`reset_stats`).
+- **Ab 2.19.0 (SQL-Update `20261112090000_aufraeumen_fehler_anstosszeiten.sql`):**
+  - **Löschfristen** (`kt_retention_cleanup`, täglich mit `kt_push_cleanup`): Pings nach 180 Tagen
+    ohne Besuch, Feedback nach 1 Jahr, Fehlermeldungen nach 30 Tagen, 6 Monate nach dem letzten
+    Spiel Tipprunden/Anträge/Sperren. Muss zur Datenschutzerklärung der Supportseite passen.
+  - **Fehlermeldungen der App** (`services/error-report.ts` → `kt_report_error`, Tabelle
+    `kt_client_errors`): nur Art, gekürzter Text ohne IDs/Tokens, Version; je Gerät 5/Std.,
+    gleiche Meldung 1×/Tag, insgesamt 300/Std. Sichtbar in der Team-App → System.
+  - **Korrektur festhalten** (`match_overrides.locked`): gilt auch, wenn die Quelle etwas anderes
+    meldet (`mergeResults`). Ändert OpenLigaDB ein gesichertes Endergebnis, alarmiert
+    `live-scores` das Team (`ergebnis-<id>`).
+  - **Feedback**: zusätzlich höchstens 300 am Tag insgesamt. `verify` meldet `weakPin`
+    (PIN < 8 Zeichen) – die Team-App zeigt dann einen Hinweis.
+  - **Anstoßzeiten automatisch** (`kt_fixture_propose`, `kt_fixture_pending`): siehe
+    `docs/PFLEGE.md`; nie < 24 Std. vor dem Spiel, nie > 36 Std. Sprung, erst nach 20 Std. gleicher
+    Meldung, nur bei eindeutiger Zuordnung (Tag + Ort).
+  - **Server-Tests** `supabase/tests/server.test.ts` (PGlite, laufen in `vitest run` und auf GitHub).
+- **Code sichern nach Rundenbeitritt (ab 2.19.0):** Nach dem Erstellen/Beitreten fragt
+  `BackupCodeOffer` (`lib/backup-offer.ts`) einmal nach dem Code (Teilen/Kopieren), solange
+  `codeBackupSeen` nicht gesetzt ist.
 - **Einführung:** Willkommen → Installieren (nur im Browser auf Handy/Tablet, Browser-
   Erkennung, auf Android echter Installieren-Knopf) → Hell/Dunkel (dunkel empfohlen und
   vorausgewählt) → Teams → Zeit → Mitteilungen → Fertig.

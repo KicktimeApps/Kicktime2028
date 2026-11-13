@@ -123,6 +123,11 @@ Halbfinale, Finale) oder „MagentaTV“ (Free-TV noch offen).
 - [ ] Push-Test: Erinnerung für ein Spiel stellen, Nachricht kommt an
 - [ ] Impressums-Link (`VITE_LEGAL_URL`) zeigt auf die richtige Seite
 - [ ] `bun run check` grün, Vorschau-Modus einmal durchgeklickt
+- [ ] **Testdaten aufräumen** (Team-App): Test-Tipprunden löschen (Tipprunden → einzeln oder
+      „Alle löschen“, nur wenn noch keine echten Runden laufen), Statistik zurücksetzen
+      (Statistik → „Vor dem Turnier“), alte Korrekturen entfernen (Korrektur → „Alle
+      entfernen“), Wächter-Meldungen und Protokoll kurz ansehen
+- [ ] System → „Fehler bei Nutzern“ leer bzw. verstanden; PIN mindestens 8 Zeichen
 
 ## 7. Für ein neues Turnier (z. B. WM 2030)
 
@@ -142,6 +147,13 @@ OpenLigaDB sie liefert), die Zeiten abgleichen – eine der beiden Möglichkeite
   die die App gerade anzeigt), oder
 - `npm run fixtures:sql` und die Ausgabe im Supabase SQL-Editor ausführen.
 
+Ab 2.19.0 übernimmt der Server geänderte Zeiten von OpenLigaDB auch selbst
+(`kt_fixture_propose`, aus `send-push-reminders`): nur wenn ein Spiel an Tag + Ort eindeutig
+zugeordnet ist, die neue Zeit **20 Stunden lang gleich** gemeldet wurde, das Spiel noch mehr als
+24 Stunden entfernt ist und sich höchstens 36 Stunden verschiebt. Jede Übernahme steht im
+Team-Protokoll („fixtures_auto“) und kommt als Mitteilung. Alles andere meldet der Wächter
+(„anstosszeiten“) – dann wie oben von Hand abgleichen.
+
 ## Team-App (früher Team-App)
 
 Alle Team-Funktionen gibt es in der eigenen Team-App (`https://kicktime2028-admin.ben-online35.workers.dev`), entsperrt mit
@@ -153,17 +165,23 @@ Feedback und Protokoll):
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Übersicht    | Ampel für Live-Daten, Nutzer, offene Anfragen, Korrekturen, Hinweis, Fehler                                                                                                                                    |
 | Live-Daten   | API-Quelle (Liga/Saison/Endung) ändern und testen, Abruf anhalten, sofort neu laden, Anstoßzeiten abgleichen, Zwischenspeicher leeren, gespeicherte Ergebnisse zurücksetzen, Wächter (Status, Test-Mitteilung) |
-| Korrektur    | Spielstände überbrücken, alle Korrekturen auf einmal entfernen                                                                                                                                                 |
+| Korrektur    | Spielstände überbrücken (oder „festhalten“), alle Korrekturen entfernen                                                                                                                                        |
 | Tipprunden   | Alle Runden mit Mitgliedern, Mitglieder entfernen/sperren/entsperren, Ersteller übertragen, einzelne oder alle Runden löschen                                                                                  |
 | Anträge      | Entsperrungsanträge annehmen/ablehnen, Liste „Überall gesperrt“, Team-Geräte für Mitteilungen eintragen                                                                                                        |
 | Mitteilungen | Hinweis-Banner für alle (mit Ablaufzeit), Push an alle bzw. Test an dich                                                                                                                                       |
 | Statistik    | Nutzer heute/7/30 Tage, Verlauf pro Tag, Geräte, Browser, Versionen, installiert/Push, Feedback löschen                                                                                                        |
-| System       | Geräte-Infos, Fehlerprotokoll, Admin sperren                                                                                                                                                                   |
+| System       | Fehler bei Nutzern (letzte 30 Tage), Hinweis bei kurzer PIN, Geräte-Infos, Face ID, sperren                                                                                                                    |
 
 Die Statistik zählt jedes Gerät, das die App wirklich benutzt – mit oder ohne Push. Bots,
 Link-Vorschauen und automatisierte Browser zählen nicht; gemeldet wird erst nach der ersten
 Bedienung (Tippen, Scrollen) oder 20 Sekunden Sichtbarkeit. Der Tagesverlauf wird 180 Tage
 aufbewahrt.
+
+**Löschfristen (ab 2.19.0, `kt_retention_cleanup`, täglich 3:07 UTC):** Nutzungs-Einträge von
+Geräten, die 180 Tage nicht da waren; Feedback nach einem Jahr; Fehlermeldungen nach 30 Tagen;
+sechs Monate nach dem letzten Spiel Tipprunden (mit Tipps), Entsperrungsanträge und Sperren.
+Genau so steht es in der Datenschutzerklärung der Supportseite – ändert sich eine Frist, dort
+mitändern.
 
 Einrichtung (einmalig): SQL-Updates `20261021090000_admin_ausbau.sql`,
 `20261021120000_sperre_hinweis.sql`, `20261021150000_kicken_sperren.sql`,

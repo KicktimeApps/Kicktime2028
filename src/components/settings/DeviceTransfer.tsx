@@ -1,4 +1,4 @@
-import { Copy, Eye, KeyRound, ShieldAlert } from "lucide-react";
+import { Eye, KeyRound, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -12,6 +12,7 @@ import { hasPushBackend, syncServerAlarms } from "@/lib/push";
 import { cn } from "@/lib/utils";
 import { groupsOfDevice, TipError, type TipGroup } from "@/services/tipgroups";
 import { useAppStore } from "@/store/app-store";
+import { RecoveryCodeActions, RecoveryCodeBox } from "./RecoveryCode";
 
 /**
  * Handywechsel ohne Konto: Der Wiederherstellungs-Code ist die Geräte-ID.
@@ -46,28 +47,12 @@ function ShowCode() {
       </p>
       {code ? (
         <>
-          <div
-            className="mt-4 grid grid-cols-4 gap-x-2 gap-y-1.5 rounded-xl bg-muted/50 px-3 py-3 text-center font-mono text-[17px] font-semibold tracking-[0.08em] tabular"
-            aria-label="Wiederherstellungs-Code"
-          >
-            {code.split(" ").map((part, i) => (
-              <span key={i}>{part}</span>
-            ))}
+          <div className="mt-4">
+            <RecoveryCodeBox code={code} />
           </div>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(code);
-                toast.success("Code kopiert");
-              } catch {
-                toast.error("Kopieren ging nicht – bitte abschreiben.");
-              }
-            }}
-            className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border text-[15px] font-semibold"
-          >
-            <Copy className="h-4 w-4" /> Kopieren
-          </button>
+          <div className="mt-3">
+            <RecoveryCodeActions code={code} />
+          </div>
         </>
       ) : (
         <button

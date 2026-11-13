@@ -131,3 +131,18 @@ describe("Uhr-Tick: Turnier nur neu, wenn sich etwas ändert", () => {
     }
   });
 });
+
+describe("festgehaltene Korrektur", () => {
+  it("gilt auch, wenn die Quelle später etwas anderes meldet", () => {
+    const before = r("finished", 2, 1, "api");
+    const locked: ResultRecord = {
+      ...r("finished", 1, 1, "admin"),
+      sourceSig: resultSignature(before),
+      locked: true,
+    };
+    // Quelle ändert das Endergebnis nachträglich (z. B. manipuliert).
+    const out = mergeResults({ m01: r("finished", 0, 5, "api") }, { m01: locked });
+    expect(out.m01.source).toBe("admin");
+    expect(out.m01.score).toEqual({ home: 1, away: 1 });
+  });
+});

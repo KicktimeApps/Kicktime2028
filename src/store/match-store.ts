@@ -55,6 +55,11 @@ export function mergeResults(
   const out: Record<string, ResultRecord> = { ...api };
   for (const [id, a] of Object.entries(admin)) {
     const b = api[id];
+    // Festgehalten (z. B. gegen manipulierte Quelldaten): gilt immer.
+    if (a.locked) {
+      out[id] = a;
+      continue;
+    }
     if (a.sourceSig !== undefined) {
       if (resultSignature(b) === a.sourceSig) out[id] = a;
       continue;

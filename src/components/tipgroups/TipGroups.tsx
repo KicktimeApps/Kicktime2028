@@ -44,6 +44,7 @@ import {
   setGroupChampion,
   TipError,
 } from "@/services/tipgroups";
+import { offerBackupCode } from "@/lib/backup-offer";
 import { useAppStore } from "@/store/app-store";
 import { AppealBlock } from "./AppealBlock";
 import { useNow, useTournament } from "@/store/match-store";
@@ -339,6 +340,7 @@ export function GroupFormDrawer({
         description: "Sobald der Ersteller dich annimmt, tippst du mit.",
       });
       navigate({ to: "/runde/$code", params: { code: g.code } });
+      offerBackupCode();
       return;
     }
     if (imported > 0)
@@ -350,6 +352,7 @@ export function GroupFormDrawer({
       description: mode === "create" ? `Code ${g.code} – jetzt Freunde einladen.` : undefined,
     });
     navigate({ to: "/runde/$code", params: { code: g.code } });
+    offerBackupCode();
   };
 
   const valid =

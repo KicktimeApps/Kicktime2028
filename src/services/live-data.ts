@@ -133,6 +133,7 @@ type OverrideRow = {
   phase: LivePhase | null;
   updated_at: string;
   source_sig?: string | null;
+  locked?: boolean | null;
 };
 
 /** Admin-Korrekturen laden; null bei Fehler (dann bleiben die bisherigen). */
@@ -160,6 +161,7 @@ async function fetchOverrides(): Promise<Record<string, ResultRecord> | null> {
       source: "admin",
       updatedAt: Date.parse(r.updated_at),
       sourceSig: r.source_sig ?? undefined,
+      ...(r.locked === true && { locked: true }),
     };
   }
   return out;

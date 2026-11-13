@@ -69,3 +69,43 @@ test("Kurz vor dem Turnier: Erinnerung „Code gesichert?“ für alle, die ihn 
   await expect(page.getByText("Bald geht's los – Code gesichert?")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test("Nach dem Erstellen einer Runde: Code gleich sichern anbieten", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: async () => {} },
+      configurable: true,
+    });
+  });
+  let created = false;
+  const errors = await setup(page, {
+    mock: {
+      rpc: {
+        kt_tip_create: () => {
+          created = true;
+          return { id: GROUP.id, code: GROUP.code, name: GROUP.name };
+        },
+        kt_tip_my_groups: () => (created ? [GROUP] : []),
+        kt_tip_board: board,
+      },
+    },
+  });
+  await page.goto("/tipps");
+  await page.getByRole("button", { name: /Mit Freunden tippen/ }).click();
+  await page.getByRole("button", { name: "Runde erstellen" }).click();
+  await page.getByLabel("Name der Runde").fill(GROUP.name);
+  await page.getByLabel("Dein Name in der Runde").fill("Ben");
+  await page.getByRole("button", { name: "Runde erstellen" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: GROUP.name })).toBeVisible();
+  const offer = page.getByRole("dialog", { name: "Code sichern" });
+  await expect(offer).toBeVisible();
+  await expect(offer.getByLabel("Wiederherstellungs-Code")).toBeVisible();
+  await expectNoSideScroll(page);
+  await offer.getByRole("button", { name: "Kopieren" }).click();
+  await expect(offer).toHaveCount(0);
+  // Gesichert → kein Hinweis mehr in der Rundenliste.
+  await page.goto("/tipps");
+  await expect(page.getByText(GROUP.name)).toBeVisible();
+  await expect(page.getByText("Sichere deinen Code")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

@@ -386,6 +386,9 @@ Deno.serve(async (req) => {
     if (clock.getUTCHours() === 3 && clock.getUTCMinutes() === 7) {
       const { data: n, error: cleanErr } = await db.rpc("kt_push_cleanup");
       if (!cleanErr) cleanedOld = Number(n ?? 0);
+      // Löschfristen der Datenschutzerklärung (SQL-Update „Löschfristen …“).
+      const { error: keepErr } = await db.rpc("kt_retention_cleanup");
+      if (keepErr) console.warn("[löschfristen]", keepErr.message);
     }
 
     // Wächter: darf den Versand nie stören. Seine Team-Mitteilungen landen in
@@ -452,30 +455,112 @@ const berlinTime = (t: number) =>
 const berlinDay = (t: number) =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date(t));
 
+type KickoffDiff = {
+  /** Text für die Mitteilung ans Team. */
+  text: string;
+  /** Eindeutig zugeordnet: dieses Spiel der Tipp-Sperre bekäme diese Zeit. */
+  match?: { id: string; kickoff: string };
+};
+
 /**
  * Spiele, deren Anstoßzeit bei OpenLigaDB nicht zur Tipp-Sperre (kt_fixtures)
  * passt. Zuordnung über Tag und Spielort (Spalte city, SQL-Update
  * „Gerät vergessen …“); ohne Ort zählt jede Anstoßzeit des Tages.
  * Spiele an Tagen ohne EM-Spiel (andere Liga eingestellt) werden ignoriert.
+ * `match` ist nur gesetzt, wenn an dem Tag und Ort auf beiden Seiten genau ein
+ * Spiel steht – nur dann darf der Server die Zeit selbst übernehmen.
  */
-function kickoffMismatches(fixtures: (Fixture & { t: number })[], list: LiveFixture[]): string[] {
-  const off: string[] = [];
+function kickoffMismatches(
+  fixtures: (Fixture & { t: number })[],
+  list: LiveFixture[],
+): KickoffDiff[] {
+  const off: KickoffDiff[] = [];
+  const placeOf = (x: LiveFixture) => `${x.city ?? ""} ${x.stadium ?? ""}`.toLowerCase();
   for (const x of list) {
     const t = x.kickoffUtc ? Date.parse(x.kickoffUtc) : NaN;
     if (Number.isNaN(t)) continue;
     const day = berlinDay(t);
     const sameDay = fixtures.filter((f) => berlinDay(f.t) === day);
     if (sameDay.length === 0) continue;
-    const place = `${x.city ?? ""} ${x.stadium ?? ""}`.toLowerCase();
+    const place = placeOf(x);
     const here = sameDay.filter((f) => f.city && place.includes(f.city.toLowerCase()));
     const candidates = here.length > 0 ? here : sameDay;
     if (candidates.some((f) => Math.abs(f.t - t) <= 5 * MIN)) continue;
     const ours = candidates.map((f) => berlinTime(f.t)).join("/");
-    off.push(
-      `${day.slice(8, 10)}.${day.slice(5, 7)}.${x.city ? ` in ${x.city}` : ""}: OpenLigaDB ${berlinTime(t)}, Tipp-Sperre ${ours} Uhr`,
-    );
+    const only = here.length === 1 ? here[0] : null;
+    // Auch in der Quelle darf an dem Tag und Ort nur dieses eine Spiel stehen.
+    const twins = only
+      ? list.filter(
+          (y) =>
+            !!y.kickoffUtc &&
+            berlinDay(Date.parse(y.kickoffUtc)) === day &&
+            placeOf(y).includes(only.city!.toLowerCase()),
+        ).length
+      : 0;
+    off.push({
+      text: `${day.slice(8, 10)}.${day.slice(5, 7)}.${x.city ? ` in ${x.city}` : ""}: OpenLigaDB ${berlinTime(t)}, Tipp-Sperre ${ours} Uhr`,
+      ...(only &&
+        twins === 1 && { match: { id: only.match_id, kickoff: new Date(t).toISOString() } }),
+    });
   }
   return off;
+}
+
+/**
+ * Abweichende Anstoßzeiten: eindeutig zugeordnete schlägt der Server sich selbst
+ * vor (kt_fixture_propose übernimmt sie nach einem Tag gleicher Meldung, nie kurz
+ * vor dem Spiel). Zurück kommt, was ein Mensch ansehen muss.
+ */
+async function syncKickoffs(
+  db: Db,
+  fixtures: (Fixture & { t: number })[],
+  list: LiveFixture[],
+): Promise<string[]> {
+  const open: string[] = [];
+  for (const d of kickoffMismatches(fixtures, list)) {
+    if (!d.match) {
+      open.push(d.text);
+      continue;
+    }
+    const { data, error } = await db.rpc("kt_fixture_propose", {
+      p_match: d.match.id,
+      p_kickoff: d.match.kickoff,
+    });
+    // Ohne SQL-Update „Löschfristen …“ wie bisher nur melden.
+    if (error || (data !== "pending" && data !== "adopted" && data !== "same")) open.push(d.text);
+  }
+  return open;
+}
+
+/** Eigene Live-Daten-Funktion abfragen (aktualisiert dabei auch den Cache). */
+async function fetchLive(): Promise<{
+  body: { fixtures?: LiveFixture[]; cache?: string; url?: string; warning?: string } | null;
+  failure: string;
+}> {
+  try {
+    const res = await fetch(`${env("SUPABASE_URL")}/functions/v1/live-scores`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        // Wie die App: öffentlicher Schlüssel (falls vorhanden).
+        ...(Deno.env.get("SUPABASE_ANON_KEY")
+          ? {
+              apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
+              authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+            }
+          : {}),
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return { body: null, failure: `antwortet mit Fehler ${res.status}` };
+    return { body: await res.json(), failure: "" };
+  } catch (err) {
+    return {
+      body: null,
+      failure: `antwortet nicht (${err instanceof Error ? err.name : "Fehler"})`,
+    };
+  }
 }
 
 /**
@@ -563,7 +648,7 @@ async function watchdog(db: Db, now: number): Promise<string> {
     await alert(
       "auffaellig-runden",
       n >= GROUPS_PER_HOUR || unseen >= GROUPS_WITHOUT_APP,
-      `Auffällig viele neue Tipprunden: ${n} in der letzten Stunde (${unseen} Geräte ohne App-Nutzung). Bitte im Team-Bereich → Tipprunden prüfen.`,
+      `Auffällig viele neue Tipprunden: ${n} in der letzten Stunde (${unseen} Geräte ohne App-Nutzung). Bitte in der Team-App → Tipprunden prüfen.`,
     );
     const { count: joins } = await db
       .from("tip_members")
@@ -572,38 +657,34 @@ async function watchdog(db: Db, now: number): Promise<string> {
     await alert(
       "auffaellig-anfragen",
       (joins ?? 0) >= JOINS_PER_HOUR,
-      `Auffällig viele Beitritte/Anfragen: ${joins} in der letzten Stunde. Bitte im Team-Bereich → Tipprunden prüfen.`,
+      `Auffällig viele Beitritte/Anfragen: ${joins} in der letzten Stunde. Bitte in der Team-App → Tipprunden prüfen.`,
     );
+  }
+
+  // Die Tipp-Sperre des Servers richtet sich nach kt_fixtures. Weichen die
+  // Zeiten von OpenLigaDB ab, könnte man zu lange (oder zu kurz) tippen.
+  const alertKickoffs = (off: string[]) =>
+    alert(
+      "anstosszeiten",
+      off.length > 0,
+      // Wichtigstes zuerst – die Mitteilung zeigt nur die ersten 200 Zeichen.
+      `Bitte in der Team-App → Live-Daten „Anstoßzeiten abgleichen“: Die Tipp-Sperre nutzt bei ${off.length} Spiel${off.length === 1 ? "" : "en"} eine andere Zeit als OpenLigaDB (${off.slice(0, 2).join("; ")}${off.length > 2 ? " …" : ""}).`,
+    );
+
+  // Lange vor dem Turnier (Anstoßzeiten erscheinen Monate vorher): einmal täglich
+  // nur die Zeiten abgleichen – ohne Alarm, falls die Liga noch leer ist.
+  if (now < opener && !beforeTournament && new Date(now).getUTCHours() === 8 && minute === 0) {
+    const early = await fetchLive();
+    const list = Array.isArray(early.body?.fixtures) ? early.body.fixtures : [];
+    if (list.length === 0) return "Anstoßzeiten: Liga noch leer";
+    await alertKickoffs(await syncKickoffs(db, fixtures, list));
+    return `Anstoßzeiten abgeglichen (${list.length} Spiele)`;
   }
 
   if ((around.length === 0 || minute % 2 !== 0) && !dailyCheck) return "ruhig";
   if (now > last + 240 * MIN && !dailyCheck) return "Turnier vorbei";
 
-  // Eigene Live-Daten-Funktion abfragen (aktualisiert dabei auch den Cache).
-  let body: { fixtures?: LiveFixture[]; cache?: string; url?: string; warning?: string } | null =
-    null;
-  let failure = "";
-  try {
-    const res = await fetch(`${env("SUPABASE_URL")}/functions/v1/live-scores`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        // Wie die App: öffentlicher Schlüssel (falls vorhanden).
-        ...(Deno.env.get("SUPABASE_ANON_KEY")
-          ? {
-              apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
-              authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-            }
-          : {}),
-      },
-      body: "{}",
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) failure = `antwortet mit Fehler ${res.status}`;
-    else body = await res.json();
-  } catch (err) {
-    failure = `antwortet nicht (${err instanceof Error ? err.name : "Fehler"})`;
-  }
+  const { body, failure } = await fetchLive();
   await alert("server", !!failure, `Die Live-Daten-Funktion des Servers ${failure}.`);
   if (!body) return "server: " + failure;
 
@@ -611,7 +692,7 @@ async function watchdog(db: Db, now: number): Promise<string> {
   await alert(
     "pausiert",
     body.cache === "paused" && around.length > 0,
-    "Der Live-Abruf ist im Team-Bereich angehalten – es kommen keine neuen Spielstände.",
+    "Der Live-Abruf ist in der Team-App angehalten – es kommen keine neuen Spielstände.",
   );
   await alert(
     "openligadb",
@@ -621,17 +702,9 @@ async function watchdog(db: Db, now: number): Promise<string> {
   await alert(
     "liga-leer",
     list.length === 0,
-    `OpenLigaDB liefert für ${body.url ?? "die eingestellte Liga"} keine Spiele. Bitte im Team-Bereich → Live-Daten prüfen und ggf. das Kürzel umstellen.`,
+    `OpenLigaDB liefert für ${body.url ?? "die eingestellte Liga"} keine Spiele. Bitte in der Team-App → Live-Daten prüfen und ggf. das Kürzel umstellen.`,
   );
-  // Die Tipp-Sperre des Servers richtet sich nach kt_fixtures. Weichen die
-  // Zeiten von OpenLigaDB ab, könnte man zu lange (oder zu kurz) tippen.
-  const off = kickoffMismatches(fixtures, list);
-  await alert(
-    "anstosszeiten",
-    off.length > 0,
-    // Wichtigstes zuerst – die Mitteilung zeigt nur die ersten 200 Zeichen.
-    `Bitte im Team-Bereich → Live-Daten „Anstoßzeiten abgleichen“: Die Tipp-Sperre nutzt bei ${off.length} Spiel${off.length === 1 ? "" : "en"} eine andere Zeit als OpenLigaDB (${off.slice(0, 2).join("; ")}${off.length > 2 ? " …" : ""}).`,
-  );
+  await alertKickoffs(await syncKickoffs(db, fixtures, list));
   if (dailyCheck || list.length === 0) return `geprüft: ${list.length} Spiele`;
 
   // Je Anstoßzeit: Laufende Spiele müssen in OpenLigaDB stehen, beendete
@@ -651,14 +724,14 @@ async function watchdog(db: Db, now: number): Promise<string> {
       await alert(
         key,
         seen < group.length,
-        `OpenLigaDB meldet ${names} (Anpfiff ${berlinTime(t)} Uhr) nicht als laufend – Spielstände fehlen. Ggf. im Team-Bereich → Korrektur eintragen.`,
+        `OpenLigaDB meldet ${names} (Anpfiff ${berlinTime(t)} Uhr) nicht als laufend – Spielstände fehlen. Ggf. in der Team-App → Korrektur eintragen.`,
       );
     } else if (overdue) {
       const done = found.filter((x) => x.status === "finished").length;
       await alert(
         key,
         done < group.length,
-        `${names} (Anpfiff ${berlinTime(t)} Uhr) ist bei OpenLigaDB noch nicht abgeschlossen – Tipp-Punkte gibt es erst danach. Ggf. im Team-Bereich → Korrektur eintragen.`,
+        `${names} (Anpfiff ${berlinTime(t)} Uhr) ist bei OpenLigaDB noch nicht abgeschlossen – Tipp-Punkte gibt es erst danach. Ggf. in der Team-App → Korrektur eintragen.`,
       );
     }
   }

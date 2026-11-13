@@ -19,6 +19,7 @@ import { GroupNotice } from "@/components/tipgroups/GroupNotice";
 import { UnbanNotice } from "@/components/tipgroups/UnbanNotice";
 import { ChampionCelebration } from "@/components/tournament/ChampionCelebration";
 import { Toaster } from "@/components/ui/sonner";
+import { BackupCodeOffer } from "@/components/settings/BackupCodeOffer";
 import { useEngine } from "@/hooks/useEngine";
 import { useGoalAlerts } from "@/hooks/useGoalAlerts";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
@@ -29,6 +30,7 @@ import { logError } from "@/lib/error-log";
 // Früh mithören: Android meldet die Installierbarkeit oft schon beim Laden.
 import "@/lib/install";
 import { sendPing } from "@/lib/telemetry";
+import { installErrorReporting } from "@/services/error-report";
 import { isBackendConfigured } from "@/services/supabase";
 import { useAppStore } from "@/store/app-store";
 import { useMatchStore } from "@/store/match-store";
@@ -302,6 +304,7 @@ function App() {
     return () => window.clearTimeout(t);
   }, []);
   useGlobalErrorLogging();
+  useEffect(() => installErrorReporting(), []);
   useEffect(() => {
     sendPing();
     const id = window.setInterval(() => sendPing(), 10 * 60_000);
@@ -322,6 +325,7 @@ function App() {
       <ChampionCelebration />
       <GroupNotice />
       <UnbanNotice />
+      <BackupCodeOffer />
     </AppShell>
   );
 }

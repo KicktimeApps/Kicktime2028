@@ -12,6 +12,7 @@
  *  requests | decide | ban_global | unban_global | global_bans | team_device
  *  alerts | alert_test   (Wächter: Probleme der Live-Daten, Test-Mitteilung)
  *  find_person | group_board | team_log   (Team-App: Personensuche, Rundentabelle, Protokoll)
+ *  client_errors | reset_stats   (Fehlermeldungen der App, Statistik zurücksetzen)
  *  passkey_register_options | passkey_register | passkey_list | passkey_delete
  *  passkey_login_options | passkey_login   (Team-App: Entsperren mit Face ID, ohne PIN)
  *
@@ -95,6 +96,7 @@ const LOGGED = new Set([
   "clear_overrides",
   "fixtures",
   "feedback_delete",
+  "reset_stats",
   "delete_tip_groups",
   "set_source",
   "clear_cache",
@@ -187,7 +189,7 @@ function describe(
   const score = `${body.scoreHome}:${body.scoreAway}`;
   switch (body.action) {
     case "set":
-      return `Korrektur ${body.matchId}: ${score} ${body.status === "finished" ? "beendet" : body.status === "live" ? "live" : "geplant"}`;
+      return `Korrektur ${body.matchId}: ${score} ${body.status === "finished" ? "beendet" : body.status === "live" ? "live" : "geplant"}${body.locked === true ? " (festgehalten)" : ""}`;
     case "clear":
       return `Korrektur ${body.matchId} entfernt`;
     case "clear_overrides":
@@ -196,6 +198,8 @@ function describe(
       return `${res.count ?? 0} Anstoßzeiten abgeglichen`;
     case "feedback_delete":
       return body.id === "all" ? "Alles Feedback gelöscht" : `Feedback #${body.id} gelöscht`;
+    case "reset_stats":
+      return `Statistik zurückgesetzt (${res.count ?? 0} Geräte)`;
     case "delete_tip_groups":
       return `Alle Tipprunden gelöscht (${res.count ?? 0})`;
     case "set_source":
@@ -576,7 +580,8 @@ Deno.serve(async (req) => {
   const route = async (): Promise<Response> => {
     switch (body.action) {
       case "verify":
-        return json({ ok: true });
+        // Kurze PIN (unter 8 Zeichen) lässt sich mit viel Aufwand erraten – Hinweis in der Team-App.
+        return json({ ok: true, weakPin: pin.length < 8 });
 
       case "set": {
         if (!validId || !STATUSES.includes(body.status))
@@ -593,11 +598,20 @@ Deno.serve(async (req) => {
           // Stand der Live-Quelle beim Speichern: Ändert sie sich danach, gilt
           // wieder die Quelle (die Korrektur überbrückt nur).
           source_sig: typeof body.sourceSig === "string" ? body.sourceSig.slice(0, 100) : null,
+          // Festgehalten: gilt auch dann weiter, wenn die Quelle etwas anderes meldet.
+          locked: body.locked === true,
         };
         let { error } = await db.from("match_overrides").upsert(row);
+        if (error && row.locked)
+          return json({ error: "Festhalten braucht das SQL-Update „Löschfristen …“" }, 500);
+        if (error) {
+          // Spalte locked noch nicht angelegt (SQL-Update fehlt) → ohne speichern.
+          const { locked: _l, ...older } = row;
+          ({ error } = await db.from("match_overrides").upsert(older));
+        }
         if (error) {
           // Spalte source_sig noch nicht angelegt (SQL-Update fehlt) → ohne speichern.
-          const { source_sig: _unused, ...legacy } = row;
+          const { source_sig: _unused, locked: _l, ...legacy } = row;
           ({ error } = await db.from("match_overrides").upsert(legacy));
         }
         return error ? json({ error: "Speichern fehlgeschlagen" }, 500) : json({ ok: true, row });
@@ -712,6 +726,29 @@ Deno.serve(async (req) => {
           .select("match_id, kickoff_utc, title")
           .order("match_id");
         return error ? json({ error: "Lesen fehlgeschlagen" }, 500) : json({ rows: data ?? [] });
+      }
+
+      // Fehler, die die App bei Nutzern gemeldet hat (SQL-Update „Löschfristen …“).
+      case "client_errors": {
+        const { data, error } = await db
+          .from("kt_client_errors")
+          .select("id, category, message, app_version, created_at")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (error) return json({ rows: null }); // SQL-Update fehlt noch
+        return json({ rows: data ?? [] });
+      }
+
+      // Statistik auf null (z. B. nach der Testphase, vor dem Turnier).
+      case "reset_stats": {
+        const { error: e1 } = await db.from("app_daily").delete().not("client_id", "is", null);
+        const { error: e2, count } = await db
+          .from("app_pings")
+          .delete({ count: "exact" })
+          .not("client_id", "is", null);
+        return e1 || e2
+          ? json({ error: "Zurücksetzen fehlgeschlagen" }, 500)
+          : json({ ok: true, count: count ?? 0 });
       }
 
       case "feedback": {

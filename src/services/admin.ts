@@ -70,6 +70,9 @@ async function invokeOnce<T>(
 }
 
 export const verifyPin = async (pin: string) => (await invoke({ action: "verify", pin })).ok;
+/** Ob die PIN kurz ist (unter 8 Zeichen) – die Team-App rät dann zu einer längeren. */
+export const fetchPinInfo = (pin: string) =>
+  invoke<{ ok: true; weakPin?: boolean }>({ action: "verify", pin });
 
 export type OverrideInput = {
   matchId: string;
@@ -81,6 +84,8 @@ export type OverrideInput = {
   phase: LivePhase | null;
   /** Stand der Live-Quelle beim Speichern (siehe resultSignature). */
   sourceSig: string;
+  /** Festhalten: gilt auch, wenn die Quelle später etwas anderes meldet. */
+  locked?: boolean;
 };
 
 export const setOverride = (pin: string, o: OverrideInput) => invoke({ action: "set", pin, ...o });
@@ -138,6 +143,21 @@ export const syncFixtures = (
   pin: string,
   fixtures: { matchId: string; kickoffUtc: string; title?: string }[],
 ) => invoke<{ ok: true; count: number }>({ action: "fixtures", pin, fixtures });
+
+/** Fehler, die die App bei Nutzern gemeldet hat (null = SQL-Update fehlt). */
+export type ClientError = {
+  id: number;
+  category: string;
+  message: string;
+  app_version: string | null;
+  created_at: string;
+};
+export const fetchClientErrors = (pin: string) =>
+  invoke<{ rows: ClientError[] | null }>({ action: "client_errors", pin });
+
+/** Statistik auf null setzen (nach der Testphase, vor dem Turnier). */
+export const resetStats = (pin: string) =>
+  invoke<{ ok: true; count: number }>({ action: "reset_stats", pin });
 
 /** Anstoßzeiten, nach denen der Server Tipps sperrt (kt_fixtures) – zum Vergleich mit der App. */
 export type ServerFixture = { match_id: string; kickoff_utc: string; title: string | null };

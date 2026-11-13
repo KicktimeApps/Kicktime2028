@@ -24,6 +24,8 @@ export type ResultRecord = {
    * {@link resultSignature}). Weicht die Quelle davon ab, gilt wieder sie.
    */
   sourceSig?: string;
+  /** Korrektur festgehalten: gilt auch, wenn die Quelle etwas anderes meldet. */
+  locked?: boolean;
 };
 
 /**
